@@ -1,0 +1,42 @@
+[package]
+name = "blitz-quick"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# Offscreen rendering: blitz-paint walks the resolved DOM and pushes draw
+# commands into a PaintScene; anyrender_vello_cpu's VelloCpuImageRenderer
+# rasterizes that to an RGBA buffer on the CPU (no GPU/wgpu needed). `png`
+# encodes the buffer; `peniko` provides Fill/Rect for the white background.
+anyrender = "0.11"
+anyrender_vello = "0.11"
+anyrender_vello_cpu = "0.14"
+bitflags = { version = "2.13.0", features = ["serde"] }
+# `net` feature brings blitz-net (reqwest-based NetProvider) + tokio, so the JS
+# `fetch` polyfill (src/fetch.rs) can drive real HTTP via blitz-net's Provider.
+blitz = { version = "0.3.0-alpha.6" }
+# Enable system_fonts on blitz-dom directly: the `blitz` crate sets
+# default-features = false on blitz-dom and has no passthrough, so without this
+# the document only has the bullet font and text renders with no glyphs.
+blitz-dom = { version = "=0.3.0-alpha.6", default-features = false, features = [
+    "system_fonts",
+    "svg",
+    "woff",
+    "accessibility",
+    "file_input",
+    "custom-widget",
+] }
+blitz-paint = { version = "=0.3.0-alpha.6", features = ["svg"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+notify = "8.2.0"
+peniko = "0.6"
+rquickjs = {version = "0.12.1", features = ["full-async"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+snafu = "0.9.1"
+# Dedicated multi-thread runtime for blitz-net's Provider (it `tokio::spawn`s
+# fetches). The main blitz event loop isn't a tokio context, so the fetch host
+# fn enters this runtime's guard before calling Provider::fetch_with_callback.
+tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }

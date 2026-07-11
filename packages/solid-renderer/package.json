@@ -1,0 +1,13 @@
+{
+  "name": "@blitz-quick/solid-renderer",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@blitz-quick/protocol": "workspace:*",
+    "solid-js": "1.9.14",
+    "ts-pattern": "^5.9.0"
+  }
+}

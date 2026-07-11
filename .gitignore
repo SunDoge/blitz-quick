@@ -1,0 +1,15 @@
+/target
+node_modules
+# src/gen holds generated artifacts. bundle.js (Vite output) is gitignored,
+# but op.rs is a committed codegen product of the TS source of truth.
+src/gen/bundle.js
+src/gen/bundle.css
+# Screenshot / render artifacts.
+/frame.png
+/frames/
+
+# stray demo screenshot
+apps/demo/frame.png
+output.log
+app_pid.txt
+.DS_Store
