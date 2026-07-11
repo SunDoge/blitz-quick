@@ -2,6 +2,8 @@
 
 **Blitz-Quick** is an experimental, ultra-minimal, and high-performance cross-platform UI rendering architecture. It completely discards heavy browser kernels (Chromium/WebKit) and the V8 engine, utilizing a **Rust + QuickJS** stack to deliver a native application base with an extremely low memory footprint.
 
+https://github.com/user-attachments/assets/4fc4edc7-d9d9-4b68-8060-32c76d53dd61
+
 ## 🎯 Purpose
 
 **"JS only handles UI logic, everything else is delegated to Rust."**
