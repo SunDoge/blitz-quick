@@ -71,18 +71,10 @@ function Header() {
 function Dashboard() {
   const [count, setCount] = createSignal(0);
   const [text, setText] = createSignal("");
-  const [isFocused, setIsFocused] = createSignal(false);
-
-  // We handle global keys at the App root, but for simplicity we can just
-  // listen to the root's onKeyDown and forward it. Actually, wait!
-  // SolidJS allows window event listeners like onKeyDown on window?
-  // Let's just do it cleanly: when focused, the Dashboard catches the root's keydown if we pass it down,
-  // or we can use a global event bus.
-
-  // Let's just create a custom input that takes advantage of the fact that we can
-  // catch keydown at the root level. Wait, I will modify App to broadcast keydowns.
-
-  mem = 0;
+  let os = "Unknown",
+    arch = "Unknown",
+    cpus = 0,
+    mem = 0;
   try {
     if (sysData().startsWith("{")) {
       const d = JSON.parse(sysData());
