@@ -1,10 +1,6 @@
+import "@blitz-quick/core";
 import { type Handle, registerRoot, render } from "@blitz-quick/solid-renderer";
-import {
-  NativeRoute,
-  NativeRouter,
-  useLocation,
-  useNavigate,
-} from "@blitz-quick/solid-router";
+import { Route, MemoryRouter, useLocation } from "@solidjs/router";
 import {
   Activity,
   Globe,
@@ -14,11 +10,9 @@ import {
   Settings,
   Zap,
 } from "lucide-solid";
-import { createSignal, For, type JSX, onCleanup, onMount } from "solid-js";
-
-import "@blitz-quick/core";
-import { type Tab, Sidebar } from "./components/tabs";
-import { Switch, ToggleRow } from "./components/Switch";
+import { createSignal, For, type JSX, onMount } from "solid-js";
+import { type Tab, Sidebar } from "./components/Sidebar";
+import { ToggleRow } from "./components/Switch";
 
 // Root mount handle (id 1) — Rust hands this in as the #root node.
 const ROOT: Handle = {
@@ -31,7 +25,6 @@ const ROOT: Handle = {
   next: null,
 };
 
-const [fps, setFps] = createSignal(0);
 const [sysData, setSysData] = createSignal("Loading OS Data...");
 
 /** Single source of truth for nav + routes. Add a tab here and both the
@@ -61,16 +54,10 @@ function Header() {
     return p.slice(1).charAt(0).toUpperCase() + p.slice(2);
   };
   return (
-    <div class="h-20 flex items-center justify-between px-10 border-b border-slate-800/50 z-10 bg-[#0B0F19]/50">
+    <div class="h-20 flex items-center justify-between px-10 border-b border-slate-800/50 z-10 bg-[#0B0F19]/50 backdrop-blur-md">
       <h1 class="text-2xl font-semibold text-white tracking-tight">
         {title()}
       </h1>
-      <div class="flex items-center gap-3 bg-slate-800/60 px-4 py-2 rounded-full border border-slate-700 shadow-inner">
-        <div class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-        <div class="text-sm font-mono font-bold text-emerald-400 tracking-widest">
-          {fps()} FPS
-        </div>
-      </div>
     </div>
   );
 }
@@ -130,12 +117,14 @@ function Dashboard() {
           </div>
           <div class="flex gap-4">
             <button
+              type="button"
               class="px-8 py-3 bg-indigo-500 text-white rounded-xl font-bold hover:bg-indigo-400 transition-colors shadow-lg active:scale-95"
               onClick={() => setCount((c) => c - 1)}
             >
               DECREASE
             </button>
             <button
+              type="button"
               class="px-8 py-3 bg-cyan-500 text-white rounded-xl font-bold hover:bg-cyan-400 transition-colors shadow-lg active:scale-95"
               onClick={() => setCount((c) => c + 1)}
             >
@@ -190,6 +179,7 @@ function Network() {
           <Globe size={18} /> Tokio Fetch Bridge
         </h2>
         <button
+          type="button"
           class={`px-8 py-3 rounded-xl font-bold transition-colors shadow-lg active:scale-95 ${isFetching() ? "bg-slate-600 text-slate-300" : "bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white"}`}
           onClick={runNetworkTest}
         >
@@ -296,28 +286,13 @@ function SettingsPage() {
   );
 }
 
-function App(): JSX.Element {
+function App(props: { children?: JSX.Element }): JSX.Element {
   onMount(() => {
     try {
       setSysData(sysInfo());
     } catch (e) {
       setSysData("Rust FFI 'sysInfo' not found.");
     }
-
-    // Sample FPS once per second via a self-rescheduling rAF loop. Each tick
-    // bumps a counter; a 1s timer reads it, updates the signal, and resets.
-    // TEMPORARILY DISABLED to isolate a memory leak.
-    // let frames = 0;
-    // const tick = () => {
-    //   frames += 1;
-    //   requestAnimationFrame(tick);
-    // };
-    // requestAnimationFrame(tick);
-    // const fpsTimer = setInterval(() => {
-    //   setFps(frames);
-    //   frames = 0;
-    // }, 1000);
-    // onCleanup(() => clearInterval(fpsTimer));
   });
   return (
     <div
@@ -328,9 +303,7 @@ function App(): JSX.Element {
       <div class="flex-1 flex flex-col relative bg-gradient-to-br from-[#0B0F19] to-[#111827] overflow-hidden">
         <Header />
         <div class="flex-1 min-h-0 p-10 overflow-hidden flex flex-col">
-          <For each={TABS}>
-            {(tab) => <NativeRoute path={tab.path} component={tab.component} />}
-          </For>
+          {props.children}
         </div>
       </div>
     </div>
@@ -339,11 +312,12 @@ function App(): JSX.Element {
 
 registerRoot(ROOT);
 render(
-  () =>
-    (
-      <NativeRouter>
-        <App />
-      </NativeRouter>
-    ) as any,
+  () => (
+    <MemoryRouter root={App}>
+      <For each={TABS}>
+        {(tab) => <Route path={tab.path} component={tab.component} />}
+      </For>
+    </MemoryRouter>
+  ),
   ROOT,
 );

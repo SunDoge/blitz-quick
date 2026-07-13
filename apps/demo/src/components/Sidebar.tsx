@@ -1,6 +1,6 @@
 import type { Component, JSX } from "solid-js";
-import { For, Show } from "solid-js";
-import { useLocation, useNavigate } from "@blitz-quick/solid-router";
+import { For } from "solid-js";
+import { useLocation, useNavigate } from "@solidjs/router";
 
 /** A single sidebar tab. `icon` is a lucide component rendered at size 20. */
 export interface Tab {
@@ -36,12 +36,20 @@ export function Sidebar(props: { tabs: Tab[] }) {
             const Icon = tab.icon;
             return (
               <div
+                tabIndex={0}
+                role="button"
                 class={`px-4 py-3 rounded-xl font-medium cursor-pointer transition-colors duration-300 flex items-center gap-3 ${
                   isActive()
                     ? "bg-gradient-to-r from-cyan-500/20 to-blue-500/10 text-cyan-300 shadow-[inset_2px_0_0_rgba(34,211,238,1)]"
                     : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
                 }`}
                 onClick={() => navigate(tab.path)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    navigate(tab.path);
+                  }
+                }}
               >
                 <div class="text-lg">
                   <Icon size={20} />

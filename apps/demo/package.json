@@ -11,7 +11,7 @@
     "@blitz-quick/core": "workspace:*",
     "@blitz-quick/protocol": "workspace:*",
     "@blitz-quick/solid-renderer": "workspace:*",
-    "@blitz-quick/solid-router": "workspace:*",
+    "@solidjs/router": "^0.16.1",
     "lucide-solid": "^1.24.0",
     "solid-js": "1.9.14"
   },

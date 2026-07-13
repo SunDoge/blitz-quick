@@ -11,86 +11,26 @@ use std::rc::Rc;
 use rquickjs::{Context, Function, Runtime, TypedArray, Value};
 type JsResult<T> = rquickjs::Result<T>;
 
-/// The Vite-bundled IIFE (TS workspace → single file). Built by `bun run build`
-/// in the repo root; see apps/demo/vite.config.ts. Embedded at compile time so
-/// a release binary is self-contained. In dev, `boot` is fed the *current* file
-/// contents instead (see `Applier`), so `reload_js` picks up vite's regenerated
-/// bundle without recompiling Rust.
-const BUNDLE_JS: &str = include_str!("gen/bundle.js");
 
-/// JS evaluated *before* the app bundle. Installs `console.*` (variadic,
-/// String()-coerced, routed to `__host_log_level`). Defined in JS rather than
-/// as Rust `Function::new` callbacks so variadic args + coercion stay on the
-/// JS side — rquickjs's `IntoJsFunc` struggles to unify the `Ctx`/`Value`
-/// lifetimes across two closure parameters, and this sidesteps it entirely.
-const HOST_BOOTSTRAP: &str = r#"
-(function () {
-  function emit(tag, args) {
-    var parts = [];
-    for (var i = 0; i < args.length; i++) {
-      var a = args[i];
-      parts.push(typeof a === "string" ? a : String(a));
-    }
-    __host_log_level(tag, parts.join(" "));
-  }
-  globalThis.console = {
-    log: function () { emit("log", arguments); },
-    info: function () { emit("info", arguments); },
-    warn: function () { emit("warn", arguments); },
-    error: function () { emit("error", arguments); },
-    debug: function () { emit("debug", arguments); },
-  };
 
-  globalThis.window = {
-    history: {
-      state: {},
-      replaceState: function(s) { this.state = s; },
-      go: function() {},
-      length: 1
-    },
-    location: {
-      origin: "http://localhost",
-      pathname: "/",
-      search: "",
-      hash: ""
-    }
-  };
-
-  // fetch(url, init?) -> Promise<Response>. init: { method, headers, body }.
-  var nextFetchId = 1;
-  globalThis.fetch = function(url, init) {
-    var id = nextFetchId++;
-    var method = init && init.method ? String(init.method) : "GET";
-    var headers = init && init.headers ? JSON.stringify(init.headers) : "{}";
-    var body = init && init.body ? String(init.body) : null;
-    return new Promise(function(resolve, reject) {
-      __fetch_start(id, String(url), method, headers, body, resolve, reject);
-    }).then(function(res) {
-      if (res.error) throw new Error(res.error);
-      return {
-        status: res.status,
-        headers: res.headers,
-        text: function() { return Promise.resolve(res.body); },
-        json: function() { return Promise.resolve(JSON.parse(res.body)); }
-      };
-    });
-  };
-})();
-"#;
 
 /// Path to the on-disk bundle, relative to the crate root (`CARGO_MANIFEST_DIR`).
-/// Used in dev for hot-reload; the compile-time `BUNDLE_JS` is the release fallback.
 const BUNDLE_JS_PATH: &str = "src/gen/bundle.js";
 
-/// Read the current bundle.js from disk (dev hot-reload). Falls back to the
-/// compile-time `include_str!` constant if the file is missing — so a release
-/// build with no source tree still boots.
+/// Read the current bundle.js from disk (dev) or include it (release).
 pub fn read_bundle_js() -> String {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(BUNDLE_JS_PATH);
-    std::fs::read_to_string(&path).unwrap_or_else(|_| {
-        eprintln!("[jsrt] {path:?} not found — using compile-time bundle (no JS hot-reload)");
-        BUNDLE_JS.to_string()
-    })
+    #[cfg(debug_assertions)]
+    {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(BUNDLE_JS_PATH);
+        std::fs::read_to_string(&path).unwrap_or_else(|_| {
+            eprintln!("[jsrt] {path:?} not found — please run `bun run build`");
+            String::new()
+        })
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        include_str!("gen/bundle.js").to_string()
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -118,6 +58,7 @@ pub struct JsRuntime {
     timer_cmds: Rc<RefCell<Vec<TimerCmd>>>,
     fetch_promises: Rc<RefCell<std::collections::HashMap<u32, FetchPromise>>>,
     shared_event_data: rquickjs::Persistent<Value<'static>>,
+    last_gc: std::time::Instant,
     ctx: Context,
     _rt: Runtime,
 }
@@ -125,6 +66,13 @@ pub struct JsRuntime {
 impl JsRuntime {
     pub fn new() -> JsResult<Self> {
         let rt = Runtime::new()?;
+        // QuickJS's default GC threshold is high enough that rquickjs Value
+        // wrappers (which hold refs on the Rust side) can accumulate without
+        // triggering automatic collection — observed as a steady memory rise
+        // on any event-driven tick (mouse move, window restore). A low
+        // threshold makes the automatic GC kick in far more often.
+        rt.set_gc_threshold(256 * 1024);
+        rt.set_max_stack_size(2048 * 1024); // Increase JS call stack to 2MB for deep UI trees
         let ctx = Context::full(&rt)?;
         let out: Rc<RefCell<Vec<u8>>> = Rc::new(RefCell::new(Vec::new()));
         let timer_cmds = Rc::new(RefCell::new(Vec::new()));
@@ -219,6 +167,7 @@ impl JsRuntime {
             timer_cmds,
             fetch_promises,
             shared_event_data,
+            last_gc: std::time::Instant::now(),
         })
     }
 
@@ -264,11 +213,6 @@ impl JsRuntime {
         let src = source.to_string();
         ctx.with(|ctx| -> JsResult<()> {
             use rquickjs::prelude::CatchResultExt;
-            // Polyfills (console.*) first, before the app bundle can reference them.
-            ctx.eval::<(), _>(HOST_BOOTSTRAP).catch(&ctx).map_err(|_| {
-                tracing::error!(target: "js", "host bootstrap failed to eval");
-                rquickjs::Error::Unknown
-            })?;
             ctx.eval::<(), _>(src.as_str())
                 .catch(&ctx)
                 .map_err(|caught| {
@@ -318,8 +262,20 @@ impl JsRuntime {
 
             while ctx.execute_pending_job() {}
 
+            // rquickjs Value wrappers hold refs on the Rust side, invisible to
+            // QuickJS's malloc-counted automatic GC — they accumulate on every
+            // Only manual collection reclaims them. Cheap when little has changed,
+            // but we throttle it to avoid overhead during high framerates.
+            // ctx.run_gc(); // Done outside the with block so we can mutate self.last_gc
+            
             res
         })?;
+
+        if self.last_gc.elapsed() >= std::time::Duration::from_millis(250) {
+            self.ctx.with(|ctx| ctx.run_gc());
+            self.last_gc = std::time::Instant::now();
+        }
+
         Ok((self.out.borrow().clone(), has_raf))
     }
 

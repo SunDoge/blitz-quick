@@ -14,6 +14,9 @@
 
 import { EVENT_CODE, type EventType, OP, Writer } from "@blitz-quick/protocol";
 import { createMemo, splitProps, untrack } from "solid-js";
+export const isServer = false;
+export const getRequestEvent = () => undefined;
+export const delegateEvents = () => {};
 import type { JSX } from "solid-js";
 import { createRenderer as solidCreateRenderer } from "solid-js/universal";
 
@@ -61,8 +64,10 @@ export function runSweep(): void {
 
     // recursively destroy
     const destroy = (n: Handle) => {
-      finalizationRegistry?.unregister(n);
       const slot = n.id & 0xfffff;
+      if (nodesBySlot[slot] === undefined) return;
+
+      finalizationRegistry?.unregister(n);
       nodesBySlot[slot] = undefined;
       listenersBySlot[slot] = undefined;
       writer.dropNode(n.id);
@@ -228,6 +233,9 @@ const renderer = solidCreateRenderer<Handle>({
     applyProperty(writer, node, name, value, prev);
   },
   insertNode(parent, node, anchor) {
+    if (node.parent) {
+      unlinkChild(node.parent, node);
+    }
     if (anchor) {
       linkChild(parent, node, anchor);
       writer.insertBefore(parent.id, node.id, anchor.id);
@@ -315,50 +323,69 @@ export function dispatchEvent(
     } catch {
       /* ignore malformed */
     }
+  } else {
+    const ed = (globalThis as any).__blitz_event_data as
+      | Float64Array
+      | undefined;
+    if (ed) {
+      if (
+        eventCode === EVENT_CODE.pointerup ||
+        eventCode === EVENT_CODE.pointerdown ||
+        eventCode === EVENT_CODE.pointermove ||
+        eventCode === EVENT_CODE.click
+      ) {
+        data.clientX = ed[0];
+        data.clientY = ed[1];
+        data.button = ed[2];
+        data.buttons = ed[3];
+        data.mods = ed[4];
+      } else if (eventCode === EVENT_CODE.wheel) {
+        data.clientX = ed[0];
+        data.clientY = ed[1];
+        data.deltaX = ed[5];
+        data.deltaY = ed[6];
+      }
+    }
   }
 
-  // Build a DOM-like event. `currentTarget` updates as we bubble.
-  const makeEvent = (current: number) => {
-    let stopped = false;
-    const ev = {
-      target: solidId,
-      currentTarget: current,
-      type: eventName(eventCode),
-      ...data,
-      stopPropagation() {
-        stopped = true;
-      },
-      preventDefault() {
-        /* no default actions wired yet */
-      },
-      get defaultPrevented() {
-        return false;
-      },
-      get propagationStopped() {
-        return stopped;
-      },
-    };
-    return ev;
+  let stopped = false;
+  const ev = {
+    target: solidId,
+    currentTarget: solidId,
+    type: eventName(eventCode),
+    ...data,
+    stopPropagation() {
+      stopped = true;
+    },
+    preventDefault() {
+      /* no default actions wired yet */
+    },
+    get defaultPrevented() {
+      return false;
+    },
+    get propagationStopped() {
+      return stopped;
+    },
   };
 
-  bubble(solidId, eventCode, makeEvent);
+  bubble(solidId, eventCode, ev);
 
-  // pointerup also fires click (browser semantics) — re-bubble for click.
   if (eventCode === EVENT_CODE.pointerup) {
-    bubble(solidId, EVENT_CODE.click, makeEvent);
+    ev.type = eventName(EVENT_CODE.click);
+    ev.stopPropagation = () => {
+      stopped = true;
+    };
+    stopped = false; // Reset for the click event
+    bubble(solidId, EVENT_CODE.click, ev);
   }
 }
 
 /** Walk parent chain from `nodeId`, firing `code` listeners until stopped. */
-function bubble(
-  nodeId: number,
-  code: number,
-  makeEvent: (current: number) => any,
-): void {
+function bubble(nodeId: number, code: number, ev: any): void {
   let cur: number | null = nodeId;
   while (cur != null) {
     const slot: number = cur & 0xfffff;
-    const ev = makeEvent(cur);
+    ev.currentTarget = cur;
     const m = listenersBySlot[slot];
     const fn = m?.get(code);
     if (fn) {

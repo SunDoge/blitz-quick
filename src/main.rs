@@ -5,11 +5,14 @@
 
 #![allow(dead_code)]
 
-mod applier;
-mod fetch;
+pub mod applier;
+pub mod dom_updater;
+pub mod events;
+pub mod fetch;
 mod host_ffi;
 mod jsrt;
 mod protocol;
+pub mod watcher;
 
 use std::sync::Arc;
 
@@ -58,7 +61,7 @@ fn run_window() {
     let gen_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/gen");
     let (tx, rx) = std::sync::mpsc::channel::<crate::applier::ReloadMsg>();
     if gen_dir.exists() {
-        start_bundle_watcher(gen_dir, tx);
+        crate::watcher::start_bundle_watcher(gen_dir, std::sync::Arc::new(std::sync::Mutex::new(tx)));
         applier.set_reload_channel(rx);
     } else {
         tracing::warn!(?gen_dir, "gen directory not found — hot-reload disabled");
@@ -75,75 +78,7 @@ fn run_window() {
     event_loop.run_app(application).unwrap();
 }
 
-/// Watch `dir` for modifications; on change to bundle.js or bundle.css (debounced ~200ms)
-/// send the appropriate ReloadMsg.
-fn start_bundle_watcher(
-    dir: std::path::PathBuf,
-    tx: std::sync::mpsc::Sender<crate::applier::ReloadMsg>,
-) {
-    use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
-    use std::sync::{Arc, Mutex};
-    use std::time::{Duration, Instant};
 
-    let dir = Arc::new(dir);
-    let tx = Arc::new(Mutex::new(tx));
-    let last_js = Arc::new(Mutex::new(Instant::now() - Duration::from_secs(60)));
-    let last_css = Arc::new(Mutex::new(Instant::now() - Duration::from_secs(60)));
-
-    let mut watcher = RecommendedWatcher::new(
-        move |res: notify::Result<notify::Event>| {
-            let event = match res {
-                Ok(e) => e,
-                Err(_) => return,
-            };
-            if !matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_)) {
-                return;
-            }
-
-            let mut changed_js = false;
-            let mut changed_css = false;
-            for p in &event.paths {
-                if let Some(filename) = p.file_name().and_then(|f| f.to_str()) {
-                    if filename == "bundle.js" {
-                        changed_js = true;
-                    } else if filename == "bundle.css" {
-                        changed_css = true;
-                    }
-                }
-            }
-
-            if changed_js {
-                let mut last = last_js.lock().unwrap();
-                if last.elapsed() >= Duration::from_millis(200) {
-                    *last = Instant::now();
-                    let _ = tx.lock().unwrap().send(crate::applier::ReloadMsg::Js);
-                }
-            }
-            if changed_css {
-                let mut last = last_css.lock().unwrap();
-                if last.elapsed() >= Duration::from_millis(200) {
-                    *last = Instant::now();
-                    let _ = tx.lock().unwrap().send(crate::applier::ReloadMsg::Css);
-                }
-            }
-        },
-        notify::Config::default(),
-    )
-    .expect("watcher");
-
-    watcher
-        .watch(&*dir, RecursiveMode::NonRecursive)
-        .expect("watch gen dir");
-
-    // Keep the watcher alive for the process lifetime on a dedicated thread.
-    std::thread::spawn(move || {
-        let _watcher = watcher;
-        loop {
-            std::thread::sleep(Duration::from_secs(3600));
-        }
-    });
-    tracing::info!(?dir, "watching directory for JS and CSS changes");
-}
 
 /// Screenshot mode: run N rAF ticks headless, resolve + layout + render to a
 /// PNG. No window, no GPU. Useful for CI and visual verification.

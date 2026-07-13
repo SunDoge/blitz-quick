@@ -7,17 +7,16 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::mpsc;
 
-use blitz::dom::node::Attribute;
 use blitz::dom::{
     BaseDocument, DEFAULT_CSS, DocGuard, DocGuardMut, Document as BlitzDocument, DocumentConfig,
-    DocumentMutator, LocalName, QualName, ns,
+    LocalName, QualName, ns,
 };
 use blitz::html::HtmlDocument;
-use blitz::traits::events::{BlitzKeyEvent, BlitzPointerEvent, BlitzWheelDelta, UiEvent};
+use blitz::traits::events::UiEvent;
 use blitz::traits::shell::{ColorScheme, Viewport};
 
 use crate::jsrt::{JsRuntime, TimerCmd};
-use crate::protocol::{Frame, Op, event};
+use crate::protocol::Frame;
 
 /// Render scale (hidpi). Affects viewport sizing and paint_scene's scale.
 pub const RENDER_SCALE: f64 = 2.0;
@@ -62,10 +61,10 @@ pub struct Applier {
     on_runtime_init: Box<dyn Fn(&JsRuntime)>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReloadMsg {
-    Js,
-    Css,
+    Js(String),
+    Css(String),
 }
 
 struct ActiveTimer {
@@ -171,7 +170,7 @@ impl Applier {
     /// boot a fresh one from the current bundle.js on disk, then clear the
     /// mounted DOM so Solid's initial render re-creates it. The window and
     /// event loop are untouched — only the JS side is rebuilt.
-    pub fn reload_js(&mut self) {
+    pub fn reload_js(&mut self, bundle_content: &str) {
         // Rebuild the runtime + re-eval the bundle read fresh from disk, so a
         // dev rebuild (`vite build --watch` regenerating src/gen/bundle.js) is
         // picked up without recompiling Rust. Falls back to the compile-time
@@ -182,7 +181,7 @@ impl Applier {
 
         (self.on_runtime_init)(&js);
 
-        js.boot(&crate::jsrt::read_bundle_js())
+        js.boot(bundle_content)
             .expect("failed to boot app");
         self.js = js;
 
@@ -267,7 +266,7 @@ impl Applier {
 
         let mut mutr = self.doc.mutate();
         for op in &frame.ops {
-            Self::apply_op(
+            crate::dom_updater::apply_op(
                 &mut mutr,
                 &mut self.id_map,
                 &mut self.blitz_to_solid,
@@ -278,154 +277,7 @@ impl Applier {
         // mutator flushes on drop
     }
 
-    fn apply_op(
-        mutr: &mut DocumentMutator<'_>,
-        id_map: &mut Vec<Option<GenerationNode>>,
-        blitz_to_solid: &mut HashMap<usize, u32>,
-        listeners: &mut HashMap<u32, HashSet<u8>>,
-        op: &Op<'_>,
-    ) {
-        let get = |id_map: &Vec<Option<GenerationNode>>, id: u32| -> Option<usize> {
-            let slot = (id & 0xFFFFF) as usize;
-            let generation = (id >> 20) as u16;
-            if let Some(Some(node)) = id_map.get(slot) {
-                if node.generation == generation {
-                    return Some(node.blitz_id);
-                }
-            }
-            None
-        };
-        let insert = |id_map: &mut Vec<Option<GenerationNode>>, id: u32, blitz_id: usize| {
-            let slot = (id & 0xFFFFF) as usize;
-            let generation = (id >> 20) as u16;
-            if id_map.len() <= slot {
-                id_map.resize(slot + 1, None);
-            }
-            id_map[slot] = Some(GenerationNode {
-                generation,
-                blitz_id,
-            });
-        };
-        match op {
-            Op::CreateElement { id, tag, attrs } => {
-                let qname = qual(tag);
-                let attrs: Vec<Attribute> = attrs
-                    .iter()
-                    .map(|(n, v)| Attribute {
-                        name: qual(n),
-                        value: v.to_string(),
-                    })
-                    .collect();
-                let blitz_id = mutr.create_element(qname, attrs);
-                insert(id_map, *id, blitz_id);
-                blitz_to_solid.insert(blitz_id, *id);
-            }
-            Op::CreateText { id, text } => {
-                let blitz_id = mutr.create_text_node(text);
-                insert(id_map, *id, blitz_id);
-                blitz_to_solid.insert(blitz_id, *id);
-            }
-            Op::CreateComment { id, .. } => {
-                let blitz_id = mutr.create_comment_node();
-                insert(id_map, *id, blitz_id);
-                blitz_to_solid.insert(blitz_id, *id);
-            }
-            Op::AppendChild { parent, child } => {
-                let (p, c) = match (get(id_map, *parent), get(id_map, *child)) {
-                    (Some(p), Some(c)) => (p, c),
-                    _ => return,
-                };
-                mutr.append_children(p, &[c]);
-            }
-            Op::InsertBefore {
-                parent,
-                child,
-                ref_id,
-            } => {
-                let (p, c) = match (get(id_map, *parent), get(id_map, *child)) {
-                    (Some(p), Some(c)) => (p, c),
-                    _ => return,
-                };
-                if *ref_id == 0 {
-                    mutr.append_children(p, &[c]);
-                } else if let Some(r) = get(id_map, *ref_id) {
-                    mutr.insert_nodes_before(r, &[c]);
-                } else {
-                    mutr.append_children(p, &[c]);
-                }
-            }
-            Op::RemoveChild { child, .. } => {
-                if let Some(c) = get(id_map, *child) {
-                    mutr.remove_node(c);
-                }
-            }
-            Op::ReplaceNode { old_id, new_id, .. } => {
-                if let (Some(old), Some(new)) = (get(id_map, *old_id), get(id_map, *new_id)) {
-                    mutr.replace_node_with(old, &[new]);
-                }
-            }
-            Op::SetText { id, text } => {
-                if let Some(n) = get(id_map, *id) {
-                    mutr.set_node_text(n, text);
-                }
-            }
-            Op::SetAttribute { id, name, value } => {
-                if let Some(n) = get(id_map, *id) {
-                    if *name == "class" || *name == "className" {
-                        mutr.set_attribute(n, qual("class"), value);
-                    } else {
-                        mutr.set_attribute(n, qual(name), value);
-                    }
-                }
-            }
-            Op::RemoveAttribute { id, name } => {
-                if let Some(n) = get(id_map, *id) {
-                    let nm = if *name == "className" {
-                        "class"
-                    } else {
-                        name.as_ref()
-                    };
-                    mutr.clear_attribute(n, qual(nm));
-                }
-            }
-            Op::SetStyle { id, prop, value } => {
-                if let Some(n) = get(id_map, *id) {
-                    mutr.set_style_property(n, prop, value);
-                }
-            }
-            Op::RemoveStyle { id, prop } => {
-                if let Some(n) = get(id_map, *id) {
-                    mutr.remove_style_property(n, prop);
-                }
-            }
-            Op::AddEventListener { id, event_type } => {
-                listeners.entry(*id).or_default().insert(*event_type);
-            }
-            Op::RemoveEventListener { id, event_type } => {
-                if let Some(s) = listeners.get_mut(id) {
-                    s.remove(event_type);
-                }
-            }
-            Op::SetClassName { id, value } => {
-                if let Some(n) = get(id_map, *id) {
-                    mutr.set_attribute(n, qual("class"), value);
-                }
-            }
-            Op::DropNode { id } => {
-                let slot = (*id & 0xFFFFF) as usize;
-                let generation = (*id >> 20) as u16;
-                if let Some(Some(node)) = id_map.get(slot) {
-                    if node.generation == generation {
-                        mutr.remove_node(node.blitz_id);
-                        blitz_to_solid.remove(&node.blitz_id);
-                        id_map[slot] = None;
-                    }
-                }
-                listeners.remove(id);
-            }
-            Op::FrameEnd => {}
-        }
-    }
+
 
     /// Convenience: print the current document tree (debug).
     pub fn print_tree(&self) {
@@ -508,27 +360,23 @@ impl BlitzDocument for Applier {
 
         // Hot-reload: if the bundle watcher signalled a change, rebuild the
         // JS runtime or update styles before this tick.
-        let mut reload_js = false;
-        let mut reload_css = false;
+        let mut reload_js = None;
+        let mut reload_css = None;
         if let Some(rx) = &self.reload_rx {
             while let Ok(msg) = rx.try_recv() {
                 match msg {
-                    ReloadMsg::Js => reload_js = true,
-                    ReloadMsg::Css => reload_css = true,
+                    ReloadMsg::Js(content) => reload_js = Some(content),
+                    ReloadMsg::Css(content) => reload_css = Some(content),
                 }
             }
         }
-        if reload_js {
+        if let Some(content) = reload_js {
             tracing::info!("bundle.js changed — rebuilding JS runtime");
-            self.reload_js();
+            self.reload_js(&content);
         }
-        if reload_css {
+        if let Some(content) = reload_css {
             tracing::info!("bundle.css changed — reloading styles");
-            if let Ok(new_css) = std::fs::read_to_string(
-                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/gen/bundle.css"),
-            ) {
-                self.reload_css(&new_css);
-            }
+            self.reload_css(&content);
         }
 
         // Process any timer commands from JS.
@@ -633,48 +481,11 @@ impl BlitzDocument for Applier {
         // below bypasses EventDriver entirely.
         self.doc.handle_ui_event(event.clone());
 
-        // Resolve (event_code, payload, optional hit coords) from the UiEvent.
-        // coords present => pointer/wheel, needs hit-test for a target.
-        let (code, payload, hit_xy): (u8, String, Option<(f32, f32)>) = match &event {
-            UiEvent::PointerUp(e) => (
-                event::POINTERUP,
-                pointer_payload(e, /*clicked*/ true),
-                Some((e.coords.client_x, e.coords.client_y)),
-            ),
-            UiEvent::PointerDown(e) => (
-                event::POINTERDOWN,
-                pointer_payload(e, false),
-                Some((e.coords.client_x, e.coords.client_y)),
-            ),
-            UiEvent::PointerMove(e) => (
-                event::POINTERMOVE,
-                pointer_payload(e, false),
-                Some((e.coords.client_x, e.coords.client_y)),
-            ),
-            UiEvent::Wheel(e) => {
-                let (dx, dy) = match &e.delta {
-                    BlitzWheelDelta::Lines(x, y) => (*x, *y),
-                    BlitzWheelDelta::Pixels(x, y) => (*x, *y),
-                };
-                let payload = serde_json::to_string(&WheelPayload {
-                    client_x: e.coords.client_x,
-                    client_y: e.coords.client_y,
-                    delta_x: dx,
-                    delta_y: dy,
-                })
-                .unwrap();
-                (
-                    event::WHEEL,
-                    payload,
-                    Some((e.coords.client_x, e.coords.client_y)),
-                )
-            }
-            UiEvent::KeyDown(e) => (event::KEYDOWN, key_payload(e), None),
-            UiEvent::KeyUp(e) => (event::KEYUP, key_payload(e), None),
-            // IME / Apple keybindings: not wired to JS yet.
-            UiEvent::Ime(_) | UiEvent::AppleStandardKeybinding(_) => return,
-            UiEvent::PointerCancel(_) => todo!(),
+        let (code, num_data, payload, hit_xy) = match crate::events::translate_ui_event(&event) {
+            Some(res) => res,
+            None => return,
         };
+
 
         // Find the target Solid id: hit-test (for pointer/wheel) then walk up
         // the blitz DOM to the nearest node in our id map (blitz may insert
@@ -697,62 +508,19 @@ impl BlitzDocument for Applier {
         };
 
         if let Some(sid) = target_sid {
-            let _ = self.js.dispatch_event(sid, code, &payload);
+            if let Some(data) = num_data {
+                let _ = self.js.dispatch_shared_numeric_event(sid, code, data);
+            } else {
+                let _ = self.js.dispatch_event(sid, code, &payload);
+            }
             self.tick_once();
         }
     }
 }
 
-/// Build a JSON payload for a pointer event: client coords + button + pressed
-/// buttons + modifier flags. `clicked` is true for pointerup (a click also
-/// fires — the JS side synthesizes `click` from pointerup).
-fn pointer_payload(e: &BlitzPointerEvent, _clicked: bool) -> String {
-    serde_json::to_string(&PointerPayload {
-        client_x: e.coords.client_x,
-        client_y: e.coords.client_y,
-        button: e.button as u8,
-        buttons: e.buttons.bits(),
-        mods: e.mods.bits(),
-    })
-    .unwrap()
-}
 
-/// Build a JSON payload for a key event: key (Display), code (Display), mods.
-fn key_payload(e: &BlitzKeyEvent) -> String {
-    serde_json::to_string(&KeyPayload {
-        key: e.key.to_string(),
-        code: e.code.to_string(),
-        mods: e.modifiers.bits(),
-    })
-    .unwrap()
-}
 
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-struct WheelPayload {
-    client_x: f32,
-    client_y: f32,
-    delta_x: f64,
-    delta_y: f64,
-}
 
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-struct PointerPayload {
-    client_x: f32,
-    client_y: f32,
-    button: u8,
-    buttons: u8,
-    mods: u32,
-}
-
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-struct KeyPayload {
-    key: String,
-    code: String,
-    mods: u32,
-}
 
 #[cfg(test)]
 mod tests {

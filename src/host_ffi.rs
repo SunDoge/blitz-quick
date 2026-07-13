@@ -31,8 +31,11 @@ pub fn host_utf8_encode<'js>(ctx: Ctx<'js>, s: String) -> Result<TypedArray<'js,
 #[rquickjs::function(rename = "sysInfo")]
 pub fn sys_info() -> String {
     format!(
-        "Blitz OS (Rust Native, CPU: {}, Arch: {})",
-        std::env::consts::FAMILY,
-        std::env::consts::ARCH
+        r#"{{"os":"Blitz OS (Rust Native)","arch":"{}","cpus":{},"memory_gb":{}}}"#,
+        std::env::consts::ARCH,
+        // Since we don't have sysinfo crate, mock these or use std if possible
+        std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1),
+        // Just mock memory as 16 for demo
+        16
     )
 }

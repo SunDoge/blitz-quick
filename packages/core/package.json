@@ -6,6 +6,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@blitz-quick/solid-renderer": "workspace:*"
+    "@blitz-quick/solid-renderer": "workspace:*",
+    "url-polyfill": "^1.1.14"
   }
 }
