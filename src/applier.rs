@@ -347,6 +347,9 @@ impl BlitzDocument for Applier {
     }
 
     fn poll(&mut self, _task_context: Option<std::task::Context<'_>>) -> bool {
+        // Enable IME if the shell provider has been attached.
+        self.doc.inner().shell_provider.set_ime_enabled(true);
+
         // Store waker to schedule event loop wakeups for timers.
         if let Some(ctx) = _task_context {
             self.waker = Some(ctx.waker().clone());
