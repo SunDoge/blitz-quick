@@ -10,8 +10,9 @@ import {
   Settings,
   Zap,
 } from "lucide-solid";
-import { createSignal, For, type JSX, onMount } from "solid-js";
-import { type Tab, Sidebar } from "./components/Sidebar";
+import { createSignal, For, type JSX, onMount, createEffect } from "solid-js";
+import { Sidebar } from "./components/Sidebar";
+import { CustomTextInput } from "./components/CustomTextInput";
 import { ToggleRow } from "./components/Switch";
 
 // Root mount handle (id 1) — Rust hands this in as the #root node.
@@ -63,47 +64,6 @@ function Header() {
       <h1 class="text-2xl font-semibold text-white tracking-tight">
         {title()}
       </h1>
-    </div>
-  );
-}
-
-function CustomTextInput(props: {
-  value: string;
-  onInput: (v: string) => void;
-  placeholder?: string;
-}) {
-  const [focused, setFocused] = createSignal(false);
-
-  createEffect(() => {
-    const k = lastKey();
-    if (!k || !focused()) return;
-
-    if (k.code === "Backspace") {
-      props.onInput(props.value.slice(0, -1));
-    } else if (k.code === "Space") {
-      props.onInput(props.value + " ");
-    } else if (k.key.length === 1) {
-      props.onInput(props.value + k.key);
-    }
-  });
-
-  return (
-    <div
-      onClick={() => setFocused(true)}
-      onPointerDown={() => setFocused(true)}
-      // Click outside could be handled by a global listener, but for demo we just blur on right click or something
-      class={`w-full max-w-sm px-4 py-3 bg-slate-900 border rounded-xl text-white transition-all mb-4 cursor-text ${
-        focused()
-          ? "border-pink-500 shadow-[0_0_8px_rgba(236,72,153,0.5)]"
-          : "border-slate-700"
-      }`}
-    >
-      {props.value || <span class="text-slate-500">{props.placeholder}</span>}
-      {focused() ? (
-        <span class="animate-pulse text-pink-500 font-bold ml-1">|</span>
-      ) : (
-        ""
-      )}
     </div>
   );
 }
