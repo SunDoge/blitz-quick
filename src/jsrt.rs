@@ -318,8 +318,8 @@ impl JsRuntime {
         ctx.with(move |ctx| -> JsResult<()> {
             let arr = shared_event_data.restore(&ctx)?;
             let arr = TypedArray::<f64>::from_value(arr)?;
-            if let Some(raw) = arr.as_raw() {
-                if raw.len >= std::mem::size_of_val(&data) {
+            if let Some(raw) = arr.as_raw()
+                && raw.len >= std::mem::size_of_val(&data) {
                     unsafe {
                         std::ptr::copy_nonoverlapping(
                             data.as_ptr().cast::<u8>(),
@@ -328,7 +328,6 @@ impl JsRuntime {
                         );
                     }
                 }
-            }
             let globals = ctx.globals();
             let f: Function = globals.get("__dispatchEvent")?;
             let _: Value = f.call((solid_id, event_type, ""))?;

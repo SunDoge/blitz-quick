@@ -18,11 +18,10 @@ pub fn apply_op(
     let get = |id_map: &Vec<Option<GenerationNode>>, id: u32| -> Option<usize> {
         let slot = (id & 0xFFFFF) as usize;
         let generation = (id >> 20) as u16;
-        if let Some(Some(node)) = id_map.get(slot) {
-            if node.generation == generation {
+        if let Some(Some(node)) = id_map.get(slot)
+            && node.generation == generation {
                 return Some(node.blitz_id);
             }
-        }
         None
     };
     let insert = |id_map: &mut Vec<Option<GenerationNode>>, id: u32, blitz_id: usize| {
@@ -113,7 +112,7 @@ pub fn apply_op(
                 let nm = if *name == "className" {
                     "class"
                 } else {
-                    name.as_ref()
+                    name
                 };
                 mutr.clear_attribute(n, qual(nm));
             }
@@ -144,13 +143,12 @@ pub fn apply_op(
         Op::DropNode { id } => {
             let slot = (*id & 0xFFFFF) as usize;
             let generation = (*id >> 20) as u16;
-            if let Some(Some(node)) = id_map.get(slot) {
-                if node.generation == generation {
+            if let Some(Some(node)) = id_map.get(slot)
+                && node.generation == generation {
                     mutr.remove_node(node.blitz_id);
                     blitz_to_solid.remove(&node.blitz_id);
                     id_map[slot] = None;
                 }
-            }
             listeners.remove(id);
         }
         Op::FrameEnd => {}

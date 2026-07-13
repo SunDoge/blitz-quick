@@ -15,8 +15,8 @@ pub fn start_bundle_watcher(
         tracing::info!("Bundle watcher started on {:?}", gen_dir);
 
         while let Ok(res) = notify_rx.recv() {
-            if let Ok(event) = res {
-                if let EventKind::Modify(_) = event.kind {
+            if let Ok(event) = res
+                && let EventKind::Modify(_) = event.kind {
                     let mut js_changed = false;
                     let mut css_changed = false;
                     for p in event.paths {
@@ -29,22 +29,19 @@ pub fn start_bundle_watcher(
 
                     if js_changed {
                         let path = gen_dir.join("bundle.js");
-                        if let Ok(content) = std::fs::read_to_string(&path) {
-                            if let Ok(guard) = tx.lock() {
+                        if let Ok(content) = std::fs::read_to_string(&path)
+                            && let Ok(guard) = tx.lock() {
                                 let _ = guard.send(crate::applier::ReloadMsg::Js(content));
                             }
-                        }
                     }
                     if css_changed {
                         let path = gen_dir.join("bundle.css");
-                        if let Ok(content) = std::fs::read_to_string(&path) {
-                            if let Ok(guard) = tx.lock() {
+                        if let Ok(content) = std::fs::read_to_string(&path)
+                            && let Ok(guard) = tx.lock() {
                                 let _ = guard.send(crate::applier::ReloadMsg::Css(content));
                             }
-                        }
                     }
                 }
-            }
         }
     });
 }

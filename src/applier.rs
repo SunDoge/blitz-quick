@@ -239,11 +239,10 @@ impl Applier {
     pub fn get(&self, solid_id: u32) -> Option<usize> {
         let slot = (solid_id & 0xFFFFF) as usize;
         let generation = (solid_id >> 20) as u16;
-        if let Some(Some(node)) = self.id_map.get(slot) {
-            if node.generation == generation {
+        if let Some(Some(node)) = self.id_map.get(slot)
+            && node.generation == generation {
                 return Some(node.blitz_id);
             }
-        }
         None
     }
 
@@ -348,7 +347,7 @@ impl BlitzDocument for Applier {
         // Store waker to schedule event loop wakeups for timers.
         if let Some(ctx) = _task_context {
             self.waker = Some(ctx.waker().clone());
-            self.fetch.set_waker(&ctx.waker());
+            self.fetch.set_waker(ctx.waker());
         }
         self.last_spawned_wake = None;
 

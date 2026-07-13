@@ -234,6 +234,12 @@ impl FetchBridge {
     }
 }
 
+impl Default for FetchBridge {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

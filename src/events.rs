@@ -10,9 +10,11 @@ pub struct KeyPayload {
     pub mods: u32,
 }
 
+pub type TranslatedEvent = (u8, Option<[f64; event_data::LEN]>, String, Option<(f32, f32)>);
+
 pub fn translate_ui_event(
     event: &UiEvent,
-) -> Option<(u8, Option<[f64; event_data::LEN]>, String, Option<(f32, f32)>)> {
+) -> Option<TranslatedEvent> {
     let mut hit_xy = None;
     let code;
     let mut payload = String::new();
@@ -69,7 +71,7 @@ fn wheel_numeric(e: &BlitzWheelEvent) -> [f64; event_data::LEN] {
     data[event_data::CLIENT_X as usize] = e.coords.client_x as f64;
     data[event_data::CLIENT_Y as usize] = e.coords.client_y as f64;
     let (dx, dy) = match &e.delta {
-        BlitzWheelDelta::Lines(x, y) => (*x as f64, *y as f64),
+        BlitzWheelDelta::Lines(x, y) => ((*x), (*y)),
         BlitzWheelDelta::Pixels(x, y) => (*x, *y),
     };
     data[event_data::DELTA_X as usize] = dx;
