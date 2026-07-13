@@ -27,11 +27,6 @@ const ROOT: Handle = {
 };
 
 const [sysData, setSysData] = createSignal("Loading OS Data...");
-export const [lastKey, setLastKey] = createSignal<{
-  key: string;
-  code: string;
-  mods: number;
-} | null>(null);
 
 /** Single source of truth for nav + routes. Add a tab here and both the
  * sidebar and the route table pick it up — no other edits needed. */
@@ -321,14 +316,6 @@ function App(props: { children?: JSX.Element }): JSX.Element {
     <div
       class="flex w-full h-full bg-[#0B0F19] text-slate-100 font-sans select-none overflow-hidden"
       style="width: 100%; height: 100vh;"
-      onKeyDown={(e: any) => {
-        // Rust bridges pass payload properties into the event object
-        setLastKey({ key: e.key, code: e.code, mods: e.mods });
-        // Clear immediately so consecutive same keys trigger reactivity if needed,
-        // but setTimeout is not ideal. We can just use an effect that depends on lastKey.
-        // Wait, if it's the exact same key, solid-js signal won't update unless it's a new object.
-        // We create a new object every time so it will trigger.
-      }}
     >
       <Sidebar tabs={TABS} />
       <div class="flex-1 flex flex-col relative bg-gradient-to-br from-[#0B0F19] to-[#111827] overflow-hidden">

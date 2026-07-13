@@ -59,6 +59,8 @@ pub struct Applier {
     fetch: std::sync::Arc<crate::fetch::FetchBridge>,
     /// Callback to initialize the QuickJS runtime with custom globals before boot.
     on_runtime_init: Box<dyn Fn(&JsRuntime)>,
+    /// The blitz node id that most recently received a PointerDown event.
+    focused_blitz_id: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -131,6 +133,7 @@ impl Applier {
             last_spawned_wake: None,
             fetch,
             on_runtime_init,
+            focused_blitz_id: None,
         };
         applier
             .js
@@ -488,11 +491,15 @@ impl BlitzDocument for Applier {
 
         // Find the target Solid id: hit-test (for pointer/wheel) then walk up
         // the blitz DOM to the nearest node in our id map (blitz may insert
-        // anonymous wrapper nodes that aren't mapped). Key events have no
-        // target — dispatch to the root so window-level listeners fire.
+        // anonymous wrapper nodes that aren't mapped).
+        let mut hit_bid = None;
         let target_sid = if let Some((x, y)) = hit_xy {
             let hit = self.doc.hit(x, y);
-            let mut cur = hit.as_ref().map(|h| h.node_id);
+            hit_bid = hit.as_ref().map(|h| h.node_id);
+            if matches!(event, UiEvent::PointerDown(_)) {
+                self.focused_blitz_id = hit_bid;
+            }
+            let mut cur = hit_bid;
             let mut found = None;
             while let Some(bid) = cur {
                 if let Some(&sid) = self.blitz_to_solid.get(&bid) {
@@ -503,7 +510,18 @@ impl BlitzDocument for Applier {
             }
             found
         } else {
-            Some(Self::ROOT_SOLID_ID)
+            // Key events have no hit_xy. Dispatch to the last focused element.
+            // If nothing is focused, fallback to root.
+            let mut cur = self.focused_blitz_id;
+            let mut found = None;
+            while let Some(bid) = cur {
+                if let Some(&sid) = self.blitz_to_solid.get(&bid) {
+                    found = Some(sid);
+                    break;
+                }
+                cur = self.doc.get_node(bid).and_then(|n| n.parent);
+            }
+            Some(found.unwrap_or(Self::ROOT_SOLID_ID))
         };
 
         if let Some(sid) = target_sid {

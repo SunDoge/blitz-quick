@@ -1,5 +1,4 @@
-import { createSignal, createEffect } from "solid-js";
-import { lastKey } from "../index";
+import { createSignal } from "solid-js";
 
 export function CustomTextInput(props: {
   value: string;
@@ -8,23 +7,24 @@ export function CustomTextInput(props: {
 }) {
   const [focused, setFocused] = createSignal(false);
 
-  createEffect(() => {
-    const k = lastKey();
-    if (!k || !focused()) return;
-
-    if (k.code === "Backspace") {
+  const handleKeyDown = (e: any) => {
+    // Stop propagation so it doesn't trigger global shortcuts if we add any
+    e.stopPropagation?.();
+    
+    if (e.code === "Backspace") {
       props.onInput(props.value.slice(0, -1));
-    } else if (k.code === "Space") {
+    } else if (e.code === "Space") {
       props.onInput(`${props.value} `);
-    } else if (k.key.length === 1) {
-      props.onInput(props.value + k.key);
+    } else if (e.key && e.key.length === 1) {
+      props.onInput(props.value + e.key);
     }
-  });
+  };
 
   return (
     <div
       onClick={() => setFocused(true)}
       onPointerDown={() => setFocused(true)}
+      onKeyDown={handleKeyDown}
       class={`w-full max-w-sm px-4 py-3 bg-slate-900 border rounded-xl text-white transition-all mb-4 cursor-text ${
         focused()
           ? "border-pink-500 shadow-[0_0_8px_rgba(236,72,153,0.5)]"
