@@ -10,7 +10,7 @@ export function CustomTextInput(props: {
   const handleKeyDown = (e: any) => {
     // Stop propagation so it doesn't trigger global shortcuts if we add any
     e.stopPropagation?.();
-    
+
     if (e.code === "Backspace") {
       props.onInput(props.value.slice(0, -1));
     } else if (e.code === "Space") {

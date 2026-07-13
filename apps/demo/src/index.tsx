@@ -9,6 +9,7 @@ import {
   Server,
   Settings,
   Zap,
+  Keyboard,
 } from "lucide-solid";
 import { createSignal, For, type JSX, onMount, createEffect } from "solid-js";
 import { Sidebar } from "./components/Sidebar";
@@ -37,6 +38,7 @@ const TABS: Tab[] = [
     icon: LayoutDashboard,
     component: Dashboard,
   },
+  { path: "/input", label: "Inputs", icon: Keyboard, component: InputDemoTab },
   { path: "/network", label: "Network", icon: Globe, component: Network },
   { path: "/logs", label: "Logs", icon: ScrollText, component: LogsPage },
   {
@@ -65,7 +67,6 @@ function Header() {
 
 function Dashboard() {
   const [count, setCount] = createSignal(0);
-  const [text, setText] = createSignal("");
   let os = "Unknown",
     arch = "Unknown",
     cpus = 0,
@@ -134,22 +135,6 @@ function Dashboard() {
             </button>
           </div>
         </div>
-
-        <div class="flex-1 bg-slate-800/40 rounded-3xl p-8 border border-slate-700/50 shadow-xl flex flex-col items-center justify-center relative overflow-hidden group">
-          <h2 class="absolute top-8 left-8 text-sm text-pink-400 font-bold tracking-widest uppercase flex items-center gap-2">
-            Text Input Demo
-          </h2>
-
-          <CustomTextInput
-            value={text()}
-            onInput={setText}
-            placeholder="Type something here..."
-          />
-
-          <div class="text-slate-400 font-mono">
-            Output: <span class="text-pink-400">{text()}</span>
-          </div>
-        </div>
       </div>
       <div class="flex gap-8 h-[55%]">
         <div class="flex-[2] bg-slate-800/40 rounded-3xl p-8 border border-slate-700/50 shadow-xl flex flex-col">
@@ -166,6 +151,30 @@ function Dashboard() {
               )}
             </For>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InputDemoTab() {
+  const [text, setText] = createSignal("");
+  return (
+    <div class="flex-1 flex flex-col bg-slate-800/40 rounded-3xl p-8 border border-slate-700/50 shadow-xl items-center justify-center relative">
+      <h2 class="absolute top-8 left-8 text-sm text-pink-400 font-bold tracking-widest uppercase flex items-center gap-2">
+        <Keyboard size={18} /> Text Input Demo
+      </h2>
+
+      <div class="flex flex-col items-center gap-6 w-full max-w-lg">
+        <CustomTextInput
+          value={text()}
+          onInput={setText}
+          placeholder="Type something here..."
+        />
+
+        <div class="text-slate-400 font-mono bg-[#0B0F19] w-full p-6 rounded-2xl border border-slate-800 shadow-inner break-all min-h-24">
+          <div class="text-slate-500 mb-2">Output Preview:</div>
+          <span class="text-pink-400 text-lg">{text()}</span>
         </div>
       </div>
     </div>
