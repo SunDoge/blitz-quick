@@ -492,10 +492,9 @@ impl BlitzDocument for Applier {
         // Find the target Solid id: hit-test (for pointer/wheel) then walk up
         // the blitz DOM to the nearest node in our id map (blitz may insert
         // anonymous wrapper nodes that aren't mapped).
-        let mut hit_bid = None;
         let target_sid = if let Some((x, y)) = hit_xy {
             let hit = self.doc.hit(x, y);
-            hit_bid = hit.as_ref().map(|h| h.node_id);
+            let hit_bid = hit.as_ref().map(|h| h.node_id);
             if matches!(event, UiEvent::PointerDown(_)) {
                 self.focused_blitz_id = hit_bid;
             }
