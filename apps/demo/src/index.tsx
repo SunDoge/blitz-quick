@@ -13,7 +13,7 @@ import {
 } from "lucide-solid";
 import { createSignal, For, type JSX, onMount, createEffect } from "solid-js";
 import { Sidebar } from "./components/Sidebar";
-import { CustomTextInput } from "./components/CustomTextInput";
+import { CustomTextInput, clearActiveInput } from "./components/CustomTextInput";
 import { ToggleRow } from "./components/Switch";
 
 // Root mount handle (id 1) — Rust hands this in as the #root node.
@@ -325,6 +325,7 @@ function App(props: { children?: JSX.Element }): JSX.Element {
     <div
       class="flex w-full h-full bg-[#0B0F19] text-slate-100 font-sans select-none overflow-hidden"
       style="width: 100%; height: 100vh;"
+      onPointerDown={clearActiveInput}
     >
       <Sidebar tabs={TABS} />
       <div class="flex-1 flex flex-col relative bg-gradient-to-br from-[#0B0F19] to-[#111827] overflow-hidden">

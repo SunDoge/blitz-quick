@@ -1,11 +1,29 @@
 import { createSignal } from "solid-js";
 
+export let activeInputSetter: ((f: boolean) => void) | null = null;
+
+export function clearActiveInput() {
+  if (activeInputSetter) {
+    activeInputSetter(false);
+    activeInputSetter = null;
+  }
+}
+
 export function CustomTextInput(props: {
   value: string;
   onInput: (v: string) => void;
   placeholder?: string;
 }) {
   const [focused, setFocused] = createSignal(false);
+
+  const handlePointerDown = (e: any) => {
+    e.stopPropagation?.();
+    if (activeInputSetter && activeInputSetter !== setFocused) {
+      activeInputSetter(false);
+    }
+    activeInputSetter = setFocused;
+    setFocused(true);
+  };
 
   const handleKeyDown = (e: any) => {
     // Stop propagation so it doesn't trigger global shortcuts if we add any
@@ -22,8 +40,8 @@ export function CustomTextInput(props: {
 
   return (
     <div
-      onClick={() => setFocused(true)}
-      onPointerDown={() => setFocused(true)}
+      onClick={handlePointerDown}
+      onPointerDown={handlePointerDown}
       onKeyDown={handleKeyDown}
       class={`w-full max-w-sm px-4 py-3 bg-slate-900 border rounded-xl text-white transition-all mb-4 cursor-text ${
         focused()
