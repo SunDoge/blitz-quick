@@ -26,6 +26,11 @@ const ROOT: Handle = {
 };
 
 const [sysData, setSysData] = createSignal("Loading OS Data...");
+export const [lastKey, setLastKey] = createSignal<{
+  key: string;
+  code: string;
+  mods: number;
+} | null>(null);
 
 /** Single source of truth for nav + routes. Add a tab here and both the
  * sidebar and the route table pick it up — no other edits needed. */
@@ -62,12 +67,62 @@ function Header() {
   );
 }
 
+function CustomTextInput(props: {
+  value: string;
+  onInput: (v: string) => void;
+  placeholder?: string;
+}) {
+  const [focused, setFocused] = createSignal(false);
+
+  createEffect(() => {
+    const k = lastKey();
+    if (!k || !focused()) return;
+
+    if (k.code === "Backspace") {
+      props.onInput(props.value.slice(0, -1));
+    } else if (k.code === "Space") {
+      props.onInput(props.value + " ");
+    } else if (k.key.length === 1) {
+      props.onInput(props.value + k.key);
+    }
+  });
+
+  return (
+    <div
+      onClick={() => setFocused(true)}
+      onPointerDown={() => setFocused(true)}
+      // Click outside could be handled by a global listener, but for demo we just blur on right click or something
+      class={`w-full max-w-sm px-4 py-3 bg-slate-900 border rounded-xl text-white transition-all mb-4 cursor-text ${
+        focused()
+          ? "border-pink-500 shadow-[0_0_8px_rgba(236,72,153,0.5)]"
+          : "border-slate-700"
+      }`}
+    >
+      {props.value || <span class="text-slate-500">{props.placeholder}</span>}
+      {focused() ? (
+        <span class="animate-pulse text-pink-500 font-bold ml-1">|</span>
+      ) : (
+        ""
+      )}
+    </div>
+  );
+}
+
 function Dashboard() {
   const [count, setCount] = createSignal(0);
-  let os = "Unknown",
-    arch = "Unknown",
-    cpus = 0,
-    mem = 0;
+  const [text, setText] = createSignal("");
+  const [isFocused, setIsFocused] = createSignal(false);
+
+  // We handle global keys at the App root, but for simplicity we can just
+  // listen to the root's onKeyDown and forward it. Actually, wait!
+  // SolidJS allows window event listeners like onKeyDown on window?
+  // Let's just do it cleanly: when focused, the Dashboard catches the root's keydown if we pass it down,
+  // or we can use a global event bus.
+
+  // Let's just create a custom input that takes advantage of the fact that we can
+  // catch keydown at the root level. Wait, I will modify App to broadcast keydowns.
+
+  mem = 0;
   try {
     if (sysData().startsWith("{")) {
       const d = JSON.parse(sysData());
@@ -130,6 +185,22 @@ function Dashboard() {
             >
               INCREASE
             </button>
+          </div>
+        </div>
+
+        <div class="flex-1 bg-slate-800/40 rounded-3xl p-8 border border-slate-700/50 shadow-xl flex flex-col items-center justify-center relative overflow-hidden group">
+          <h2 class="absolute top-8 left-8 text-sm text-pink-400 font-bold tracking-widest uppercase flex items-center gap-2">
+            Text Input Demo
+          </h2>
+
+          <CustomTextInput
+            value={text()}
+            onInput={setText}
+            placeholder="Type something here..."
+          />
+
+          <div class="text-slate-400 font-mono">
+            Output: <span class="text-pink-400">{text()}</span>
           </div>
         </div>
       </div>
@@ -298,6 +369,14 @@ function App(props: { children?: JSX.Element }): JSX.Element {
     <div
       class="flex w-full h-full bg-[#0B0F19] text-slate-100 font-sans select-none overflow-hidden"
       style="width: 100%; height: 100vh;"
+      onKeyDown={(e: any) => {
+        // Rust bridges pass payload properties into the event object
+        setLastKey({ key: e.key, code: e.code, mods: e.mods });
+        // Clear immediately so consecutive same keys trigger reactivity if needed,
+        // but setTimeout is not ideal. We can just use an effect that depends on lastKey.
+        // Wait, if it's the exact same key, solid-js signal won't update unless it's a new object.
+        // We create a new object every time so it will trigger.
+      }}
     >
       <Sidebar tabs={TABS} />
       <div class="flex-1 flex flex-col relative bg-gradient-to-br from-[#0B0F19] to-[#111827] overflow-hidden">
