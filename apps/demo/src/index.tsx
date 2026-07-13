@@ -9,13 +9,16 @@ import {
   Activity,
   Globe,
   LayoutDashboard,
+  ScrollText,
   Server,
   Settings,
   Zap,
 } from "lucide-solid";
-import { createSignal, For, type JSX, onMount, Show } from "solid-js";
+import { createSignal, For, type JSX, onCleanup, onMount } from "solid-js";
 
 import "@blitz-quick/core";
+import { type Tab, Sidebar } from "./components/tabs";
+import { Switch, ToggleRow } from "./components/Switch";
 
 // Root mount handle (id 1) — Rust hands this in as the #root node.
 const ROOT: Handle = {
@@ -31,64 +34,24 @@ const ROOT: Handle = {
 const [fps, setFps] = createSignal(0);
 const [sysData, setSysData] = createSignal("Loading OS Data...");
 
-function Sidebar() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const tabs = ["Dashboard", "Network", "Settings"];
-
-  return (
-    <div class="w-64 bg-[#111827] flex flex-col border-r border-slate-800 shadow-2xl z-20">
-      <div class="p-8 flex items-center gap-4">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center font-bold text-white shadow-[0_0_15px_rgba(34,211,238,0.4)]">
-          B
-        </div>
-        <span class="text-2xl font-bold">Blitz.js</span>
-      </div>
-
-      <div class="flex-1 px-4 py-4 flex flex-col gap-2">
-        <For each={tabs}>
-          {(tab) => {
-            const tabPath = tab === "Dashboard" ? "/" : `/${tab.toLowerCase()}`;
-            const isActive = () => location.pathname === tabPath;
-            return (
-              <div
-                class={`px-4 py-3 rounded-xl font-medium cursor-pointer transition-colors duration-300 flex items-center gap-3 ${
-                  isActive()
-                    ? "bg-gradient-to-r from-cyan-500/20 to-blue-500/10 text-cyan-300 shadow-[inset_2px_0_0_rgba(34,211,238,1)]"
-                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                }`}
-                onClick={() => navigate(tabPath)}
-              >
-                <div class="text-lg">
-                  <Show when={tab === "Dashboard"}>
-                    <LayoutDashboard size={20} />
-                  </Show>
-                  <Show when={tab === "Network"}>
-                    <Globe size={20} />
-                  </Show>
-                  <Show when={tab === "Settings"}>
-                    <Settings size={20} />
-                  </Show>
-                </div>
-                {tab}
-              </div>
-            );
-          }}
-        </For>
-      </div>
-
-      <div class="p-6 border-t border-slate-800/50 bg-[#0B0F19]/30">
-        <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">
-          Renderer
-        </div>
-        <div class="flex items-center gap-2">
-          <div class="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
-          <div class="text-sm font-semibold text-slate-300">Vello (GPU)</div>
-        </div>
-      </div>
-    </div>
-  );
-}
+/** Single source of truth for nav + routes. Add a tab here and both the
+ * sidebar and the route table pick it up — no other edits needed. */
+const TABS: Tab[] = [
+  {
+    path: "/",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    component: Dashboard,
+  },
+  { path: "/network", label: "Network", icon: Globe, component: Network },
+  { path: "/logs", label: "Logs", icon: ScrollText, component: LogsPage },
+  {
+    path: "/settings",
+    label: "Settings",
+    icon: Settings,
+    component: SettingsPage,
+  },
+];
 
 function Header() {
   const location = useLocation();
@@ -241,52 +204,81 @@ function Network() {
   );
 }
 
+function LogsPage() {
+  // 60 fake log lines so the container overflows and a scrollbar thumb appears.
+  const levels: [string, string][] = [
+    ["INFO", "text-cyan-400"],
+    ["WARN", "text-amber-400"],
+    ["ERROR", "text-rose-400"],
+    ["DEBUG", "text-slate-500"],
+  ];
+  const messages = [
+    "renderer initialized (vello-cpu)",
+    "font collection loaded 2622 families",
+    "style traversal completed in 1.2ms",
+    "layout pass: 48 nodes",
+    "paint scene pushed 12 clips",
+    "rAF tick scheduled",
+    "dom mutation: 3 ops applied",
+    "event driver: pointermove dispatched",
+    "scroll container reflowed",
+    "glyph cache hit ratio 0.94",
+  ];
+  const lines = Array.from({ length: 60 }, (_, i) => {
+    const lvl = levels[i % levels.length];
+    const msg = messages[i % messages.length];
+    const ts = `0${Math.floor(i / 60)}:${String(i % 60).padStart(2, "0")}:${String(
+      (i * 137) % 1000,
+    ).padStart(3, "0")}`;
+    return { i, ts, lvl, msg };
+  });
+  return (
+    <div class="flex-1 min-h-0 flex flex-col bg-slate-800/40 rounded-3xl p-8 border border-slate-700/50 shadow-xl">
+      <h2 class="text-sm text-cyan-400 font-bold tracking-widest uppercase mb-6 flex items-center gap-2">
+        <ScrollText size={18} /> Scrollable Log Stream
+      </h2>
+      <div
+        id="logs-scroll"
+        class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#0B0F19] rounded-2xl p-4 border border-slate-800 font-mono text-sm leading-relaxed shadow-inner"
+      >
+        <For each={lines}>
+          {(line) => (
+            <div class="flex gap-3 py-1 border-b border-slate-800/50 hover:bg-slate-800/40">
+              <span class="text-slate-600 shrink-0">{line.ts}</span>
+              <span class={`shrink-0 w-12 font-bold ${line.lvl[1]}`}>
+                {line.lvl[0]}
+              </span>
+              <span class="text-slate-300">
+                [node#{line.i}] {line.msg}
+              </span>
+            </div>
+          )}
+        </For>
+      </div>
+    </div>
+  );
+}
+
 function SettingsPage() {
   const [hwAccel, setHwAccel] = createSignal(true);
   const [autoUpdate, setAutoUpdate] = createSignal(false);
   return (
-    <div class="flex-1 bg-slate-800/40 rounded-3xl p-10 border border-slate-700/50 shadow-xl flex flex-col gap-6">
+    <div class="flex-1 min-h-0 overflow-y-auto bg-slate-800/40 rounded-3xl p-10 border border-slate-700/50 shadow-xl flex flex-col gap-6">
       <h2 class="text-sm text-slate-400 font-bold tracking-widest uppercase mb-4 flex items-center gap-2">
         <Settings size={18} /> Preferences
       </h2>
-      <div
-        class="flex items-center justify-between p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50 cursor-pointer hover:bg-slate-700/50 transition-colors"
-        onClick={() => setHwAccel(!hwAccel())}
-      >
-        <div>
-          <div class="text-white font-bold text-xl mb-1">
-            Hardware Acceleration
-          </div>
-          <div class="text-slate-400 text-base">
-            Use GPU for Vello rendering when available to maximize frame rates
-          </div>
-        </div>
-        <div
-          class={`w-16 h-8 rounded-full p-1 transition-colors duration-300 flex items-center ${hwAccel() ? "bg-cyan-500" : "bg-slate-600"}`}
-        >
-          <div
-            class={`w-6 h-6 bg-white rounded-full transition-all duration-300 shadow-md ${hwAccel() ? "ml-8" : "ml-0"}`}
-          />
-        </div>
-      </div>
-      <div
-        class="flex items-center justify-between p-6 bg-slate-800/50 rounded-2xl border border-slate-700/50 cursor-pointer hover:bg-slate-700/50 transition-colors"
-        onClick={() => setAutoUpdate(!autoUpdate())}
-      >
-        <div>
-          <div class="text-white font-bold text-xl mb-1">Automatic Updates</div>
-          <div class="text-slate-400 text-base">
-            Download and install engine updates silently in the background
-          </div>
-        </div>
-        <div
-          class={`w-16 h-8 rounded-full p-1 transition-colors duration-300 flex items-center ${autoUpdate() ? "bg-cyan-500" : "bg-slate-600"}`}
-        >
-          <div
-            class={`w-6 h-6 bg-white rounded-full transition-all duration-300 shadow-md ${autoUpdate() ? "ml-8" : "ml-0"}`}
-          />
-        </div>
-      </div>
+      <ToggleRow
+        title="Hardware Acceleration"
+        description="Use GPU for Vello rendering when available to maximize frame rates"
+        checked={hwAccel()}
+        onChange={setHwAccel}
+      />
+      <ToggleRow
+        title="Automatic Updates"
+        description="Download and install engine updates silently in the background"
+        checked={autoUpdate()}
+        onChange={setAutoUpdate}
+      />
 
       <div class="mt-4 p-6 border border-indigo-500/30 bg-indigo-500/10 rounded-2xl flex-1 flex flex-col justify-center items-center text-center">
         <div class="text-indigo-300 font-bold text-xl mb-3">
@@ -311,19 +303,34 @@ function App(): JSX.Element {
     } catch (e) {
       setSysData("Rust FFI 'sysInfo' not found.");
     }
+
+    // Sample FPS once per second via a self-rescheduling rAF loop. Each tick
+    // bumps a counter; a 1s timer reads it, updates the signal, and resets.
+    // TEMPORARILY DISABLED to isolate a memory leak.
+    // let frames = 0;
+    // const tick = () => {
+    //   frames += 1;
+    //   requestAnimationFrame(tick);
+    // };
+    // requestAnimationFrame(tick);
+    // const fpsTimer = setInterval(() => {
+    //   setFps(frames);
+    //   frames = 0;
+    // }, 1000);
+    // onCleanup(() => clearInterval(fpsTimer));
   });
   return (
     <div
       class="flex w-full h-full bg-[#0B0F19] text-slate-100 font-sans select-none overflow-hidden"
       style="width: 100%; height: 100vh;"
     >
-      <Sidebar />
+      <Sidebar tabs={TABS} />
       <div class="flex-1 flex flex-col relative bg-gradient-to-br from-[#0B0F19] to-[#111827] overflow-hidden">
         <Header />
-        <div class="flex-1 p-10 overflow-hidden flex flex-col">
-          <NativeRoute path="/" component={Dashboard} />
-          <NativeRoute path="/network" component={Network} />
-          <NativeRoute path="/settings" component={SettingsPage} />
+        <div class="flex-1 min-h-0 p-10 overflow-hidden flex flex-col">
+          <For each={TABS}>
+            {(tab) => <NativeRoute path={tab.path} component={tab.component} />}
+          </For>
         </div>
       </div>
     </div>

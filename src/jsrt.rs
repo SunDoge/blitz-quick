@@ -157,10 +157,22 @@ impl JsRuntime {
             }
 
             // Stateless host functions registered via macros
-            globals.set("__host_log", rquickjs::Function::new(ctx.clone(), crate::host_ffi::host_log)?)?;
-            globals.set("__host_log_level", rquickjs::Function::new(ctx.clone(), crate::host_ffi::host_log_level)?)?;
-            globals.set("__host_utf8_encode", rquickjs::Function::new(ctx.clone(), crate::host_ffi::host_utf8_encode)?)?;
-            globals.set("sysInfo", rquickjs::Function::new(ctx.clone(), crate::host_ffi::sys_info)?)?;
+            globals.set(
+                "__host_log",
+                rquickjs::Function::new(ctx.clone(), crate::host_ffi::host_log)?,
+            )?;
+            globals.set(
+                "__host_log_level",
+                rquickjs::Function::new(ctx.clone(), crate::host_ffi::host_log_level)?,
+            )?;
+            globals.set(
+                "__host_utf8_encode",
+                rquickjs::Function::new(ctx.clone(), crate::host_ffi::host_utf8_encode)?,
+            )?;
+            globals.set(
+                "sysInfo",
+                rquickjs::Function::new(ctx.clone(), crate::host_ffi::sys_info)?,
+            )?;
 
             let perf = rquickjs::Object::new(ctx.clone())?;
             perf.set(
@@ -262,10 +274,12 @@ impl JsRuntime {
                 .map_err(|caught| {
                     match caught {
                         rquickjs::CaughtError::Value(v) => {
-                            let s: String =
-                                v.as_string().map(|s| s.to_string().unwrap_or_default()).unwrap_or_default();
+                            let s: String = v
+                                .as_string()
+                                .map(|s| s.to_string().unwrap_or_default())
+                                .unwrap_or_default();
                             println!("boot app failed (value): {}", s);
-                        },
+                        }
                         rquickjs::CaughtError::Exception(e) => {
                             println!("boot app failed (exception): {:?}", e);
                             if let Some(msg) = e.message() {
@@ -274,8 +288,10 @@ impl JsRuntime {
                             if let Some(stack) = e.stack() {
                                 println!("  Stack: {}", stack);
                             }
-                        },
-                        rquickjs::CaughtError::Error(e) => println!("boot app failed (error): {:?}", e),
+                        }
+                        rquickjs::CaughtError::Error(e) => {
+                            println!("boot app failed (error): {:?}", e)
+                        }
                     }
                     rquickjs::Error::Unknown
                 })?;
@@ -299,9 +315,9 @@ impl JsRuntime {
             // __tick runs queued rAF callbacks, flushes, and returns whether
             // more rAF callbacks remain queued.
             let res = tick.call::<(), bool>(());
-            
+
             while ctx.execute_pending_job() {}
-            
+
             res
         })?;
         Ok((self.out.borrow().clone(), has_raf))

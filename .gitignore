@@ -5,8 +5,7 @@ node_modules
 src/gen/bundle.js
 src/gen/bundle.css
 # Screenshot / render artifacts.
-/frame.png
-/frames/
+*.png
 
 # stray demo screenshot
 apps/demo/frame.png

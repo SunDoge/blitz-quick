@@ -30,5 +30,9 @@ pub fn host_utf8_encode<'js>(ctx: Ctx<'js>, s: String) -> Result<TypedArray<'js,
 
 #[rquickjs::function(rename = "sysInfo")]
 pub fn sys_info() -> String {
-    format!("Blitz OS (Rust Native, CPU: {}, Arch: {})", std::env::consts::FAMILY, std::env::consts::ARCH)
+    format!(
+        "Blitz OS (Rust Native, CPU: {}, Arch: {})",
+        std::env::consts::FAMILY,
+        std::env::consts::ARCH
+    )
 }

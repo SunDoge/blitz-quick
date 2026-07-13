@@ -9,28 +9,32 @@ edition = "2024"
 # rasterizes that to an RGBA buffer on the CPU (no GPU/wgpu needed). `png`
 # encodes the buffer; `peniko` provides Fill/Rect for the white background.
 anyrender = "0.11"
-anyrender_vello = "0.11"
+anyrender_vello = "0.12"
 anyrender_vello_cpu = "0.14"
 bitflags = { version = "2.13.0", features = ["serde"] }
 # `net` feature brings blitz-net (reqwest-based NetProvider) + tokio, so the JS
 # `fetch` polyfill (src/fetch.rs) can drive real HTTP via blitz-net's Provider.
-blitz = { version = "0.3.0-alpha.6" }
+blitz = {
+  git = "https://github.com/DioxusLabs/blitz",
+  rev = "e4bc467",
+  features = ["scrollbars"]
+}
 # Enable system_fonts on blitz-dom directly: the `blitz` crate sets
 # default-features = false on blitz-dom and has no passthrough, so without this
 # the document only has the bullet font and text renders with no glyphs.
-blitz-dom = { version = "=0.3.0-alpha.6", default-features = false, features = [
-    "system_fonts",
-    "svg",
-    "woff",
-    "accessibility",
-    "file_input",
-    "custom-widget",
-] }
-blitz-paint = { version = "=0.3.0-alpha.6", features = ["svg"] }
+blitz-dom = {
+  git = "https://github.com/DioxusLabs/blitz",
+  rev = "e4bc467",
+}
+blitz-paint = {
+  git = "https://github.com/DioxusLabs/blitz",
+  rev = "e4bc467",
+  features = ["scrollbars"]
+}
 image = { version = "0.25", default-features = false, features = ["png"] }
 notify = "8.2.0"
 peniko = "0.6"
-rquickjs = {version = "0.12.1", features = ["full-async"] }
+rquickjs = { version = "0.12.1", features = ["full-async"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 snafu = "0.9.1"

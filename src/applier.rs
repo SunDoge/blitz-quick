@@ -212,7 +212,10 @@ impl Applier {
         if self.id_map.len() <= root_slot {
             self.id_map.resize(root_slot + 1, None);
         }
-        self.id_map[root_slot] = Some(GenerationNode { generation: root_generation, blitz_id: self.root_blitz_id });
+        self.id_map[root_slot] = Some(GenerationNode {
+            generation: root_generation,
+            blitz_id: self.root_blitz_id,
+        });
         self.blitz_to_solid
             .insert(self.root_blitz_id, Self::ROOT_SOLID_ID);
 
@@ -254,8 +257,12 @@ impl Applier {
             self.id_map.resize(root_slot + 1, None);
         }
         if self.id_map[root_slot].is_none() {
-            self.id_map[root_slot] = Some(GenerationNode { generation: root_generation, blitz_id: self.root_blitz_id });
-            self.blitz_to_solid.insert(self.root_blitz_id, Self::ROOT_SOLID_ID);
+            self.id_map[root_slot] = Some(GenerationNode {
+                generation: root_generation,
+                blitz_id: self.root_blitz_id,
+            });
+            self.blitz_to_solid
+                .insert(self.root_blitz_id, Self::ROOT_SOLID_ID);
         }
 
         let mut mutr = self.doc.mutate();
@@ -294,7 +301,10 @@ impl Applier {
             if id_map.len() <= slot {
                 id_map.resize(slot + 1, None);
             }
-            id_map[slot] = Some(GenerationNode { generation, blitz_id });
+            id_map[slot] = Some(GenerationNode {
+                generation,
+                blitz_id,
+            });
         };
         match op {
             Op::CreateElement { id, tag, attrs } => {
@@ -605,7 +615,7 @@ impl BlitzDocument for Applier {
         }
 
         if has_raf {
-            tracing::info!("poll returning true (has_raf=true)");
+            tracing::trace!("poll returning true (has_raf=true)");
         }
         has_raf
     }
@@ -616,6 +626,13 @@ impl BlitzDocument for Applier {
     /// along the Solid Handle tree. After dispatch we flush the frame so the
     /// next redraw reflects any signal updates.
     fn handle_ui_event(&mut self, event: UiEvent) {
+        // Let blitz-dom run its native default actions first (scroll-container
+        // wheel scrolling, scrollbar thumb drag, focus, etc.). The JS side
+        // only gets the event for `onWheel`/`onPointer*` SolidJS handlers —
+        // without this, scroll containers never scroll because the override
+        // below bypasses EventDriver entirely.
+        self.doc.handle_ui_event(event.clone());
+
         // Resolve (event_code, payload, optional hit coords) from the UiEvent.
         // coords present => pointer/wheel, needs hit-test for a target.
         let (code, payload, hit_xy): (u8, String, Option<(f32, f32)>) = match &event {
@@ -639,12 +656,16 @@ impl BlitzDocument for Applier {
                     BlitzWheelDelta::Lines(x, y) => (*x, *y),
                     BlitzWheelDelta::Pixels(x, y) => (*x, *y),
                 };
+                let payload = serde_json::to_string(&WheelPayload {
+                    client_x: e.coords.client_x,
+                    client_y: e.coords.client_y,
+                    delta_x: dx,
+                    delta_y: dy,
+                })
+                .unwrap();
                 (
                     event::WHEEL,
-                    format!(
-                        r#"{{"clientX":{:.0},"clientY":{:.0},"deltaX":{:.0},"deltaY":{:.0}}}"#,
-                        e.coords.client_x, e.coords.client_y, dx, dy
-                    ),
+                    payload,
                     Some((e.coords.client_x, e.coords.client_y)),
                 )
             }
@@ -652,6 +673,7 @@ impl BlitzDocument for Applier {
             UiEvent::KeyUp(e) => (event::KEYUP, key_payload(e), None),
             // IME / Apple keybindings: not wired to JS yet.
             UiEvent::Ime(_) | UiEvent::AppleStandardKeybinding(_) => return,
+            UiEvent::PointerCancel(_) => todo!(),
         };
 
         // Find the target Solid id: hit-test (for pointer/wheel) then walk up
@@ -685,42 +707,51 @@ impl BlitzDocument for Applier {
 /// buttons + modifier flags. `clicked` is true for pointerup (a click also
 /// fires — the JS side synthesizes `click` from pointerup).
 fn pointer_payload(e: &BlitzPointerEvent, _clicked: bool) -> String {
-    format!(
-        r#"{{"clientX":{:.0},"clientY":{:.0},"button":{},"buttons":{},"mods":{}}}"#,
-        e.coords.client_x,
-        e.coords.client_y,
-        e.button as u8,
-        e.buttons.bits(),
-        e.mods.bits(),
-    )
+    serde_json::to_string(&PointerPayload {
+        client_x: e.coords.client_x,
+        client_y: e.coords.client_y,
+        button: e.button as u8,
+        buttons: e.buttons.bits(),
+        mods: e.mods.bits(),
+    })
+    .unwrap()
 }
 
 /// Build a JSON payload for a key event: key (Display), code (Display), mods.
 fn key_payload(e: &BlitzKeyEvent) -> String {
-    format!(
-        r#"{{"key":{},"code":"{}","mods":{}}}"#,
-        json_string(&e.key.to_string()),
-        e.code,
-        e.modifiers.bits(),
-    )
+    serde_json::to_string(&KeyPayload {
+        key: e.key.to_string(),
+        code: e.code.to_string(),
+        mods: e.modifiers.bits(),
+    })
+    .unwrap()
 }
 
-/// Minimal JSON string escape (no external serde dependency).
-fn json_string(s: &str) -> String {
-    let mut out = String::from("\"");
-    for c in s.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
-            c => out.push(c),
-        }
-    }
-    out.push('"');
-    out
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WheelPayload {
+    client_x: f32,
+    client_y: f32,
+    delta_x: f64,
+    delta_y: f64,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PointerPayload {
+    client_x: f32,
+    client_y: f32,
+    button: u8,
+    buttons: u8,
+    mods: u32,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct KeyPayload {
+    key: String,
+    code: String,
+    mods: u32,
 }
 
 #[cfg(test)]
