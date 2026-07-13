@@ -49,7 +49,15 @@ pub fn translate_ui_event(
             code = event::KEYUP;
             payload = key_payload(e);
         }
-        UiEvent::Ime(_) | UiEvent::AppleStandardKeybinding(_) => return None,
+        UiEvent::Ime(e) => {
+            if let blitz::traits::events::BlitzImeEvent::Commit(text) = e {
+                code = event::IMECOMMIT;
+                payload = serde_json::to_string(&serde_json::json!({ "data": text })).unwrap();
+            } else {
+                return None;
+            }
+        }
+        UiEvent::AppleStandardKeybinding(_) => return None,
         UiEvent::PointerCancel(_) => return None,
     };
 

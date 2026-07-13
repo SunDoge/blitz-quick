@@ -42,6 +42,7 @@ export const EVENT_CODE = {
   wheel: 12,
   focus: 13,
   blur: 14,
+  imecommit: 15,
 } as const;
 
 export type EventType = keyof typeof EVENT_CODE;

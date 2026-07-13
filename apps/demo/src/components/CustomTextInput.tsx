@@ -38,11 +38,19 @@ export function CustomTextInput(props: {
     }
   };
 
+  const handleImeCommit = (e: any) => {
+    e.stopPropagation?.();
+    if (e.data) {
+      props.onInput(props.value + e.data);
+    }
+  };
+
   return (
     <div
       onClick={handlePointerDown}
       onPointerDown={handlePointerDown}
       onKeyDown={handleKeyDown}
+      onImeCommit={handleImeCommit}
       class={`w-full max-w-sm px-4 py-3 bg-slate-900 border rounded-xl text-white transition-all mb-4 cursor-text ${
         focused()
           ? "border-pink-500 shadow-[0_0_8px_rgba(236,72,153,0.5)]"

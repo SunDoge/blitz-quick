@@ -36,6 +36,7 @@ pub mod event {
     pub const WHEEL: u8 = 12;
     pub const FOCUS: u8 = 13;
     pub const BLUR: u8 = 14;
+    pub const IMECOMMIT: u8 = 15;
 }
 
 pub mod event_data {
