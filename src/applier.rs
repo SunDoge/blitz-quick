@@ -184,8 +184,7 @@ impl Applier {
 
         (self.on_runtime_init)(&js);
 
-        js.boot(bundle_content)
-            .expect("failed to boot app");
+        js.boot(bundle_content).expect("failed to boot app");
         self.js = js;
 
         // Clear everything Solid mounted under #root: drop the blitz child
@@ -243,9 +242,10 @@ impl Applier {
         let slot = (solid_id & 0xFFFFF) as usize;
         let generation = (solid_id >> 20) as u16;
         if let Some(Some(node)) = self.id_map.get(slot)
-            && node.generation == generation {
-                return Some(node.blitz_id);
-            }
+            && node.generation == generation
+        {
+            return Some(node.blitz_id);
+        }
         None
     }
 
@@ -278,8 +278,6 @@ impl Applier {
         }
         // mutator flushes on drop
     }
-
-
 
     /// Convenience: print the current document tree (debug).
     pub fn print_tree(&self) {
@@ -480,7 +478,7 @@ impl BlitzDocument for Applier {
     /// next redraw reflects any signal updates.
     fn handle_ui_event(&mut self, event: UiEvent) {
         use blitz::traits::events::{DomEvent, DomEventData, EventState};
-        
+
         let mut emitted_events = Vec::new();
         {
             struct Collector<'a>(&'a mut Vec<DomEvent>);
@@ -495,34 +493,34 @@ impl BlitzDocument for Applier {
                     self.0.push(event.clone());
                 }
             }
-            
-            let mut driver = blitz_dom::EventDriver::new(
-                &mut self.doc, 
-                Collector(&mut emitted_events),
-            );
-            driver.handle_ui_event(event.clone());
 
-            // WORKAROUND: blitz-dom's EventDriver has a bug where it forgets to call `process_queue()` 
-            // after handling `AppleStandardKeybinding` (e.g. Backspace on macOS).
-            // This leaves the generated `Input` event stuck in its internal queue.
-            // We force it to flush by sending a harmless dummy DomEvent directly, which calls process_queue.
-            let dummy_event = blitz::traits::events::DomEvent::new(
-                0, 
-                blitz::traits::events::DomEventData::AppleStandardKeybinding("blitz-quick-dummy".into())
-            );
-            driver.handle_dom_event(dummy_event);
+            let mut driver =
+                blitz_dom::EventDriver::new(&mut self.doc, Collector(&mut emitted_events));
+            driver.handle_ui_event(event.clone());
         }
 
         // Forward DOM input events to JS
         for dom_event in emitted_events {
             if let DomEventData::Input(e) = dom_event.data {
-                let sid = self.blitz_to_solid.get(&dom_event.target).copied().unwrap_or(Self::ROOT_SOLID_ID);
-                tracing::info!("Received Input event: target={} sid={} value={}", dom_event.target, sid, e.value);
+                let sid = self
+                    .blitz_to_solid
+                    .get(&dom_event.target)
+                    .copied()
+                    .unwrap_or(Self::ROOT_SOLID_ID);
+                tracing::info!(
+                    "Received Input event: target={} sid={} value={}",
+                    dom_event.target,
+                    sid,
+                    e.value
+                );
                 let payload = serde_json::to_string(&serde_json::json!({
                     "value": e.value,
                     "data": e.value,
-                })).unwrap();
-                let _ = self.js.dispatch_event(sid, crate::protocol::event::INPUT, &payload);
+                }))
+                .unwrap();
+                let _ = self
+                    .js
+                    .dispatch_event(sid, crate::protocol::event::INPUT, &payload);
                 self.tick_once();
             }
         }
@@ -531,7 +529,6 @@ impl BlitzDocument for Applier {
             Some(res) => res,
             None => return,
         };
-
 
         // Find the target Solid id: hit-test (for pointer/wheel) then walk up
         // the blitz DOM to the nearest node in our id map (blitz may insert
@@ -577,10 +574,6 @@ impl BlitzDocument for Applier {
         }
     }
 }
-
-
-
-
 
 #[cfg(test)]
 mod tests {

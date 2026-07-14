@@ -1,7 +1,7 @@
-use blitz_dom::{DocumentMutator, LocalName, QualName, ns};
-use crate::protocol::Op;
 use crate::applier::GenerationNode;
+use crate::protocol::Op;
 use blitz_dom::Attribute;
+use blitz_dom::{DocumentMutator, LocalName, QualName, ns};
 use std::collections::{HashMap, HashSet};
 
 fn qual(tag: &str) -> QualName {
@@ -19,9 +19,10 @@ pub fn apply_op(
         let slot = (id & 0xFFFFF) as usize;
         let generation = (id >> 20) as u16;
         if let Some(Some(node)) = id_map.get(slot)
-            && node.generation == generation {
-                return Some(node.blitz_id);
-            }
+            && node.generation == generation
+        {
+            return Some(node.blitz_id);
+        }
         None
     };
     let insert = |id_map: &mut Vec<Option<GenerationNode>>, id: u32, blitz_id: usize| {
@@ -109,11 +110,7 @@ pub fn apply_op(
         }
         Op::RemoveAttribute { id, name } => {
             if let Some(n) = get(id_map, *id) {
-                let nm = if *name == "className" {
-                    "class"
-                } else {
-                    name
-                };
+                let nm = if *name == "className" { "class" } else { name };
                 mutr.clear_attribute(n, qual(nm));
             }
         }
@@ -144,11 +141,12 @@ pub fn apply_op(
             let slot = (*id & 0xFFFFF) as usize;
             let generation = (*id >> 20) as u16;
             if let Some(Some(node)) = id_map.get(slot)
-                && node.generation == generation {
-                    mutr.remove_node(node.blitz_id);
-                    blitz_to_solid.remove(&node.blitz_id);
-                    id_map[slot] = None;
-                }
+                && node.generation == generation
+            {
+                mutr.remove_node(node.blitz_id);
+                blitz_to_solid.remove(&node.blitz_id);
+                id_map[slot] = None;
+            }
             listeners.remove(id);
         }
         Op::FrameEnd => {}

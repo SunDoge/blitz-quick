@@ -11,9 +11,6 @@ use std::rc::Rc;
 use rquickjs::{Context, Function, Runtime, TypedArray, Value};
 type JsResult<T> = rquickjs::Result<T>;
 
-
-
-
 /// Path to the on-disk bundle, relative to the crate root (`CARGO_MANIFEST_DIR`).
 const BUNDLE_JS_PATH: &str = "src/gen/bundle.js";
 
@@ -267,7 +264,7 @@ impl JsRuntime {
             // Only manual collection reclaims them. Cheap when little has changed,
             // but we throttle it to avoid overhead during high framerates.
             // ctx.run_gc(); // Done outside the with block so we can mutate self.last_gc
-            
+
             res
         })?;
 
@@ -319,15 +316,16 @@ impl JsRuntime {
             let arr = shared_event_data.restore(&ctx)?;
             let arr = TypedArray::<f64>::from_value(arr)?;
             if let Some(raw) = arr.as_raw()
-                && raw.len >= std::mem::size_of_val(&data) {
-                    unsafe {
-                        std::ptr::copy_nonoverlapping(
-                            data.as_ptr().cast::<u8>(),
-                            raw.ptr.as_ptr(),
-                            std::mem::size_of_val(&data),
-                        );
-                    }
+                && raw.len >= std::mem::size_of_val(&data)
+            {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        data.as_ptr().cast::<u8>(),
+                        raw.ptr.as_ptr(),
+                        std::mem::size_of_val(&data),
+                    );
                 }
+            }
             let globals = ctx.globals();
             let f: Function = globals.get("__dispatchEvent")?;
             let _: Value = f.call((solid_id, event_type, ""))?;

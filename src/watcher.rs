@@ -16,32 +16,35 @@ pub fn start_bundle_watcher(
 
         while let Ok(res) = notify_rx.recv() {
             if let Ok(event) = res
-                && let EventKind::Modify(_) = event.kind {
-                    let mut js_changed = false;
-                    let mut css_changed = false;
-                    for p in event.paths {
-                        if p.ends_with("bundle.js") {
-                            js_changed = true;
-                        } else if p.ends_with("bundle.css") {
-                            css_changed = true;
-                        }
-                    }
-
-                    if js_changed {
-                        let path = gen_dir.join("bundle.js");
-                        if let Ok(content) = std::fs::read_to_string(&path)
-                            && let Ok(guard) = tx.lock() {
-                                let _ = guard.send(crate::applier::ReloadMsg::Js(content));
-                            }
-                    }
-                    if css_changed {
-                        let path = gen_dir.join("bundle.css");
-                        if let Ok(content) = std::fs::read_to_string(&path)
-                            && let Ok(guard) = tx.lock() {
-                                let _ = guard.send(crate::applier::ReloadMsg::Css(content));
-                            }
+                && let EventKind::Modify(_) = event.kind
+            {
+                let mut js_changed = false;
+                let mut css_changed = false;
+                for p in event.paths {
+                    if p.ends_with("bundle.js") {
+                        js_changed = true;
+                    } else if p.ends_with("bundle.css") {
+                        css_changed = true;
                     }
                 }
+
+                if js_changed {
+                    let path = gen_dir.join("bundle.js");
+                    if let Ok(content) = std::fs::read_to_string(&path)
+                        && let Ok(guard) = tx.lock()
+                    {
+                        let _ = guard.send(crate::applier::ReloadMsg::Js(content));
+                    }
+                }
+                if css_changed {
+                    let path = gen_dir.join("bundle.css");
+                    if let Ok(content) = std::fs::read_to_string(&path)
+                        && let Ok(guard) = tx.lock()
+                    {
+                        let _ = guard.send(crate::applier::ReloadMsg::Css(content));
+                    }
+                }
+            }
         }
     });
 }

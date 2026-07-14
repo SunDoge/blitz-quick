@@ -16,7 +16,7 @@ bitflags = { version = "2.13.0", features = ["serde"] }
 # `fetch` polyfill (src/fetch.rs) can drive real HTTP via blitz-net's Provider.
 blitz = {
   git = "https://github.com/DioxusLabs/blitz",
-  rev = "e4bc467",
+  rev = "f1811c8",
   features = ["scrollbars"]
 }
 # Enable system_fonts on blitz-dom directly: the `blitz` crate sets
@@ -24,11 +24,11 @@ blitz = {
 # the document only has the bullet font and text renders with no glyphs.
 blitz-dom = {
   git = "https://github.com/DioxusLabs/blitz",
-  rev = "e4bc467",
+  rev = "f1811c8",
 }
 blitz-paint = {
   git = "https://github.com/DioxusLabs/blitz",
-  rev = "e4bc467",
+  rev = "f1811c8",
   features = ["scrollbars"]
 }
 image = { version = "0.25", default-features = false, features = ["png"] }

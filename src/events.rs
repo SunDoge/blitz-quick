@@ -1,5 +1,7 @@
-use blitz::traits::events::{BlitzKeyEvent, BlitzPointerEvent, BlitzWheelDelta, BlitzWheelEvent, UiEvent};
 use crate::protocol::{event, event_data};
+use blitz::traits::events::{
+    BlitzKeyEvent, BlitzPointerEvent, BlitzWheelDelta, BlitzWheelEvent, UiEvent,
+};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -10,11 +12,14 @@ pub struct KeyPayload {
     pub mods: u32,
 }
 
-pub type TranslatedEvent = (u8, Option<[f64; event_data::LEN]>, String, Option<(f32, f32)>);
+pub type TranslatedEvent = (
+    u8,
+    Option<[f64; event_data::LEN]>,
+    String,
+    Option<(f32, f32)>,
+);
 
-pub fn translate_ui_event(
-    event: &UiEvent,
-) -> Option<TranslatedEvent> {
+pub fn translate_ui_event(event: &UiEvent) -> Option<TranslatedEvent> {
     let mut hit_xy = None;
     let code;
     let mut payload = String::new();

@@ -61,7 +61,10 @@ fn run_window() {
     let gen_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/gen");
     let (tx, rx) = std::sync::mpsc::channel::<crate::applier::ReloadMsg>();
     if gen_dir.exists() {
-        crate::watcher::start_bundle_watcher(gen_dir, std::sync::Arc::new(std::sync::Mutex::new(tx)));
+        crate::watcher::start_bundle_watcher(
+            gen_dir,
+            std::sync::Arc::new(std::sync::Mutex::new(tx)),
+        );
         applier.set_reload_channel(rx);
     } else {
         tracing::warn!(?gen_dir, "gen directory not found — hot-reload disabled");
@@ -77,8 +80,6 @@ fn run_window() {
 
     event_loop.run_app(application).unwrap();
 }
-
-
 
 /// Screenshot mode: run N rAF ticks headless, resolve + layout + render to a
 /// PNG. No window, no GPU. Useful for CI and visual verification.

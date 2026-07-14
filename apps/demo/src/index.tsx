@@ -167,9 +167,7 @@ function InputDemoTab() {
 
       <div class="flex flex-col items-center gap-6 w-full max-w-lg mt-12">
         <div class="w-full">
-          <div class="text-slate-400 mb-2 font-semibold">
-            Native Widget:
-          </div>
+          <div class="text-slate-400 mb-2 font-semibold">Native Widget:</div>
           <input
             type="text"
             value={text()}
