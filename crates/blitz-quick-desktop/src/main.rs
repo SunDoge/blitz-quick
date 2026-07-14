@@ -13,23 +13,15 @@ use crate::cli::Cli;
 
 mod cli;
 mod vite;
-mod watcher;
 
 const BUNDLE_JS: &str = include_str!("gen/bundle.js");
 const BUNDLE_CSS: &str = include_str!("gen/bundle.css");
 type AppError = Box<dyn std::error::Error + Send + Sync>;
 
-#[derive(Debug, Clone)]
-struct AssetPaths {
-    js: Option<PathBuf>,
-    css: Option<PathBuf>,
-}
-
 #[derive(Debug)]
 struct Assets {
     javascript: String,
     stylesheet: String,
-    paths: AssetPaths,
 }
 
 fn main() -> Result<(), AppError> {
@@ -68,10 +60,6 @@ fn load_assets(cli: &Cli) -> Result<Assets, AppError> {
         return Ok(Assets {
             javascript: read_asset(js_path.as_deref(), BUNDLE_JS, "JavaScript")?,
             stylesheet: read_asset(css_path.as_deref(), BUNDLE_CSS, "CSS")?,
-            paths: AssetPaths {
-                js: js_path,
-                css: css_path,
-            },
         });
     }
 
@@ -84,10 +72,6 @@ fn load_assets(cli: &Cli) -> Result<Assets, AppError> {
             return Ok(Assets {
                 javascript: std::fs::read_to_string(&default_js)?,
                 stylesheet: std::fs::read_to_string(&default_css)?,
-                paths: AssetPaths {
-                    js: Some(default_js),
-                    css: Some(default_css),
-                },
             });
         }
     }
@@ -95,10 +79,6 @@ fn load_assets(cli: &Cli) -> Result<Assets, AppError> {
     Ok(Assets {
         javascript: BUNDLE_JS.to_owned(),
         stylesheet: BUNDLE_CSS.to_owned(),
-        paths: AssetPaths {
-            js: None,
-            css: None,
-        },
     })
 }
 
@@ -139,14 +119,6 @@ fn run_window(cli: &Cli, assets: Assets) -> Result<(), AppError> {
         })
     })?;
 
-    if cli.vite_url.is_none()
-        && !cli.no_watch
-        && (assets.paths.js.is_some() || assets.paths.css.is_some())
-    {
-        let (tx, rx) = std::sync::mpsc::channel::<blitz_quick::ReloadMsg>();
-        let _watcher_thread = watcher::start_asset_watcher(assets.paths.js, assets.paths.css, tx)?;
-        applier.set_reload_channel(rx);
-    }
     if let Some(server_url) = &cli.vite_url {
         let reload = applier.reload_handle();
         let _vite_thread = vite::start_hmr_client(server_url, reload)?;
@@ -261,12 +233,8 @@ mod tests {
         .expect("parse CLI");
 
         let assets = load_assets(&cli).expect("load dist assets");
-        let dist = std::fs::canonicalize(dist.path()).expect("canonicalize dist directory");
-
         assert_eq!(assets.javascript, "globalThis.loaded = true;");
         assert_eq!(assets.stylesheet, "body { color: red; }");
-        assert_eq!(assets.paths.js, Some(dist.join("bundle.js")));
-        assert_eq!(assets.paths.css, Some(dist.join("bundle.css")));
     }
 
     #[test]
@@ -285,11 +253,6 @@ mod tests {
 
         assert_eq!(assets.javascript, "globalThis.custom = true;");
         assert_eq!(assets.stylesheet, BUNDLE_CSS);
-        assert_eq!(
-            assets.paths.js,
-            Some(std::fs::canonicalize(js_path).expect("canonicalize JavaScript path"))
-        );
-        assert_eq!(assets.paths.css, None);
     }
 
     #[test]

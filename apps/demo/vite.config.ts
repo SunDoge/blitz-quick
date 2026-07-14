@@ -25,14 +25,34 @@ function unocssSeparated(): Plugin {
   let unoPromise: ReturnType<typeof createGenerator> | null = null;
   const getUno = () =>
     (unoPromise ??= createGenerator({ presets: [presetUno()] }));
+  const generateCss = async () => {
+    const uno = await getUno();
+    const code = walkSrc(SRC_DIR)
+      .map((file) => readFileSync(file, "utf8"))
+      .join("\n");
+    const { css } = await uno.generate(code);
+    const reset =
+      "*,::before,::after{box-sizing:border-box;} body { margin: 0; padding: 0; background-color: #0f172a; }";
+    return `${reset}\n${css}`;
+  };
   return {
     name: "unocss-separated",
+    configureServer(server) {
+      server.middlewares.use(
+        "/@blitz-quick/styles.css",
+        async (_request, response) => {
+          try {
+            response.statusCode = 200;
+            response.setHeader("Content-Type", "text/css; charset=utf-8");
+            response.end(await generateCss());
+          } catch (error) {
+            response.statusCode = 500;
+            response.end(String(error));
+          }
+        },
+      );
+    },
     async writeBundle() {
-      const uno = await getUno();
-      const code = walkSrc(SRC_DIR)
-        .map((f) => readFileSync(f, "utf8"))
-        .join("\n");
-      const { css } = await uno.generate(code);
       // UnoCSS presetWind's preflight only emits `--un-*` variables, NOT the
       // Tailwind reset (`*,*::before,*::after{box-sizing:border-box}` — that
       // lives in the separate `@unocss/reset-css` package we don't import). The
@@ -41,13 +61,11 @@ function unocssSeparated(): Plugin {
       // root's `p-8`) uses content-box and overflows by 2×padding — which shows
       // up as the card being wider than the viewport (unequal left/right
       // margins, content shifted to one side). Prepend the minimal reset.
-      const reset =
-        "*,::before,::after{box-sizing:border-box;} body { margin: 0; padding: 0; background-color: #0f172a; }";
       const outPath = resolve(
         __dirname,
         "../../crates/blitz-quick-desktop/src/gen/bundle.css",
       );
-      writeFileSync(outPath, `${reset}\n${css}`, "utf8");
+      writeFileSync(outPath, await generateCss(), "utf8");
       console.log(`[unocss] Wrote CSS to ${outPath}`);
     },
   };

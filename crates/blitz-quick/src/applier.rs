@@ -136,8 +136,6 @@ pub enum ApplierError {
     FetchRuntime { source: std::io::Error },
 }
 
-type RuntimeInitializer = dyn Fn(&JsRuntime) -> rquickjs::Result<()>;
-
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct GenerationNode {
     pub generation: u16,
@@ -162,9 +160,7 @@ pub struct Applier {
     /// Tracked event listeners (solidId -> set of event type bytes), for the
     /// event return path (see DESIGN.md §6).
     listeners: HashMap<u32, HashSet<u8>>,
-    /// Receives reload signals from the bundle.js/css file watcher (see
-    /// `start_bundle_watcher`). Checked each `poll()` on the main thread.
-    /// None in --screenshot mode (no watcher started).
+    /// Receives Vite HMR signals and is drained on the main thread.
     reload_rx: Option<mpsc::Receiver<ReloadMsg>>,
     reload_waker: std::sync::Arc<std::sync::Mutex<Option<std::task::Waker>>>,
     timers: Vec<ActiveTimer>,
@@ -173,20 +169,18 @@ pub struct Applier {
     /// blitz-net-backed fetch bridge: JS `fetch()` → tokio → completions drained
     /// in poll. Shared (Arc) so worker threads can push completions + wake.
     fetch: std::sync::Arc<crate::fetch::FetchBridge>,
-    /// Callback to initialize the QuickJS runtime with custom globals before boot.
-    on_runtime_init: Box<RuntimeInitializer>,
     /// The blitz node id that most recently received a PointerDown event.
     focused_blitz_id: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReloadMsg {
-    Js(String),
     Css(String),
     HmrUpdate {
         path: String,
         accepted_path: String,
         timestamp: u64,
+        source: String,
     },
     FullReload,
 }
@@ -274,7 +268,6 @@ impl Applier {
             waker: None,
             last_spawned_wake: None,
             fetch,
-            on_runtime_init: Box::new(on_runtime_init),
             focused_blitz_id: None,
         };
         if let Some(vite) = &config.vite {
@@ -310,73 +303,6 @@ impl Applier {
         let n = frame.ops.len();
         self.apply_frame(&frame);
         n
-    }
-
-    /// Hot-reload: drop the old QuickJS runtime (with all Solid state) and
-    /// boot a fresh one from the current bundle.js on disk, then clear the
-    /// mounted DOM so Solid's initial render re-creates it. The window and
-    /// event loop are untouched — only the JS side is rebuilt.
-    pub fn reload_js(&mut self, bundle_content: &str) -> Result<(), ApplierError> {
-        // Rebuild the runtime + re-eval the bundle read fresh from disk, so a
-        // dev rebuild (`vite build --watch` regenerating src/gen/bundle.js) is
-        // picked up without recompiling Rust. Falls back to the compile-time
-        // bundle if the file is absent (release without a source tree).
-        let mut js = JsRuntime::new()?;
-        js.register_fetch(self.fetch.clone())?;
-
-        (self.on_runtime_init)(&js)?;
-
-        js.boot(bundle_content)?;
-        self.js = js;
-
-        // Clear everything Solid mounted under #root: drop the blitz child
-        // nodes and forget all id mappings, so the new render's ids don't
-        // collide with stale entries.
-        let child_ids: Vec<usize> = self
-            .doc
-            .get_node(self.root_blitz_id)
-            .map(|n| n.children.clone())
-            .unwrap_or_default();
-        {
-            let mut mutr = self.doc.mutate();
-            for cid in &child_ids {
-                mutr.remove_node(*cid);
-            }
-        }
-        self.id_map.clear();
-        self.blitz_to_solid.clear();
-        self.listeners.clear();
-        self.timers.clear();
-        let now = std::time::Instant::now();
-        if self
-            .last_spawned_wake
-            .is_some_and(|deadline| now >= deadline)
-        {
-            self.last_spawned_wake = None;
-        }
-        // Re-seed the root mapping (apply_frame does this too, but the first
-        // tick below needs it).
-        let root_slot = (Self::ROOT_SOLID_ID & 0xFFFFF) as usize;
-        let root_generation = (Self::ROOT_SOLID_ID >> 20) as u16;
-        if self.id_map.len() <= root_slot {
-            self.id_map.resize(root_slot + 1, None);
-        }
-        self.id_map[root_slot] = Some(GenerationNode {
-            generation: root_generation,
-            blitz_id: self.root_blitz_id,
-        });
-        self.blitz_to_solid
-            .insert(self.root_blitz_id, Self::ROOT_SOLID_ID);
-
-        // Apply the new app's initial render immediately.
-        self.tick_once();
-        Ok(())
-    }
-
-    /// Set the channel the bundle watcher uses to signal a reload. Called once
-    /// after construction in window mode (see main.rs).
-    pub fn set_reload_channel(&mut self, rx: mpsc::Receiver<ReloadMsg>) {
-        self.reload_rx = Some(rx);
     }
 
     pub fn reload_handle(&mut self) -> ReloadHandle {
@@ -503,6 +429,7 @@ impl BlitzDocument for Applier {
     }
 
     fn poll(&mut self, _task_context: Option<std::task::Context<'_>>) -> bool {
+        let mut needs_redraw = false;
         // Enable IME if the shell provider has been attached.
         self.doc.inner().shell_provider.set_ime_enabled(true);
 
@@ -518,45 +445,48 @@ impl BlitzDocument for Applier {
 
         // Drain completed fetches into JS
         let completions = self.fetch.drain();
-        if !completions.is_empty()
-            && let Err(error) = self.js.resolve_fetches(completions)
-        {
-            tracing::error!(?error, "failed to resolve fetch completions");
+        if !completions.is_empty() {
+            match self.js.resolve_fetches(completions) {
+                Ok(()) => needs_redraw = true,
+                Err(error) => {
+                    tracing::error!(?error, "failed to resolve fetch completions");
+                }
+            }
         }
 
-        // Hot-reload: if the bundle watcher signalled a change, rebuild the
-        // JS runtime or update styles before this tick.
-        let mut reload_js = None;
+        // Apply Vite HMR messages before the next application tick.
         let mut reload_css = None;
         let mut hmr_updates = Vec::new();
         let mut full_reload = false;
         if let Some(rx) = &self.reload_rx {
             while let Ok(msg) = rx.try_recv() {
                 match msg {
-                    ReloadMsg::Js(content) => reload_js = Some(content),
                     ReloadMsg::Css(content) => reload_css = Some(content),
                     ReloadMsg::HmrUpdate {
                         path,
                         accepted_path,
                         timestamp,
-                    } => hmr_updates.push((path, accepted_path, timestamp)),
+                        source,
+                    } => hmr_updates.push((path, accepted_path, timestamp, source)),
                     ReloadMsg::FullReload => full_reload = true,
                 }
             }
         }
-        if let Some(content) = reload_js {
-            tracing::info!("bundle.js changed — rebuilding JS runtime");
-            if let Err(error) = self.reload_js(&content) {
-                tracing::error!(?error, "failed to reload JavaScript bundle");
-            }
-        }
         if let Some(content) = reload_css {
-            tracing::info!("bundle.css changed — reloading styles");
+            tracing::info!("applying Vite stylesheet update");
             self.reload_css(&content);
+            needs_redraw = true;
         }
-        for (path, accepted_path, timestamp) in hmr_updates {
-            match self.js.apply_hmr_update(&path, &accepted_path, timestamp) {
-                Ok(true) => tracing::info!(%path, %accepted_path, "applied Vite HMR update"),
+        for (path, accepted_path, timestamp, source) in hmr_updates {
+            let started = std::time::Instant::now();
+            match self
+                .js
+                .apply_hmr_update(&path, &accepted_path, timestamp, source)
+            {
+                Ok(true) => {
+                    needs_redraw = true;
+                    tracing::info!(%path, %accepted_path, elapsed = ?started.elapsed(), "applied Vite HMR update")
+                }
                 Ok(false) => {
                     tracing::warn!(%path, %accepted_path, "Vite HMR boundary requested full reload");
                 }
@@ -625,6 +555,7 @@ impl BlitzDocument for Applier {
             }
         };
         if !bytes.is_empty() {
+            needs_redraw = true;
             match crate::protocol::decode_frame(&bytes) {
                 Ok(frame) => self.apply_frame(&frame),
                 Err(e) => tracing::error!(target: "bridge", "decode frame failed: {e}"),
@@ -647,10 +578,10 @@ impl BlitzDocument for Applier {
             }
         }
 
-        if has_raf {
-            tracing::trace!("poll returning true (has_raf=true)");
+        if has_raf || needs_redraw {
+            tracing::trace!(has_raf, needs_redraw, "poll requesting redraw");
         }
-        has_raf
+        has_raf || needs_redraw
     }
 
     /// Event return path: map a blitz UiEvent to a (event_code, json_payload)
@@ -924,5 +855,33 @@ mod tests {
         applier.poll(Some(std::task::Context::from_waker(waker)));
 
         assert_eq!(applier.last_spawned_wake, Some(first_deadline));
+    }
+
+    #[test]
+    fn hot_reload_wakes_the_shell_and_requests_redraw() {
+        struct WakeCounter(std::sync::atomic::AtomicUsize);
+
+        impl std::task::Wake for WakeCounter {
+            fn wake(self: std::sync::Arc<Self>) {
+                self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
+
+            fn wake_by_ref(self: &std::sync::Arc<Self>) {
+                self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
+        }
+
+        let mut applier = test_applier();
+        let reload = applier.reload_handle();
+        let wake_counter = std::sync::Arc::new(WakeCounter(std::sync::atomic::AtomicUsize::new(0)));
+        let waker = std::task::Waker::from(wake_counter.clone());
+        applier.poll(Some(std::task::Context::from_waker(&waker)));
+
+        reload
+            .send(ReloadMsg::Css("body { color: green; }".to_owned()))
+            .expect("send stylesheet update");
+
+        assert_eq!(wake_counter.0.load(std::sync::atomic::Ordering::Relaxed), 1);
+        assert!(applier.poll(Some(std::task::Context::from_waker(&waker))));
     }
 }

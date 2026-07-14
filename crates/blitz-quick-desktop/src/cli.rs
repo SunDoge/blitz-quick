@@ -53,10 +53,6 @@ pub struct Cli {
     /// Number of runtime ticks before taking a screenshot.
     #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..))]
     pub ticks: u32,
-
-    /// Disable JavaScript and CSS file watching.
-    #[arg(long)]
-    pub no_watch: bool,
 }
 
 fn parse_positive_f64(value: &str) -> Result<f64, String> {
@@ -90,7 +86,6 @@ mod tests {
             "1.5",
             "--ticks",
             "3",
-            "--no-watch",
         ])
         .expect("parse CLI");
 
@@ -98,7 +93,6 @@ mod tests {
         assert_eq!(cli.screenshot, Some(PathBuf::from("result.png")));
         assert_eq!((cli.width, cli.height, cli.ticks), (1024, 768, 3));
         assert_eq!(cli.scale, 1.5);
-        assert!(cli.no_watch);
     }
 
     #[test]

@@ -20,7 +20,7 @@ In traditional Webview / Electron architectures, massive DOM trees and complex B
 This is a Monorepo workflow powered by Bun + Cargo:
 
 - **`crates/blitz-quick/`**: Embeddable QuickJS + Blitz runtime library.
-- **`crates/blitz-quick-desktop/`**: Desktop host, file watcher, and screenshot renderer for the demo app.
+- **`crates/blitz-quick-desktop/`**: Desktop host, Vite HMR client, and screenshot renderer for the demo app.
 - **`packages/protocol/`**: TypeScript definitions for Opcodes and EventCodes for JS-Rust communication (the Source of Truth).
 - **`packages/core/`**: Low-level runtime shims (e.g., FFI bindings, patched implementations of `requestAnimationFrame` and timers).
 - **`packages/solid-renderer/`**: The core custom SolidJS renderer. It intercepts SolidJS's `createElement` and similar methods, translating them into binary rendering instructions for Rust.
@@ -90,7 +90,7 @@ cargo run -p blitz-quick-desktop -- \
 ```
 
 For headless and visual tests, `--screenshot` accepts an optional output path.
-The viewport, scale, tick count, and file watcher are configurable:
+The viewport, scale, and tick count are configurable:
 
 ```bash
 cargo run -p blitz-quick-desktop -- \
@@ -99,8 +99,7 @@ cargo run -p blitz-quick-desktop -- \
   --width 1024 \
   --height 768 \
   --scale 1.5 \
-  --ticks 3 \
-  --no-watch
+  --ticks 3
 ```
 
 ## 🛠️ Quality & Standards

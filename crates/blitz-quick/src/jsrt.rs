@@ -91,6 +91,8 @@ pub struct JsRuntime {
     fetch_promises: Rc<RefCell<std::collections::HashMap<u32, FetchPromise>>>,
     shared_event_data: rquickjs::Persistent<Value<'static>>,
     last_gc: std::time::Instant,
+    vite_origin: Option<url::Url>,
+    vite_cache: Option<crate::vite::ViteModuleCache>,
     ctx: Context,
     _rt: Runtime,
 }
@@ -114,10 +116,13 @@ impl JsRuntime {
         // threshold makes the automatic GC kick in far more often.
         rt.set_gc_threshold(256 * 1024);
         rt.set_max_stack_size(2048 * 1024); // Increase JS call stack to 2MB for deep UI trees
-        if let Some(origin) = vite_origin {
+        let vite_cache = vite_origin
+            .as_ref()
+            .map(|_| crate::vite::ViteModuleCache::default());
+        if let (Some(origin), Some(cache)) = (vite_origin.clone(), vite_cache.clone()) {
             rt.set_loader(
                 crate::vite::ViteResolver::new(origin),
-                crate::vite::ViteLoader::new(),
+                crate::vite::ViteLoader::new(cache).map_err(|_| rquickjs::Error::Unknown)?,
             );
         }
         let ctx = Context::full(&rt)?;
@@ -215,6 +220,8 @@ impl JsRuntime {
             fetch_promises,
             shared_event_data,
             last_gc: std::time::Instant::now(),
+            vite_origin,
+            vite_cache,
         })
     }
 
@@ -267,7 +274,19 @@ impl JsRuntime {
         path: &str,
         accepted_path: &str,
         timestamp: u64,
+        source: String,
     ) -> JsResult<bool> {
+        let origin = self.vite_origin.as_ref().ok_or(rquickjs::Error::Unknown)?;
+        let mut update_url = origin
+            .join(accepted_path)
+            .map_err(|_| rquickjs::Error::Unknown)?;
+        update_url
+            .query_pairs_mut()
+            .append_pair("t", &timestamp.to_string());
+        self.vite_cache
+            .as_ref()
+            .ok_or(rquickjs::Error::Unknown)?
+            .insert(update_url.into(), source);
         let ctx = self.ctx.clone();
         ctx.with(|ctx| -> JsResult<bool> {
             let apply: Function = ctx.globals().get("__blitz_apply_hmr")?;

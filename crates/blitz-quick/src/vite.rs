@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
 use rquickjs::loader::{ImportAttributes, Loader, Resolver};
 use rquickjs::{Ctx, Error, Module, Result};
 use url::Url;
@@ -100,16 +103,39 @@ impl Resolver for ViteResolver {
     }
 }
 
+#[derive(Clone, Default)]
+pub(crate) struct ViteModuleCache {
+    sources: Arc<Mutex<HashMap<String, String>>>,
+}
+
+impl ViteModuleCache {
+    pub(crate) fn insert(&self, url: String, source: String) {
+        self.sources
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(url, source);
+    }
+
+    fn get(&self, url: &str) -> Option<String> {
+        self.sources
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(url)
+            .cloned()
+    }
+}
+
 pub(crate) struct ViteLoader {
-    agent: ureq::Agent,
+    client: reqwest::blocking::Client,
+    cache: ViteModuleCache,
 }
 
 impl ViteLoader {
-    pub(crate) fn new() -> Self {
-        let config = ureq::Agent::config_builder().proxy(None).build();
-        Self {
-            agent: ureq::Agent::new_with_config(config),
-        }
+    pub(crate) fn new(cache: ViteModuleCache) -> reqwest::Result<Self> {
+        Ok(Self {
+            client: reqwest::blocking::Client::builder().no_proxy().build()?,
+            cache,
+        })
     }
 }
 
@@ -125,11 +151,14 @@ impl Loader for ViteLoader {
             .is_some_and(|url| url.path() == "/@vite/client")
         {
             HMR_CLIENT.to_owned()
+        } else if let Some(source) = self.cache.get(name) {
+            source
         } else {
-            let mut response = self
-                .agent
+            let response = self
+                .client
                 .get(name)
-                .call()
+                .send()
+                .and_then(reqwest::blocking::Response::error_for_status)
                 .map_err(|error| Error::new_loading_message(name, error.to_string()))?;
             let content_type = response
                 .headers()
@@ -142,10 +171,11 @@ impl Loader for ViteLoader {
                     format!("expected JavaScript from Vite, received {content_type:?}"),
                 ));
             }
-            response
-                .body_mut()
-                .read_to_string()
-                .map_err(|error| Error::new_loading_message(name, error.to_string()))?
+            let source = response
+                .text()
+                .map_err(|error| Error::new_loading_message(name, error.to_string()))?;
+            self.cache.insert(name.to_owned(), source.clone());
+            source
         };
         Module::declare(ctx.clone(), name, source)
     }
@@ -172,6 +202,20 @@ mod tests {
                 .unwrap()
                 .as_str(),
             "http://127.0.0.1:5173/@solid-refresh"
+        );
+    }
+
+    #[test]
+    fn module_cache_returns_prefetched_source() {
+        let cache = ViteModuleCache::default();
+        cache.insert(
+            "http://127.0.0.1:5173/src/App.tsx?t=42".to_owned(),
+            "export const value = 42;".to_owned(),
+        );
+
+        assert_eq!(
+            cache.get("http://127.0.0.1:5173/src/App.tsx?t=42"),
+            Some("export const value = 42;".to_owned())
         );
     }
 }

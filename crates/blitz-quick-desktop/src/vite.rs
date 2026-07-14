@@ -1,5 +1,41 @@
-use serde_json::Value;
+use serde::Deserialize;
 use tungstenite::client::IntoClientRequest;
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "kebab-case")]
+enum VitePayload {
+    Update {
+        updates: Vec<ViteUpdate>,
+    },
+    FullReload,
+    #[serde(other)]
+    Other,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "kebab-case")]
+enum ViteUpdate {
+    JsUpdate {
+        path: String,
+        #[serde(rename = "acceptedPath")]
+        accepted_path: String,
+        timestamp: u64,
+    },
+    CssUpdate,
+    #[serde(other)]
+    Other,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum ViteMessage {
+    Update {
+        path: String,
+        accepted_path: String,
+        timestamp: u64,
+    },
+    CssUpdate,
+    FullReload,
+}
 
 pub fn start_hmr_client(
     server_url: &str,
@@ -19,6 +55,12 @@ pub fn start_hmr_client(
         "vite-hmr".parse()?,
     );
     let (mut socket, _) = tungstenite::connect(request)?;
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()?;
+    let client = reqwest::Client::builder().no_proxy().build()?;
+    let server_url = url::Url::parse(server_url)?;
 
     Ok(std::thread::spawn(move || {
         tracing::info!(url = %websocket_url, "Vite HMR client connected");
@@ -26,45 +68,137 @@ pub fn start_hmr_client(
             let Ok(text) = message.to_text() else {
                 continue;
             };
-            let Ok(payload) = serde_json::from_str::<Value>(text) else {
-                continue;
+            let payload = match serde_json::from_str::<VitePayload>(text) {
+                Ok(payload) => payload,
+                Err(error) => {
+                    tracing::warn!(?error, payload = text, "invalid Vite HMR payload");
+                    continue;
+                }
             };
-            if !forward_payload(&payload, &reload) {
-                break;
+            for message in messages(payload) {
+                let result = match message {
+                    ViteMessage::Update {
+                        path,
+                        accepted_path,
+                        timestamp,
+                    } => {
+                        tracing::debug!(%path, %accepted_path, timestamp, "received Vite HMR update");
+                        let started = std::time::Instant::now();
+                        let (module, stylesheet) = runtime.block_on(async {
+                            tokio::join!(
+                                fetch_module(&client, &server_url, &accepted_path, timestamp,),
+                                fetch_stylesheet(&client, &server_url),
+                            )
+                        });
+                        match module {
+                            Ok(source) => {
+                                tracing::debug!(%path, elapsed = ?started.elapsed(), "prefetched Vite HMR module");
+                                match stylesheet {
+                                    Ok(stylesheet) => {
+                                        let _ =
+                                            reload.send(blitz_quick::ReloadMsg::Css(stylesheet));
+                                    }
+                                    Err(error) => {
+                                        tracing::warn!(?error, "failed to refresh Vite stylesheet");
+                                    }
+                                }
+                                reload.send(blitz_quick::ReloadMsg::HmrUpdate {
+                                    path,
+                                    accepted_path,
+                                    timestamp,
+                                    source,
+                                })
+                            }
+                            Err(error) => {
+                                tracing::error!(%path, %accepted_path, ?error, "failed to prefetch Vite HMR module");
+                                continue;
+                            }
+                        }
+                    }
+                    ViteMessage::CssUpdate => {
+                        match runtime.block_on(fetch_stylesheet(&client, &server_url)) {
+                            Ok(stylesheet) => reload.send(blitz_quick::ReloadMsg::Css(stylesheet)),
+                            Err(error) => {
+                                tracing::error!(?error, "failed to fetch Vite stylesheet update");
+                                continue;
+                            }
+                        }
+                    }
+                    ViteMessage::FullReload => reload.send(blitz_quick::ReloadMsg::FullReload),
+                };
+                if result.is_err() {
+                    tracing::warn!("Vite HMR receiver disconnected");
+                    return;
+                }
             }
         }
         tracing::warn!("Vite HMR client disconnected");
     }))
 }
 
-fn forward_payload(payload: &Value, reload: &blitz_quick::ReloadHandle) -> bool {
-    messages(payload)
-        .into_iter()
-        .all(|message| reload.send(message).is_ok())
+async fn fetch_module(
+    client: &reqwest::Client,
+    server_url: &url::Url,
+    accepted_path: &str,
+    timestamp: u64,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    let mut module_url = server_url.join(accepted_path)?;
+    module_url
+        .query_pairs_mut()
+        .append_pair("t", &timestamp.to_string());
+    let response = client.get(module_url).send().await?.error_for_status()?;
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default();
+    if !content_type.contains("javascript") {
+        return Err(format!("expected JavaScript, received {content_type:?}").into());
+    }
+    Ok(response.text().await?)
 }
 
-fn messages(payload: &Value) -> Vec<blitz_quick::ReloadMsg> {
-    match payload.get("type").and_then(Value::as_str) {
-        Some("update") => payload
-            .get("updates")
-            .and_then(Value::as_array)
+async fn fetch_stylesheet(
+    client: &reqwest::Client,
+    server_url: &url::Url,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    let stylesheet_url = server_url.join("/@blitz-quick/styles.css")?;
+    let response = client
+        .get(stylesheet_url)
+        .send()
+        .await?
+        .error_for_status()?;
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default();
+    if !content_type.contains("text/css") {
+        return Err(format!("expected CSS, received {content_type:?}").into());
+    }
+    Ok(response.text().await?)
+}
+
+fn messages(payload: VitePayload) -> Vec<ViteMessage> {
+    match payload {
+        VitePayload::Update { updates } => updates
             .into_iter()
-            .flatten()
-            .filter(|update| update.get("type").and_then(Value::as_str) == Some("js-update"))
-            .filter_map(|update| {
-                let path = update.get("path").and_then(Value::as_str)?;
-                let accepted_path = update.get("acceptedPath").and_then(Value::as_str)?;
-                let timestamp = update.get("timestamp").and_then(Value::as_u64)?;
-                tracing::debug!(%path, %accepted_path, timestamp, "received Vite HMR update");
-                Some(blitz_quick::ReloadMsg::HmrUpdate {
-                    path: path.to_owned(),
-                    accepted_path: accepted_path.to_owned(),
+            .filter_map(|update| match update {
+                ViteUpdate::JsUpdate {
+                    path,
+                    accepted_path,
                     timestamp,
-                })
+                } => Some(ViteMessage::Update {
+                    path,
+                    accepted_path,
+                    timestamp,
+                }),
+                ViteUpdate::CssUpdate => Some(ViteMessage::CssUpdate),
+                ViteUpdate::Other => None,
             })
             .collect(),
-        Some("full-reload") => vec![blitz_quick::ReloadMsg::FullReload],
-        _ => Vec::new(),
+        VitePayload::FullReload => vec![ViteMessage::FullReload],
+        VitePayload::Other => Vec::new(),
     }
 }
 
@@ -74,22 +208,35 @@ mod tests {
 
     #[test]
     fn forwards_vite_javascript_updates() {
-        let payload = serde_json::json!({
-            "type": "update",
-            "updates": [{
-                "type": "js-update",
-                "path": "/src/Counter.tsx",
-                "acceptedPath": "/src/Counter.tsx",
-                "timestamp": 42
-            }]
-        });
+        let payload = serde_json::from_str(
+            r#"{
+                "type": "update",
+                "updates": [{
+                    "type": "js-update",
+                    "path": "/src/Counter.tsx",
+                    "acceptedPath": "/src/Counter.tsx",
+                    "timestamp": 42
+                }]
+            }"#,
+        )
+        .unwrap();
         assert_eq!(
-            messages(&payload),
-            vec![blitz_quick::ReloadMsg::HmrUpdate {
+            messages(payload),
+            vec![ViteMessage::Update {
                 path: "/src/Counter.tsx".to_owned(),
                 accepted_path: "/src/Counter.tsx".to_owned(),
                 timestamp: 42,
             }]
         );
+    }
+
+    #[test]
+    fn handles_css_updates_and_ignores_unknown_payloads() {
+        let connected = serde_json::from_str(r#"{"type":"connected"}"#).unwrap();
+        let css_update =
+            serde_json::from_str(r#"{"type":"update","updates":[{"type":"css-update"}]}"#).unwrap();
+
+        assert!(messages(connected).is_empty());
+        assert_eq!(messages(css_update), vec![ViteMessage::CssUpdate]);
     }
 }
