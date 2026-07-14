@@ -13,10 +13,6 @@ import {
 } from "lucide-solid";
 import { createSignal, For, type JSX, onMount, createEffect } from "solid-js";
 import { Sidebar } from "./components/Sidebar";
-import {
-  CustomTextInput,
-  clearActiveInput,
-} from "./components/CustomTextInput";
 import { ToggleRow } from "./components/Switch";
 
 // Root mount handle (id 1) — Rust hands this in as the #root node.
@@ -162,7 +158,6 @@ function Dashboard() {
 
 function InputDemoTab() {
   const [text, setText] = createSignal("");
-  const [nativeText, setNativeText] = createSignal("");
 
   return (
     <div class="flex-1 flex flex-col bg-slate-800/40 rounded-3xl p-8 border border-slate-700/50 shadow-xl items-center justify-center relative overflow-y-auto">
@@ -173,33 +168,20 @@ function InputDemoTab() {
       <div class="flex flex-col items-center gap-6 w-full max-w-lg mt-12">
         <div class="w-full">
           <div class="text-slate-400 mb-2 font-semibold">
-            Custom Text Input (JS handled):
-          </div>
-          <CustomTextInput
-            value={text()}
-            onInput={setText}
-            placeholder="Type something here..."
-          />
-        </div>
-
-        <div class="w-full">
-          <div class="text-slate-400 mb-2 font-semibold">
             Native Widget (&lt;input&gt;):
           </div>
           <input
             type="text"
-            value={nativeText()}
-            onInput={(e: any) => setNativeText(e.target.value)}
-            placeholder="Native input..."
+            value={text()}
+            onInput={(e: any) => setText(e.target.value)}
+            placeholder="Type something here..."
             class="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white outline-none focus:border-pink-500 focus:shadow-[0_0_8px_rgba(236,72,153,0.5)] transition-all"
           />
         </div>
 
         <div class="text-slate-400 font-mono bg-[#0B0F19] w-full p-6 rounded-2xl border border-slate-800 shadow-inner break-all min-h-24">
-          <div class="text-slate-500 mb-2">Output Preview (Custom):</div>
+          <div class="text-slate-500 mb-2">Output Preview:</div>
           <span class="text-pink-400 text-lg">{text()}</span>
-          <div class="text-slate-500 mb-2 mt-4">Output Preview (Native):</div>
-          <span class="text-cyan-400 text-lg">{nativeText()}</span>
         </div>
       </div>
     </div>
