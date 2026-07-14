@@ -12,6 +12,7 @@ use clap::Parser;
 use crate::cli::Cli;
 
 mod cli;
+mod vite;
 mod watcher;
 
 const BUNDLE_JS: &str = include_str!("gen/bundle.js");
@@ -116,7 +117,12 @@ fn read_asset(path: Option<&Path>, embedded: &str, kind: &str) -> Result<String,
 }
 
 fn app_config(cli: &Cli, assets: &Assets) -> AppConfig {
-    AppConfig::new(assets.javascript.clone())
+    let config = if let Some(server_url) = &cli.vite_url {
+        AppConfig::vite(server_url, &cli.vite_entry)
+    } else {
+        AppConfig::new(assets.javascript.clone())
+    };
+    config
         .with_stylesheet(assets.stylesheet.clone())
         .with_viewport(cli.width, cli.height)
         .with_scale(cli.scale)
@@ -133,10 +139,17 @@ fn run_window(cli: &Cli, assets: Assets) -> Result<(), AppError> {
         })
     })?;
 
-    if !cli.no_watch && (assets.paths.js.is_some() || assets.paths.css.is_some()) {
+    if cli.vite_url.is_none()
+        && !cli.no_watch
+        && (assets.paths.js.is_some() || assets.paths.css.is_some())
+    {
         let (tx, rx) = std::sync::mpsc::channel::<blitz_quick::ReloadMsg>();
         let _watcher_thread = watcher::start_asset_watcher(assets.paths.js, assets.paths.css, tx)?;
         applier.set_reload_channel(rx);
+    }
+    if let Some(server_url) = &cli.vite_url {
+        let reload = applier.reload_handle();
+        let _vite_thread = vite::start_hmr_client(server_url, reload)?;
     }
 
     let event_loop: EventLoop = create_default_event_loop();

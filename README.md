@@ -54,7 +54,17 @@ You need the following toolchains installed:
    ```
 
 > **Development Mode (Hot Reloading)**:
-> You can run `bun run dev` in one terminal (which starts Vite in watch mode to hot-update `bundle.js`), and `cargo run -p blitz-quick-desktop` in another terminal. Since the desktop host watches the generated static files for changes, modifying the TSX in `apps/demo` will automatically trigger Rust to restart the JS Context, enabling instant Hot Reloading!
+> Run Vite and the desktop host in separate terminals:
+>
+> ```bash
+> bun run dev
+> cargo run -p blitz-quick-desktop -- --vite-url http://127.0.0.1:5173
+> ```
+>
+> The desktop host loads Vite's transformed ESM modules into QuickJS and
+> forwards Vite HMR updates to `solid-refresh`. Accepted component updates keep
+> the QuickJS context and unaffected Solid parents alive. Updates that require
+> Vite's `full-reload` fallback currently require restarting the desktop host.
 
 ### Desktop host options
 
@@ -69,6 +79,14 @@ JavaScript and CSS can also be selected independently:
 
 ```bash
 cargo run -p blitz-quick-desktop -- --js ./dist/app.js --css ./dist/app.css
+```
+
+The Vite entry defaults to `/src/index.tsx` and can be overridden:
+
+```bash
+cargo run -p blitz-quick-desktop -- \
+  --vite-url http://127.0.0.1:5173 \
+  --vite-entry /src/main.tsx
 ```
 
 For headless and visual tests, `--screenshot` accepts an optional output path.

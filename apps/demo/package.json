@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite build --watch"
+    "dev": "vite --host 127.0.0.1"
   },
   "dependencies": {
     "@blitz-quick/core": "workspace:*",

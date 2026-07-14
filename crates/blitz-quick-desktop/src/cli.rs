@@ -5,6 +5,18 @@ use clap::Parser;
 #[derive(Debug, Parser)]
 #[command(version, about = "Desktop host for Blitz Quick applications")]
 pub struct Cli {
+    /// Vite development server URL. Enables module-level HMR.
+    #[arg(
+        long,
+        value_name = "URL",
+        conflicts_with_all = ["dist_dir", "js", "screenshot"]
+    )]
+    pub vite_url: Option<String>,
+
+    /// Application module loaded from the Vite development server.
+    #[arg(long, value_name = "PATH", default_value = "/src/index.tsx")]
+    pub vite_entry: String,
+
     /// Directory containing bundle.js and bundle.css.
     #[arg(long, value_name = "DIR", conflicts_with_all = ["js", "css"])]
     pub dist_dir: Option<PathBuf>,
@@ -101,6 +113,21 @@ mod tests {
         .expect_err("asset sources must conflict");
 
         assert_eq!(error.kind(), clap::error::ErrorKind::ArgumentConflict);
+    }
+
+    #[test]
+    fn parses_vite_development_mode() {
+        let cli = Cli::try_parse_from([
+            "blitz-quick-desktop",
+            "--vite-url",
+            "http://127.0.0.1:5173",
+            "--vite-entry",
+            "/src/main.tsx",
+        ])
+        .expect("parse Vite options");
+
+        assert_eq!(cli.vite_url.as_deref(), Some("http://127.0.0.1:5173"));
+        assert_eq!(cli.vite_entry, "/src/main.tsx");
     }
 
     #[test]

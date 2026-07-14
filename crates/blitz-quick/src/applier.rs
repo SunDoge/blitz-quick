@@ -20,16 +20,37 @@ use crate::protocol::Frame;
 
 pub struct AppConfig {
     javascript: String,
+    vite: Option<ViteSource>,
     stylesheet: String,
     width: u32,
     height: u32,
     scale: f64,
 }
 
+struct ViteSource {
+    server_url: String,
+    entry: String,
+}
+
 impl AppConfig {
     pub fn new(javascript: impl Into<String>) -> Self {
         Self {
             javascript: javascript.into(),
+            vite: None,
+            stylesheet: String::new(),
+            width: 800,
+            height: 600,
+            scale: 1.0,
+        }
+    }
+
+    pub fn vite(server_url: impl Into<String>, entry: impl Into<String>) -> Self {
+        Self {
+            javascript: String::new(),
+            vite: Some(ViteSource {
+                server_url: server_url.into(),
+                entry: entry.into(),
+            }),
             stylesheet: String::new(),
             width: 800,
             height: 600,
@@ -67,11 +88,25 @@ impl AppConfig {
 
     fn validate(&self) -> Result<(), ApplierError> {
         ensure!(
-            !self.javascript.trim().is_empty(),
+            self.vite.is_some() || !self.javascript.trim().is_empty(),
             InvalidConfigSnafu {
                 message: "javascript cannot be empty"
             }
         );
+        if let Some(vite) = &self.vite {
+            ensure!(
+                url::Url::parse(&vite.server_url).is_ok(),
+                InvalidConfigSnafu {
+                    message: "Vite server URL must be absolute"
+                }
+            );
+            ensure!(
+                !vite.entry.trim().is_empty(),
+                InvalidConfigSnafu {
+                    message: "Vite entry cannot be empty"
+                }
+            );
+        }
         ensure!(
             self.width > 0 && self.height > 0,
             InvalidConfigSnafu {
@@ -131,6 +166,7 @@ pub struct Applier {
     /// `start_bundle_watcher`). Checked each `poll()` on the main thread.
     /// None in --screenshot mode (no watcher started).
     reload_rx: Option<mpsc::Receiver<ReloadMsg>>,
+    reload_waker: std::sync::Arc<std::sync::Mutex<Option<std::task::Waker>>>,
     timers: Vec<ActiveTimer>,
     waker: Option<std::task::Waker>,
     last_spawned_wake: Option<std::time::Instant>,
@@ -147,6 +183,30 @@ pub struct Applier {
 pub enum ReloadMsg {
     Js(String),
     Css(String),
+    HmrUpdate {
+        path: String,
+        accepted_path: String,
+        timestamp: u64,
+    },
+    FullReload,
+}
+
+#[derive(Clone)]
+pub struct ReloadHandle {
+    tx: mpsc::Sender<ReloadMsg>,
+    waker: std::sync::Arc<std::sync::Mutex<Option<std::task::Waker>>>,
+}
+
+impl ReloadHandle {
+    pub fn send(&self, message: ReloadMsg) -> Result<(), mpsc::SendError<ReloadMsg>> {
+        self.tx.send(message)?;
+        if let Ok(waker) = self.waker.lock()
+            && let Some(waker) = waker.as_ref()
+        {
+            waker.wake_by_ref();
+        }
+        Ok(())
+    }
 }
 
 struct ActiveTimer {
@@ -190,7 +250,11 @@ impl Applier {
             .ok()
             .flatten()
             .unwrap_or_else(|| doc.root_node().id);
-        let js = JsRuntime::new()?;
+        let js = if let Some(vite) = &config.vite {
+            JsRuntime::new_vite(&vite.server_url)?
+        } else {
+            JsRuntime::new()?
+        };
         let fetch = std::sync::Arc::new(crate::fetch::FetchBridge::try_new()?);
         js.register_fetch(fetch.clone())?;
 
@@ -205,6 +269,7 @@ impl Applier {
             root_blitz_id,
             listeners: HashMap::new(),
             reload_rx: None,
+            reload_waker: std::sync::Arc::new(std::sync::Mutex::new(None)),
             timers: Vec::new(),
             waker: None,
             last_spawned_wake: None,
@@ -212,7 +277,11 @@ impl Applier {
             on_runtime_init: Box::new(on_runtime_init),
             focused_blitz_id: None,
         };
-        applier.js.boot(&config.javascript)?;
+        if let Some(vite) = &config.vite {
+            applier.js.boot_vite(&vite.server_url, &vite.entry)?;
+        } else {
+            applier.js.boot(&config.javascript)?;
+        }
         Ok(applier)
     }
 
@@ -308,6 +377,15 @@ impl Applier {
     /// after construction in window mode (see main.rs).
     pub fn set_reload_channel(&mut self, rx: mpsc::Receiver<ReloadMsg>) {
         self.reload_rx = Some(rx);
+    }
+
+    pub fn reload_handle(&mut self) -> ReloadHandle {
+        let (tx, rx) = mpsc::channel();
+        self.reload_rx = Some(rx);
+        ReloadHandle {
+            tx,
+            waker: self.reload_waker.clone(),
+        }
     }
 
     /// The Solid-side id we hand to JS as the mount root.
@@ -431,6 +509,9 @@ impl BlitzDocument for Applier {
         // Store waker to schedule event loop wakeups for timers.
         if let Some(ctx) = _task_context {
             self.waker = Some(ctx.waker().clone());
+            if let Ok(mut reload_waker) = self.reload_waker.lock() {
+                *reload_waker = Some(ctx.waker().clone());
+            }
             self.fetch.set_waker(ctx.waker());
         }
         self.last_spawned_wake = None;
@@ -447,11 +528,19 @@ impl BlitzDocument for Applier {
         // JS runtime or update styles before this tick.
         let mut reload_js = None;
         let mut reload_css = None;
+        let mut hmr_updates = Vec::new();
+        let mut full_reload = false;
         if let Some(rx) = &self.reload_rx {
             while let Ok(msg) = rx.try_recv() {
                 match msg {
                     ReloadMsg::Js(content) => reload_js = Some(content),
                     ReloadMsg::Css(content) => reload_css = Some(content),
+                    ReloadMsg::HmrUpdate {
+                        path,
+                        accepted_path,
+                        timestamp,
+                    } => hmr_updates.push((path, accepted_path, timestamp)),
+                    ReloadMsg::FullReload => full_reload = true,
                 }
             }
         }
@@ -464,6 +553,20 @@ impl BlitzDocument for Applier {
         if let Some(content) = reload_css {
             tracing::info!("bundle.css changed — reloading styles");
             self.reload_css(&content);
+        }
+        for (path, accepted_path, timestamp) in hmr_updates {
+            match self.js.apply_hmr_update(&path, &accepted_path, timestamp) {
+                Ok(true) => tracing::info!(%path, %accepted_path, "applied Vite HMR update"),
+                Ok(false) => {
+                    tracing::warn!(%path, %accepted_path, "Vite HMR boundary requested full reload");
+                }
+                Err(error) => {
+                    tracing::error!(?error, %path, %accepted_path, "failed to apply Vite HMR update");
+                }
+            }
+        }
+        if full_reload {
+            tracing::warn!("Vite requested a full reload; restart the desktop host for now");
         }
 
         // Process any timer commands from JS.

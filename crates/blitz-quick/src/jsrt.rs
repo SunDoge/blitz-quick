@@ -8,7 +8,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use rquickjs::{Context, Function, Runtime, TypedArray, Value};
+use rquickjs::{Context, Function, Module, Runtime, TypedArray, Value};
 type JsResult<T> = rquickjs::Result<T>;
 
 #[cfg(test)]
@@ -97,6 +97,15 @@ pub struct JsRuntime {
 
 impl JsRuntime {
     pub fn new() -> JsResult<Self> {
+        Self::new_inner(None)
+    }
+
+    pub fn new_vite(server_url: &str) -> JsResult<Self> {
+        let origin = url::Url::parse(server_url).map_err(|_| rquickjs::Error::Unknown)?;
+        Self::new_inner(Some(origin))
+    }
+
+    fn new_inner(vite_origin: Option<url::Url>) -> JsResult<Self> {
         let rt = Runtime::new()?;
         // QuickJS's default GC threshold is high enough that rquickjs Value
         // wrappers (which hold refs on the Rust side) can accumulate without
@@ -105,6 +114,12 @@ impl JsRuntime {
         // threshold makes the automatic GC kick in far more often.
         rt.set_gc_threshold(256 * 1024);
         rt.set_max_stack_size(2048 * 1024); // Increase JS call stack to 2MB for deep UI trees
+        if let Some(origin) = vite_origin {
+            rt.set_loader(
+                crate::vite::ViteResolver::new(origin),
+                crate::vite::ViteLoader::new(),
+            );
+        }
         let ctx = Context::full(&rt)?;
         let out: Rc<RefCell<Vec<u8>>> = Rc::new(RefCell::new(Vec::new()));
         let timer_cmds = Rc::new(RefCell::new(Vec::new()));
@@ -200,6 +215,64 @@ impl JsRuntime {
             fetch_promises,
             shared_event_data,
             last_gc: std::time::Instant::now(),
+        })
+    }
+
+    pub fn boot_vite(&mut self, server_url: &str, entry: &str) -> JsResult<()> {
+        if self.booted {
+            return Ok(());
+        }
+        let origin = url::Url::parse(server_url).map_err(|_| rquickjs::Error::Unknown)?;
+        let entry = origin
+            .join(entry)
+            .map_err(|_| rquickjs::Error::Unknown)?
+            .to_string();
+        let entry_literal = serde_json::to_string(&entry).map_err(|_| rquickjs::Error::Unknown)?;
+        let ctx = self.ctx.clone();
+        ctx.with(|ctx| -> JsResult<()> {
+            use rquickjs::CatchResultExt;
+
+            let result = Module::evaluate(
+                ctx.clone(),
+                "blitz-quick:vite-entry",
+                format!("import {entry_literal};"),
+            )
+            .and_then(|promise| promise.finish::<()>());
+            match result.catch(&ctx) {
+                Ok(()) => Ok(()),
+                Err(caught) => {
+                    match &caught {
+                        rquickjs::CaughtError::Exception(exception) => {
+                            tracing::error!(
+                                entry = %entry,
+                                message = exception.message().as_deref().unwrap_or("unknown"),
+                                stack = exception.stack().as_deref().unwrap_or("unavailable"),
+                                "failed to evaluate Vite entry"
+                            );
+                        }
+                        _ => {
+                            tracing::error!(entry = %entry, error = %caught, "failed to evaluate Vite entry");
+                        }
+                    }
+                    Err(caught.throw(&ctx))
+                }
+            }
+        })?;
+        self.booted = true;
+        Ok(())
+    }
+
+    pub fn apply_hmr_update(
+        &mut self,
+        path: &str,
+        accepted_path: &str,
+        timestamp: u64,
+    ) -> JsResult<bool> {
+        let ctx = self.ctx.clone();
+        ctx.with(|ctx| -> JsResult<bool> {
+            let apply: Function = ctx.globals().get("__blitz_apply_hmr")?;
+            let promise: rquickjs::Promise = apply.call((path, accepted_path, timestamp))?;
+            promise.finish()
         })
     }
 

@@ -7,6 +7,7 @@ mod fetch;
 mod host_ffi;
 mod jsrt;
 mod protocol;
+mod vite;
 
-pub use applier::{AppConfig, Applier, ApplierError, ReloadMsg};
+pub use applier::{AppConfig, Applier, ApplierError, ReloadHandle, ReloadMsg};
 pub use jsrt::JsRuntime;

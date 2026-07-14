@@ -53,6 +53,19 @@ function unocssSeparated(): Plugin {
   };
 }
 
+function disableDevDependencyOptimizer(): Plugin {
+  return {
+    name: "blitz-quick-disable-dev-deps-optimizer",
+    enforce: "post",
+    configResolved(config) {
+      if (config.command === "serve") {
+        config.optimizeDeps.noDiscovery = true;
+        config.optimizeDeps.include = [];
+      }
+    },
+  };
+}
+
 export default defineConfig({
   plugins: [
     unocssSeparated(),
@@ -62,6 +75,7 @@ export default defineConfig({
         moduleName: "@blitz-quick/solid-renderer",
       },
     }),
+    disableDevDependencyOptimizer(),
   ],
   resolve: {
     alias: {
