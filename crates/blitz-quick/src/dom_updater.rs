@@ -65,6 +65,7 @@ pub fn apply_op(
                 (Some(p), Some(c)) => (p, c),
                 _ => return,
             };
+            mutr.remove_node(c);
             mutr.append_children(p, &[c]);
         }
         Op::InsertBefore {
@@ -77,10 +78,16 @@ pub fn apply_op(
                 _ => return,
             };
             if *ref_id == 0 {
+                mutr.remove_node(c);
                 mutr.append_children(p, &[c]);
             } else if let Some(r) = get(id_map, *ref_id) {
+                if c == r {
+                    return;
+                }
+                mutr.remove_node(c);
                 mutr.insert_nodes_before(r, &[c]);
             } else {
+                mutr.remove_node(c);
                 mutr.append_children(p, &[c]);
             }
         }
@@ -91,6 +98,10 @@ pub fn apply_op(
         }
         Op::ReplaceNode { old_id, new_id, .. } => {
             if let (Some(old), Some(new)) = (get(id_map, *old_id), get(id_map, *new_id)) {
+                if old == new {
+                    return;
+                }
+                mutr.remove_node(new);
                 mutr.replace_node_with(old, &[new]);
             }
         }

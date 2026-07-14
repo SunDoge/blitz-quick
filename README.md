@@ -19,7 +19,8 @@ In traditional Webview / Electron architectures, massive DOM trees and complex B
 
 This is a Monorepo workflow powered by Bun + Cargo:
 
-- **`src/`**: The core Rust base (includes the QuickJS runtime `applier.rs`, protocol parser `protocol.rs`, etc.).
+- **`crates/blitz-quick/`**: Embeddable QuickJS + Blitz runtime library.
+- **`crates/blitz-quick-desktop/`**: Desktop host, file watcher, and screenshot renderer for the demo app.
 - **`packages/protocol/`**: TypeScript definitions for Opcodes and EventCodes for JS-Rust communication (the Source of Truth).
 - **`packages/core/`**: Low-level runtime shims (e.g., FFI bindings, patched implementations of `requestAnimationFrame` and timers).
 - **`packages/solid-renderer/`**: The core custom SolidJS renderer. It intercepts SolidJS's `createElement` and similar methods, translating them into binary rendering instructions for Rust.
@@ -49,11 +50,40 @@ You need the following toolchains installed:
 
 3. **Start the Rust Host Application**:
    ```bash
-   cargo run
+   cargo run -p blitz-quick-desktop
    ```
 
 > **Development Mode (Hot Reloading)**:
-> You can run `bun run dev` in one terminal (which starts Vite in watch mode to hot-update `bundle.js`), and `cargo run` in another terminal. Since the Rust side watches the generated static files for changes, modifying the TSX in `apps/demo` will automatically trigger Rust to restart the JS Context, enabling instant Hot Reloading!
+> You can run `bun run dev` in one terminal (which starts Vite in watch mode to hot-update `bundle.js`), and `cargo run -p blitz-quick-desktop` in another terminal. Since the desktop host watches the generated static files for changes, modifying the TSX in `apps/demo` will automatically trigger Rust to restart the JS Context, enabling instant Hot Reloading!
+
+### Desktop host options
+
+Run an application from a distribution directory containing `bundle.js` and
+`bundle.css`:
+
+```bash
+cargo run -p blitz-quick-desktop -- --dist-dir ./dist
+```
+
+JavaScript and CSS can also be selected independently:
+
+```bash
+cargo run -p blitz-quick-desktop -- --js ./dist/app.js --css ./dist/app.css
+```
+
+For headless and visual tests, `--screenshot` accepts an optional output path.
+The viewport, scale, tick count, and file watcher are configurable:
+
+```bash
+cargo run -p blitz-quick-desktop -- \
+  --dist-dir ./dist \
+  --screenshot ./artifacts/frame.png \
+  --width 1024 \
+  --height 768 \
+  --scale 1.5 \
+  --ticks 3 \
+  --no-watch
+```
 
 ## 🛠️ Quality & Standards
 

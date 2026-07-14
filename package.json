@@ -13,6 +13,8 @@
     "apps/*"
   ],
   "devDependencies": {
-    "@biomejs/biome": "2.5.3"
+    "@biomejs/biome": "2.5.3",
+    "@types/bun": "^1.3.14",
+    "bun-types": "^1.3.14"
   }
 }

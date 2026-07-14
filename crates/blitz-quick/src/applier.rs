@@ -7,24 +7,104 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::mpsc;
 
-use blitz::dom::{
+use blitz_dom::{
     BaseDocument, DEFAULT_CSS, DocGuard, DocGuardMut, Document as BlitzDocument, DocumentConfig,
-    LocalName, QualName, ns,
 };
-use blitz::html::HtmlDocument;
-use blitz::traits::events::UiEvent;
-use blitz::traits::shell::{ColorScheme, Viewport};
+use blitz_html::HtmlDocument;
+use blitz_traits::events::UiEvent;
+use blitz_traits::shell::{ColorScheme, Viewport};
+use snafu::{Snafu, ensure};
 
 use crate::jsrt::{JsRuntime, TimerCmd};
 use crate::protocol::Frame;
 
-/// Render scale (hidpi). Affects viewport sizing and paint_scene's scale.
-pub const RENDER_SCALE: f64 = 2.0;
-pub const RENDER_WIDTH: u32 = 800;
-pub const RENDER_HEIGHT: u32 = 600;
+pub struct AppConfig {
+    javascript: String,
+    stylesheet: String,
+    width: u32,
+    height: u32,
+    scale: f64,
+}
+
+impl AppConfig {
+    pub fn new(javascript: impl Into<String>) -> Self {
+        Self {
+            javascript: javascript.into(),
+            stylesheet: String::new(),
+            width: 800,
+            height: 600,
+            scale: 1.0,
+        }
+    }
+
+    pub fn with_stylesheet(mut self, stylesheet: impl Into<String>) -> Self {
+        self.stylesheet = stylesheet.into();
+        self
+    }
+
+    pub fn with_viewport(mut self, width: u32, height: u32) -> Self {
+        self.width = width;
+        self.height = height;
+        self
+    }
+
+    pub fn with_scale(mut self, scale: f64) -> Self {
+        self.scale = scale;
+        self
+    }
+
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
+    pub fn scale(&self) -> f64 {
+        self.scale
+    }
+
+    fn validate(&self) -> Result<(), ApplierError> {
+        ensure!(
+            !self.javascript.trim().is_empty(),
+            InvalidConfigSnafu {
+                message: "javascript cannot be empty"
+            }
+        );
+        ensure!(
+            self.width > 0 && self.height > 0,
+            InvalidConfigSnafu {
+                message: "viewport dimensions must be non-zero"
+            }
+        );
+        ensure!(
+            self.scale.is_finite() && self.scale > 0.0,
+            InvalidConfigSnafu {
+                message: "render scale must be finite and positive"
+            }
+        );
+        Ok(())
+    }
+}
+
+#[derive(Debug, Snafu)]
+pub enum ApplierError {
+    #[snafu(display("invalid app configuration: {message}"))]
+    InvalidConfig { message: &'static str },
+    #[snafu(display("QuickJS error: {source}"), context(false))]
+    QuickJs { source: rquickjs::Error },
+    #[snafu(
+        display("failed to initialize fetch runtime: {source}"),
+        context(false)
+    )]
+    FetchRuntime { source: std::io::Error },
+}
+
+type RuntimeInitializer = dyn Fn(&JsRuntime) -> rquickjs::Result<()>;
 
 #[derive(Debug, Clone, Copy)]
-pub struct GenerationNode {
+pub(crate) struct GenerationNode {
     pub generation: u16,
     pub blitz_id: usize,
 }
@@ -34,10 +114,10 @@ pub struct GenerationNode {
 /// underlying `HtmlDocument`) and returns true while rAF callbacks remain
 /// queued, so blitz-shell keeps redrawing at vsync.
 pub struct Applier {
-    pub doc: HtmlDocument,
+    doc: HtmlDocument,
     /// The QuickJS runtime running the bundled Solid app. None only briefly
     /// during construction (before boot).
-    pub js: JsRuntime,
+    js: JsRuntime,
     /// Solid virtual id (slot) -> blitz node id + generation.
     id_map: Vec<Option<GenerationNode>>,
     /// Inverse: blitz node id -> full Solid virtual id (for event return path).
@@ -46,7 +126,7 @@ pub struct Applier {
     root_blitz_id: usize,
     /// Tracked event listeners (solidId -> set of event type bytes), for the
     /// event return path (see DESIGN.md §6).
-    pub listeners: HashMap<u32, HashSet<u8>>,
+    listeners: HashMap<u32, HashSet<u8>>,
     /// Receives reload signals from the bundle.js/css file watcher (see
     /// `start_bundle_watcher`). Checked each `poll()` on the main thread.
     /// None in --screenshot mode (no watcher started).
@@ -58,7 +138,7 @@ pub struct Applier {
     /// in poll. Shared (Arc) so worker threads can push completions + wake.
     fetch: std::sync::Arc<crate::fetch::FetchBridge>,
     /// Callback to initialize the QuickJS runtime with custom globals before boot.
-    on_runtime_init: Box<dyn Fn(&JsRuntime)>,
+    on_runtime_init: Box<RuntimeInitializer>,
     /// The blitz node id that most recently received a PointerDown event.
     focused_blitz_id: Option<usize>,
 }
@@ -76,12 +156,6 @@ struct ActiveTimer {
     repeat: bool,
 }
 
-const BUNDLE_CSS: &str = include_str!("gen/bundle.css");
-
-fn qual(tag: &str) -> QualName {
-    QualName::new(None, ns!(html), LocalName::from(tag))
-}
-
 impl Applier {
     /// Build a document by parsing a minimal HTML shell with #root, then
     /// loading DEFAULT_CSS as the UA stylesheet. The app's own stylesheet
@@ -91,34 +165,37 @@ impl Applier {
     /// from JS without touching Rust. We use the real HTML parser (not
     /// hand-built nodes) so the document has the structure stylo's layout
     /// expects (html>head+body), which is required for non-zero layout.
-    pub fn new(on_runtime_init: Box<dyn Fn(&JsRuntime)>) -> Self {
-        let config = DocumentConfig {
+    pub fn new(
+        config: AppConfig,
+        on_runtime_init: impl Fn(&JsRuntime) -> rquickjs::Result<()> + 'static,
+    ) -> Result<Self, ApplierError> {
+        config.validate()?;
+        let document_config = DocumentConfig {
             ua_stylesheets: Some(vec![DEFAULT_CSS.to_string()]),
             viewport: Some(Viewport::new(
-                (RENDER_WIDTH as f64 * RENDER_SCALE) as u32,
-                (RENDER_HEIGHT as f64 * RENDER_SCALE) as u32,
-                RENDER_SCALE as f32,
+                (config.width as f64 * config.scale) as u32,
+                (config.height as f64 * config.scale) as u32,
+                config.scale as f32,
                 ColorScheme::Light,
             )),
             ..DocumentConfig::default()
         };
         let html_shell = format!(
             r#"<!DOCTYPE html><html><head><meta charset="utf-8"><style>{}</style></head><body><div id="root"></div></body></html>"#,
-            BUNDLE_CSS
+            config.stylesheet
         );
-        let doc = HtmlDocument::from_html(&html_shell, config);
+        let doc = HtmlDocument::from_html(&html_shell, document_config);
         let root_blitz_id = doc
             .query_selector("#root")
             .ok()
             .flatten()
             .unwrap_or_else(|| doc.root_node().id);
-        let js = JsRuntime::new().expect("failed to create QuickJS runtime");
-        let fetch = std::sync::Arc::new(crate::fetch::FetchBridge::new());
-        js.register_fetch(fetch.clone())
-            .expect("failed to register fetch host fn");
+        let js = JsRuntime::new()?;
+        let fetch = std::sync::Arc::new(crate::fetch::FetchBridge::try_new()?);
+        js.register_fetch(fetch.clone())?;
 
         // Let the user register their FFI methods
-        on_runtime_init(&js);
+        on_runtime_init(&js)?;
 
         let mut applier = Applier {
             doc,
@@ -132,14 +209,11 @@ impl Applier {
             waker: None,
             last_spawned_wake: None,
             fetch,
-            on_runtime_init,
+            on_runtime_init: Box::new(on_runtime_init),
             focused_blitz_id: None,
         };
-        applier
-            .js
-            .boot(&crate::jsrt::read_bundle_js())
-            .expect("failed to boot app");
-        applier
+        applier.js.boot(&config.javascript)?;
+        Ok(applier)
     }
 
     /// Run one JS rAF tick and apply the resulting frame to the document.
@@ -173,18 +247,17 @@ impl Applier {
     /// boot a fresh one from the current bundle.js on disk, then clear the
     /// mounted DOM so Solid's initial render re-creates it. The window and
     /// event loop are untouched — only the JS side is rebuilt.
-    pub fn reload_js(&mut self, bundle_content: &str) {
+    pub fn reload_js(&mut self, bundle_content: &str) -> Result<(), ApplierError> {
         // Rebuild the runtime + re-eval the bundle read fresh from disk, so a
         // dev rebuild (`vite build --watch` regenerating src/gen/bundle.js) is
         // picked up without recompiling Rust. Falls back to the compile-time
         // bundle if the file is absent (release without a source tree).
-        let mut js = JsRuntime::new().expect("failed to create QuickJS runtime");
-        js.register_fetch(self.fetch.clone())
-            .expect("failed to register fetch host fn");
+        let mut js = JsRuntime::new()?;
+        js.register_fetch(self.fetch.clone())?;
 
-        (self.on_runtime_init)(&js);
+        (self.on_runtime_init)(&js)?;
 
-        js.boot(bundle_content).expect("failed to boot app");
+        js.boot(bundle_content)?;
         self.js = js;
 
         // Clear everything Solid mounted under #root: drop the blitz child
@@ -205,7 +278,13 @@ impl Applier {
         self.blitz_to_solid.clear();
         self.listeners.clear();
         self.timers.clear();
-        self.last_spawned_wake = None;
+        let now = std::time::Instant::now();
+        if self
+            .last_spawned_wake
+            .is_some_and(|deadline| now >= deadline)
+        {
+            self.last_spawned_wake = None;
+        }
         // Re-seed the root mapping (apply_frame does this too, but the first
         // tick below needs it).
         let root_slot = (Self::ROOT_SOLID_ID & 0xFFFFF) as usize;
@@ -222,6 +301,7 @@ impl Applier {
 
         // Apply the new app's initial render immediately.
         self.tick_once();
+        Ok(())
     }
 
     /// Set the channel the bundle watcher uses to signal a reload. Called once
@@ -250,7 +330,7 @@ impl Applier {
     }
 
     /// Apply a full decoded frame.
-    pub fn apply_frame(&mut self, frame: &Frame<'_>) {
+    fn apply_frame(&mut self, frame: &Frame<'_>) {
         // Seed the root mapping if not present.
         let root_slot = (Self::ROOT_SOLID_ID & 0xFFFFF) as usize;
         let root_generation = (Self::ROOT_SOLID_ID >> 20) as u16;
@@ -357,8 +437,10 @@ impl BlitzDocument for Applier {
 
         // Drain completed fetches into JS
         let completions = self.fetch.drain();
-        if !completions.is_empty() {
-            self.js.resolve_fetches(completions);
+        if !completions.is_empty()
+            && let Err(error) = self.js.resolve_fetches(completions)
+        {
+            tracing::error!(?error, "failed to resolve fetch completions");
         }
 
         // Hot-reload: if the bundle watcher signalled a change, rebuild the
@@ -375,7 +457,9 @@ impl BlitzDocument for Applier {
         }
         if let Some(content) = reload_js {
             tracing::info!("bundle.js changed — rebuilding JS runtime");
-            self.reload_js(&content);
+            if let Err(error) = self.reload_js(&content) {
+                tracing::error!(?error, "failed to reload JavaScript bundle");
+            }
         }
         if let Some(content) = reload_css {
             tracing::info!("bundle.css changed — reloading styles");
@@ -448,20 +532,15 @@ impl BlitzDocument for Applier {
         let has_pending_timers = !self.timers.is_empty();
         if !has_raf && has_pending_timers {
             let earliest = self.timers.iter().map(|t| t.expires_at).min().unwrap();
-            let should_spawn = match self.last_spawned_wake {
-                Some(inst) => earliest < inst,
-                None => true,
-            };
-            if should_spawn {
+            let should_spawn = self.last_spawned_wake != Some(earliest);
+            if should_spawn && let Some(waker) = &self.waker {
                 self.last_spawned_wake = Some(earliest);
                 let duration = earliest.saturating_duration_since(std::time::Instant::now());
-                if let Some(waker) = &self.waker {
-                    let waker = waker.clone();
-                    std::thread::spawn(move || {
-                        std::thread::sleep(duration);
-                        waker.wake();
-                    });
-                }
+                let waker = waker.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(duration);
+                    waker.wake();
+                });
             }
         }
 
@@ -477,7 +556,7 @@ impl BlitzDocument for Applier {
     /// along the Solid Handle tree. After dispatch we flush the frame so the
     /// next redraw reflects any signal updates.
     fn handle_ui_event(&mut self, event: UiEvent) {
-        use blitz::traits::events::{DomEvent, DomEventData, EventState};
+        use blitz_traits::events::{DomEvent, DomEventData, EventState};
 
         let mut emitted_events = Vec::new();
         {
@@ -579,9 +658,78 @@ impl BlitzDocument for Applier {
 mod tests {
     use super::*;
 
+    fn test_applier() -> Applier {
+        Applier::new(AppConfig::new(crate::jsrt::TEST_BUNDLE), |_| Ok(())).expect("create applier")
+    }
+
+    #[test]
+    fn reports_invalid_configuration_with_snafu() {
+        let error = match Applier::new(AppConfig::new(""), |_| Ok(())) {
+            Ok(_) => panic!("empty JavaScript should be rejected"),
+            Err(error) => error,
+        };
+
+        assert!(matches!(
+            &error,
+            ApplierError::InvalidConfig {
+                message: "javascript cannot be empty"
+            }
+        ));
+        assert_eq!(
+            error.to_string(),
+            "invalid app configuration: javascript cannot be empty"
+        );
+    }
+
+    #[test]
+    fn reparents_and_reorders_existing_nodes() {
+        let mut applier = test_applier();
+        let mut initial = crate::protocol::Encoder::new(1);
+        initial.create_element(2, "div", &[]);
+        initial.create_element(3, "span", &[]);
+        initial.create_element(4, "section", &[]);
+        initial.create_element(5, "button", &[]);
+        initial.append_child(Applier::ROOT_SOLID_ID, 2);
+        initial.append_child(Applier::ROOT_SOLID_ID, 4);
+        initial.append_child(2, 3);
+        initial.append_child(2, 5);
+        let bytes = initial.finish();
+        let frame = crate::protocol::decode_frame(&bytes).expect("decode initial frame");
+        applier.apply_frame(&frame);
+
+        let parent_a = applier.get(2).expect("first parent");
+        let child_a = applier.get(3).expect("first child");
+        let parent_b = applier.get(4).expect("second parent");
+        let child_b = applier.get(5).expect("second child");
+
+        let mut reorder = crate::protocol::Encoder::new(2);
+        reorder.insert_before(2, 5, 3);
+        let bytes = reorder.finish();
+        let frame = crate::protocol::decode_frame(&bytes).expect("decode reorder frame");
+        applier.apply_frame(&frame);
+        assert_eq!(
+            applier.document().get_node(parent_a).unwrap().children,
+            vec![child_b, child_a]
+        );
+
+        let mut reparent = crate::protocol::Encoder::new(3);
+        reparent.append_child(4, 3);
+        let bytes = reparent.finish();
+        let frame = crate::protocol::decode_frame(&bytes).expect("decode reparent frame");
+        applier.apply_frame(&frame);
+        assert_eq!(
+            applier.document().get_node(child_a).unwrap().parent,
+            Some(parent_b)
+        );
+        assert_eq!(
+            applier.document().get_node(parent_a).unwrap().children,
+            vec![child_b]
+        );
+    }
+
     #[test]
     fn test_timers() {
-        let mut applier = Applier::new(Box::new(|_| {}));
+        let mut applier = test_applier();
 
         // Verify that TextEncoder is correctly polyfilled and uses the Rust host encoder
         applier.js.context().with(|ctx| {
@@ -657,5 +805,21 @@ mod tests {
             let ic: i32 = ctx.globals().get("testIntervalCount").unwrap();
             assert_eq!(ic, 2);
         });
+    }
+
+    #[test]
+    fn reuses_the_scheduled_timer_wake() {
+        let mut applier = test_applier();
+        applier.js.context().with(|ctx| {
+            ctx.eval::<(), _>("setTimeout(() => {}, 1000)")
+                .expect("register timeout");
+        });
+
+        let waker = std::task::Waker::noop();
+        applier.poll(Some(std::task::Context::from_waker(waker)));
+        let first_deadline = applier.last_spawned_wake.expect("scheduled wake");
+        applier.poll(Some(std::task::Context::from_waker(waker)));
+
+        assert_eq!(applier.last_spawned_wake, Some(first_deadline));
     }
 }

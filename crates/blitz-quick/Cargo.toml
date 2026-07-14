@@ -1,0 +1,25 @@
+[package]
+name = "blitz-quick"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# Enable system_fonts on blitz-dom directly: the `blitz` crate sets
+# default-features = false on blitz-dom and has no passthrough, so without this
+# the document only has the bullet font and text renders with no glyphs.
+blitz-dom = {
+  git = "https://github.com/DioxusLabs/blitz",
+  rev = "f1811c8",
+}
+blitz-html = { git = "https://github.com/DioxusLabs/blitz", rev = "f1811c8" }
+blitz-net = { git = "https://github.com/DioxusLabs/blitz", rev = "f1811c8" }
+blitz-traits = { git = "https://github.com/DioxusLabs/blitz", rev = "f1811c8" }
+rquickjs = { version = "0.12.1", features = ["full-async"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+snafu = "0.9.1"
+# Dedicated multi-thread runtime for blitz-net's Provider (it `tokio::spawn`s
+# fetches). The main blitz event loop isn't a tokio context, so the fetch host
+# fn enters this runtime's guard before calling Provider::fetch_with_callback.
+tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
+tracing = "0.1"

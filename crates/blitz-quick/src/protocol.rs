@@ -335,6 +335,13 @@ impl Encoder {
         self.u32(child);
         self.count += 1;
     }
+    pub fn insert_before(&mut self, parent: u32, child: u32, ref_id: u32) {
+        self.u8(op::INSERT_BEFORE);
+        self.u32(parent);
+        self.u32(child);
+        self.u32(ref_id);
+        self.count += 1;
+    }
     pub fn set_text(&mut self, id: u32, text: &str) {
         self.u8(op::SET_TEXT);
         self.u32(id);

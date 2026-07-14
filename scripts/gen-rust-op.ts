@@ -1,6 +1,6 @@
 // Codegen: emit Rust opcode + event-code constants from the TS source of truth
 // (packages/protocol/src/index.ts). Run with `bun run gen`. Output:
-// src/gen/op.rs, which src/protocol.rs `include!`s.
+// crates/blitz-quick/src/gen/op.rs, which src/protocol.rs `include!`s.
 //
 // Parsing is deliberately naive — the OP and EVENT_CODE objects are plain
 // `Name: 0xNN` / `Name: N` literals. If that shape ever changes, update the
@@ -8,13 +8,14 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = resolve((import.meta as any).dir, "..");
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SRC = readFileSync(
   resolve(ROOT, "packages/protocol/src/index.ts"),
   "utf8",
 );
-const OUT = resolve(ROOT, "src/gen/op.rs");
+const OUT = resolve(ROOT, "crates/blitz-quick/src/gen/op.rs");
 
 interface Entry {
   /** TS name, e.g. CreateElement */
@@ -40,8 +41,7 @@ function parseObject(source: string, objName: string): Entry[] {
   const entries: Entry[] = [];
   // Match `Name: <value>,` (value is 0xNN or decimal, possibly negative).
   const re = /([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(0x[0-9a-fA-F]+|-?\d+)\s*,/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(body)) !== null) {
+  for (const m of body.matchAll(re)) {
     const name = m[1];
     const raw = m[2];
     const value = raw.startsWith("0x") ? parseInt(raw, 16) : parseInt(raw, 10);

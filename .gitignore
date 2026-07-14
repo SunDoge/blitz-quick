@@ -1,9 +1,9 @@
 /target
 node_modules
-# src/gen holds generated artifacts. bundle.js (Vite output) is gitignored,
+# crates/blitz-quick-desktop/src/gen holds generated demo artifacts.
 # but op.rs is a committed codegen product of the TS source of truth.
-src/gen/bundle.js
-src/gen/bundle.css
+crates/blitz-quick-desktop/src/gen/bundle.js
+crates/blitz-quick-desktop/src/gen/bundle.css
 # Screenshot / render artifacts.
 *.png
 

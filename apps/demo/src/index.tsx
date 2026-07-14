@@ -1,18 +1,18 @@
 import "@blitz-quick/core";
 import { type Handle, registerRoot, render } from "@blitz-quick/solid-renderer";
-import { Route, MemoryRouter, useLocation } from "@solidjs/router";
+import { MemoryRouter, Route, useLocation } from "@solidjs/router";
 import {
   Activity,
   Globe,
+  Keyboard,
   LayoutDashboard,
   ScrollText,
   Server,
   Settings,
   Zap,
-  Keyboard,
 } from "lucide-solid";
-import { createSignal, For, type JSX, onMount, createEffect } from "solid-js";
-import { Sidebar } from "./components/Sidebar";
+import { createSignal, For, type JSX, onMount } from "solid-js";
+import { Sidebar, type Tab } from "./components/Sidebar";
 import { ToggleRow } from "./components/Switch";
 
 // Root mount handle (id 1) — Rust hands this in as the #root node.
@@ -78,7 +78,7 @@ function Dashboard() {
       cpus = d.cpus;
       mem = d.memory_gb;
     }
-  } catch (e) {}
+  } catch {}
 
   return (
     <div class="flex-1 flex flex-col gap-8 h-full">
@@ -171,7 +171,7 @@ function InputDemoTab() {
           <input
             type="text"
             value={text()}
-            onInput={(e: any) => setText(e.target.value)}
+            onInput={(e) => setText(e.currentTarget.value)}
             placeholder="Type something here..."
             class="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white outline-none focus:border-pink-500 focus:shadow-[0_0_8px_rgba(236,72,153,0.5)] transition-all"
           />
@@ -322,7 +322,7 @@ function App(props: { children?: JSX.Element }): JSX.Element {
   onMount(() => {
     try {
       setSysData(sysInfo());
-    } catch (e) {
+    } catch {
       setSysData("Rust FFI 'sysInfo' not found.");
     }
   });

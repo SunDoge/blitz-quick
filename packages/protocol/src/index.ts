@@ -1,7 +1,8 @@
 // @blitz-quick/protocol — single source of truth for the binary bridge wire format.
 //
 // OP and EVENT_CODE here are the SOT. Rust constants are generated from them
-// by `bun run gen` (scripts/gen-rust-op.ts → src/gen/op.rs, include!d by
+// by `bun run gen` (scripts/gen-rust-op.ts →
+// crates/blitz-quick/src/gen/op.rs, include!d by
 // src/protocol.rs). A drift-guard test in protocol.rs asserts every opcode
 // decodes, so a stale regen surfaces as a test failure.
 
@@ -127,13 +128,21 @@ export class Writer {
   }
   private str(s: string): void {
     const bytes = utf8Encode(s);
-    this.u16(bytes.length & 0xffff);
+    if (bytes.length > 0xffff) {
+      throw new RangeError(
+        `protocol string is ${bytes.length} bytes; maximum is 65535`,
+      );
+    }
+    this.u16(bytes.length);
     this.ensure(bytes.length);
     this.buf.set(bytes, this.cursor);
     this.cursor += bytes.length;
   }
 
   private emit(op: OpCode): void {
+    if (this.count === 0xffff) {
+      throw new RangeError("protocol frame cannot contain more than 65535 ops");
+    }
     this.u8(op);
     this.count++;
   }
@@ -143,6 +152,9 @@ export class Writer {
     tag: string,
     attrs: [string, string][] | null = null,
   ): void {
+    if (attrs && attrs.length > 0xffff) {
+      throw new RangeError("element cannot contain more than 65535 attributes");
+    }
     this.emit(OP.CreateElement);
     this.u32(id);
     this.str(tag);

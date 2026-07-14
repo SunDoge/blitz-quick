@@ -184,7 +184,7 @@ blitz node → 反查 solidId → 调 `__dispatchEvent(solidId, eventType, paylo
 | `src/jsrt.rs`     | rquickjs Runtime/Context，注入 `__bridge_flush`/`requestAnimationFrame`/`__tick`，加载 `renderer.js`+app |
 | `src/renderer.js` | Solid `createRenderer` 适配器（`include_str!` 嵌入）|
 | `src/app.js`      | demo 反应式应用（`include_str!` 嵌入）              |
-| `src/main.rs`     | 驱动：建文档 → 起 JS → 跑若干帧 → 打印 blitz 树     |
+| `crates/blitz-quick-desktop/src/main.rs` | 桌面驱动：建文档 → 起 JS → 运行窗口或截图 |
 
 ## 9. 原型范围
 

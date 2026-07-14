@@ -11,24 +11,60 @@ use std::rc::Rc;
 use rquickjs::{Context, Function, Runtime, TypedArray, Value};
 type JsResult<T> = rquickjs::Result<T>;
 
-/// Path to the on-disk bundle, relative to the crate root (`CARGO_MANIFEST_DIR`).
-const BUNDLE_JS_PATH: &str = "src/gen/bundle.js";
-
-/// Read the current bundle.js from disk (dev) or include it (release).
-pub fn read_bundle_js() -> String {
-    #[cfg(debug_assertions)]
-    {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(BUNDLE_JS_PATH);
-        std::fs::read_to_string(&path).unwrap_or_else(|_| {
-            eprintln!("[jsrt] {path:?} not found — please run `bun run build`");
-            String::new()
-        })
-    }
-    #[cfg(not(debug_assertions))]
-    {
-        include_str!("gen/bundle.js").to_string()
-    }
-}
+#[cfg(test)]
+pub(crate) const TEST_BUNDLE: &str = r#"
+let nextTimerId = 1;
+const timers = new Map();
+globalThis.TextEncoder = class {
+  encode(value) { return __host_utf8_encode(String(value)); }
+};
+globalThis.setTimeout = function (callback, delay) {
+  const id = nextTimerId++;
+  timers.set(id, { callback, repeat: false });
+  __register_timer(id, delay, false);
+  return id;
+};
+globalThis.setInterval = function (callback, delay) {
+  const id = nextTimerId++;
+  timers.set(id, { callback, repeat: true });
+  __register_timer(id, delay, true);
+  return id;
+};
+globalThis.clearTimeout = globalThis.clearInterval = function (id) {
+  timers.delete(id);
+  __unregister_timer(id);
+};
+globalThis.__triggerTimer = function (id) {
+  const timer = timers.get(id);
+  if (!timer) return;
+  if (!timer.repeat) timers.delete(id);
+  timer.callback();
+};
+let nextFetchId = 1;
+globalThis.fetch = function (url, init) {
+  return new Promise(function (resolve, reject) {
+    __fetch_start(
+      nextFetchId++, String(url), init?.method ?? "GET", "{}", null, resolve, reject
+    );
+  }).then(function (res) {
+    if (res.error) throw new Error(res.error);
+    return {
+      status: res.status,
+      text: function () { return Promise.resolve(res.body); }
+    };
+  });
+};
+let initialFramePending = true;
+globalThis.__tick = function () {
+  if (initialFramePending) {
+    initialFramePending = false;
+    __bridge_flush(new Uint8Array([0, 0, 0, 0, 0, 0]));
+  }
+  return false;
+};
+globalThis.__hasRaf = function () { return false; };
+globalThis.__dispatchEvent = function () {};
+"#;
 
 #[derive(Debug, Clone, Copy)]
 pub enum TimerCmd {
@@ -44,7 +80,6 @@ pub enum TimerCmd {
 
 struct FetchPromise {
     resolve: rquickjs::Persistent<Function<'static>>,
-    reject: rquickjs::Persistent<Function<'static>>,
 }
 
 pub struct JsRuntime {
@@ -183,11 +218,11 @@ impl JsRuntime {
                       headers: String,
                       body: Option<String>,
                       resolve: rquickjs::Persistent<Function<'static>>,
-                      reject: rquickjs::Persistent<Function<'static>>|
+                      _reject: rquickjs::Persistent<Function<'static>>|
                       -> JsResult<()> {
                     fetch_promises
                         .borrow_mut()
-                        .insert(id, FetchPromise { resolve, reject });
+                        .insert(id, FetchPromise { resolve });
                     bridge.start_fetch(id, url, method, headers, body);
                     Ok(())
                 },
@@ -200,8 +235,8 @@ impl JsRuntime {
     /// Evaluate the bundled app. The IIFE registers host glue and runs the
     /// app's initial render (emitting ops into the writer, flushed on first
     /// tick). Call once before ticking. `source` is the bundle text — in dev
-    /// pass `read_bundle_js()` (live disk contents) so reloads see vite's
-    /// regenerated bundle; in release pass `BUNDLE_JS` (the compile-time copy).
+    /// pass the application's current bundle contents. The embedding host owns
+    /// asset loading and hot-reload policy.
     pub fn boot(&mut self, source: &str) -> JsResult<()> {
         if self.booted {
             return Ok(());
@@ -333,12 +368,12 @@ impl JsRuntime {
         })
     }
 
-    pub fn resolve_fetches(&self, completions: Vec<crate::fetch::FetchCompletion>) {
+    pub fn resolve_fetches(&self, completions: Vec<crate::fetch::FetchCompletion>) -> JsResult<()> {
         if completions.is_empty() {
-            return;
+            return Ok(());
         }
         let ctx = self.ctx.clone();
-        ctx.with(|ctx| {
+        ctx.with(|ctx| -> JsResult<()> {
             for c in completions {
                 let pending = self.fetch_promises.borrow_mut().remove(&c.id);
                 let Some(pending) = pending else {
@@ -350,24 +385,25 @@ impl JsRuntime {
                         url: _,
                         body,
                     } => {
-                        let resolve = pending.resolve.restore(&ctx).unwrap();
-                        let res_obj = rquickjs::Object::new(ctx.clone()).unwrap();
-                        res_obj.set("status", status).unwrap();
+                        let resolve = pending.resolve.restore(&ctx)?;
+                        let res_obj = rquickjs::Object::new(ctx.clone())?;
+                        res_obj.set("status", status)?;
                         if let Ok(text) = String::from_utf8(body) {
-                            res_obj.set("body", text).unwrap();
+                            res_obj.set("body", text)?;
                         }
-                        resolve.call::<_, ()>((res_obj,)).unwrap();
+                        resolve.call::<_, ()>((res_obj,))?;
                     }
                     crate::fetch::FetchOutcome::Err { message } => {
-                        let resolve = pending.resolve.restore(&ctx).unwrap();
-                        let res_obj = rquickjs::Object::new(ctx.clone()).unwrap();
-                        res_obj.set("error", message).unwrap();
-                        resolve.call::<_, ()>((res_obj,)).unwrap();
+                        let resolve = pending.resolve.restore(&ctx)?;
+                        let res_obj = rquickjs::Object::new(ctx.clone())?;
+                        res_obj.set("error", message)?;
+                        resolve.call::<_, ()>((res_obj,))?;
                     }
                 }
             }
             while ctx.execute_pending_job() {}
-        });
+            Ok(())
+        })
     }
 
     /// Access the underlying context (for advanced embedding).
@@ -395,47 +431,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn boots_and_ticks() {
+    fn boots_and_emits_initial_frame() {
         let mut rt = JsRuntime::new().expect("runtime");
         let fetch = std::sync::Arc::new(crate::fetch::FetchBridge::new());
         rt.register_fetch(fetch.clone())
             .expect("failed to register fetch host fn");
-        rt.boot(BUNDLE_JS).expect("boot");
+        rt.boot(TEST_BUNDLE).expect("boot");
         // First tick flushes the app's initial render.
-        let (frame0, has_raf0) = rt.tick().expect("tick0");
+        let (frame0, _) = rt.tick().expect("tick0");
         assert!(!frame0.is_empty(), "initial render should emit ops");
-        // The FPS component queues a persistent rAF loop.
-        assert!(has_raf0, "fps rAF loop should be queued");
-        // The rAF callback reschedules itself each tick, so has_raf stays true.
-        // FPS samples only every 250ms (real wall-clock), so in a fast unit
-        // test most ticks emit nothing — but the loop never drains.
-        for _ in 0..40 {
-            let (_, has_raf) = rt.tick().expect("tick");
-            assert!(has_raf, "fps loop keeps rAF queued");
-        }
-        // After a real delay, an fps sample should emit a SetText op.
-        std::thread::sleep(std::time::Duration::from_millis(300));
-        let (frame, has_raf) = rt.tick().expect("tick");
-        assert!(!frame.is_empty(), "fps update should emit after 250ms");
-        assert!(has_raf, "fps loop still queued");
     }
 
     #[test]
     fn fetch_resolves_in_js() {
         use crate::fetch::{FetchBridge, FetchCompletion};
         use std::sync::Arc;
-        use std::task::{Wake, Waker};
-
-        struct NoopWake;
-        impl Wake for NoopWake {
-            fn wake(self: Arc<Self>) {}
-        }
 
         let mut rt = JsRuntime::new().expect("runtime");
         let bridge = Arc::new(FetchBridge::new());
-        bridge.set_waker(&Waker::from(Arc::new(NoopWake)));
+        bridge.set_waker(std::task::Waker::noop());
         rt.register_fetch(bridge.clone()).expect("register fetch");
-        rt.boot(BUNDLE_JS).expect("boot");
+        rt.boot(TEST_BUNDLE).expect("boot");
 
         // Kick off a fetch from JS and stash the resolved text in a global.
         rt.context().with(|ctx| {
@@ -457,7 +473,8 @@ mod tests {
         for _ in 0..200 {
             let completions: Vec<FetchCompletion> = bridge.drain();
             if !completions.is_empty() {
-                rt.resolve_fetches(completions);
+                rt.resolve_fetches(completions)
+                    .expect("resolve fetch completion");
             }
             let (text, err) = rt.context().with(|ctx| {
                 let t: Option<String> = ctx.globals().get("__fetched").ok().flatten();

@@ -25,8 +25,8 @@
 
 use std::sync::{Arc, Mutex};
 
-use blitz::net::Provider;
-use blitz::traits::net::{
+use blitz_net::Provider;
+use blitz_traits::net::{
     Body, Bytes, HeaderMap, Method, NetWaker, Request, Url,
     http::{HeaderName, HeaderValue},
 };
@@ -62,15 +62,14 @@ pub struct FetchBridge {
 }
 
 impl FetchBridge {
-    pub fn new() -> Self {
+    pub fn try_new() -> std::io::Result<Self> {
         // Multi-thread runtime: the provider spawns one task per request, and
         // we want them to actually run in parallel rather than queue on a
         // single thread.
         let rt = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
             .enable_all()
-            .build()
-            .expect("failed to build tokio runtime for fetch");
+            .build()?;
 
         let completions = Arc::new(Mutex::new(Vec::<FetchCompletion>::new()));
         let waker = Arc::new(Mutex::new(None::<std::task::Waker>));
@@ -88,12 +87,16 @@ impl FetchBridge {
         };
         let provider = Arc::new(Provider::new(Some(net_waker)));
 
-        Self {
+        Ok(Self {
             rt: Arc::new(rt),
             provider,
             completions,
             waker,
-        }
+        })
+    }
+
+    pub fn new() -> Self {
+        Self::try_new().expect("failed to build tokio runtime for fetch")
     }
 
     pub fn rt(&self) -> Arc<tokio::runtime::Runtime> {
@@ -154,7 +157,7 @@ impl FetchBridge {
                             body: bytes.to_vec(),
                         },
                     },
-                    Err(blitz::net::ProviderError::HttpStatus { status, url }) => FetchCompletion {
+                    Err(blitz_net::ProviderError::HttpStatus { status, url }) => FetchCompletion {
                         id,
                         outcome: FetchOutcome::Ok {
                             status: status.as_u16(),
@@ -243,15 +246,6 @@ impl Default for FetchBridge {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
-    use std::task::{Wake, Waker};
-
-    /// A waker that does nothing — tests poll `drain()` manually instead of
-    /// driving an event loop.
-    struct NoopWake;
-    impl Wake for NoopWake {
-        fn wake(self: Arc<Self>) {}
-    }
 
     /// Fetch a `data:` URL end-to-end through blitz-net's Provider and the
     /// completion queue (no JS, no event loop). Exercises the tokio spawn path,
@@ -259,7 +253,7 @@ mod tests {
     #[test]
     fn fetch_data_url() {
         let bridge = FetchBridge::new();
-        bridge.set_waker(&Waker::from(Arc::new(NoopWake)));
+        bridge.set_waker(std::task::Waker::noop());
 
         // base64 of "hello"
         bridge.start_fetch(
@@ -294,7 +288,7 @@ mod tests {
     #[test]
     fn fetch_bad_url_rejects() {
         let bridge = FetchBridge::new();
-        bridge.set_waker(&Waker::from(Arc::new(NoopWake)));
+        bridge.set_waker(std::task::Waker::noop());
 
         bridge.start_fetch(2, "not a url".into(), "GET".into(), "{}".into(), None);
 

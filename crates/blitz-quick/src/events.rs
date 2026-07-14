@@ -1,5 +1,5 @@
 use crate::protocol::{event, event_data};
-use blitz::traits::events::{
+use blitz_traits::events::{
     BlitzKeyEvent, BlitzPointerEvent, BlitzWheelDelta, BlitzWheelEvent, UiEvent,
 };
 use serde::Serialize;
@@ -55,7 +55,7 @@ pub fn translate_ui_event(event: &UiEvent) -> Option<TranslatedEvent> {
             payload = key_payload(e);
         }
         UiEvent::Ime(e) => {
-            if let blitz::traits::events::BlitzImeEvent::Commit(text) = e {
+            if let blitz_traits::events::BlitzImeEvent::Commit(text) = e {
                 code = event::IMECOMMIT;
                 payload = serde_json::to_string(&serde_json::json!({ "data": text })).unwrap();
             } else {
