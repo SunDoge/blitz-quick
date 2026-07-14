@@ -350,8 +350,8 @@ export function dispatchEvent(
 
   let stopped = false;
   const ev = {
-    target: solidId,
-    currentTarget: solidId,
+    target: { id: solidId, ...data },
+    currentTarget: { id: solidId, ...data },
     type: eventName(eventCode),
     ...data,
     stopPropagation() {

@@ -507,6 +507,7 @@ impl BlitzDocument for Applier {
         for dom_event in emitted_events {
             if let DomEventData::Input(e) = dom_event.data {
                 let sid = self.blitz_to_solid.get(&dom_event.target).copied().unwrap_or(Self::ROOT_SOLID_ID);
+                tracing::info!("Received Input event: target={} sid={} value={}", dom_event.target, sid, e.value);
                 let payload = serde_json::to_string(&serde_json::json!({
                     "value": e.value,
                     "data": e.value,
