@@ -501,6 +501,16 @@ impl BlitzDocument for Applier {
                 Collector(&mut emitted_events),
             );
             driver.handle_ui_event(event.clone());
+
+            // WORKAROUND: blitz-dom's EventDriver has a bug where it forgets to call `process_queue()` 
+            // after handling `AppleStandardKeybinding` (e.g. Backspace on macOS).
+            // This leaves the generated `Input` event stuck in its internal queue.
+            // We force it to flush by sending a harmless dummy DomEvent directly, which calls process_queue.
+            let dummy_event = blitz::traits::events::DomEvent::new(
+                0, 
+                blitz::traits::events::DomEventData::AppleStandardKeybinding("blitz-quick-dummy".into())
+            );
+            driver.handle_dom_event(dummy_event);
         }
 
         // Forward DOM input events to JS
