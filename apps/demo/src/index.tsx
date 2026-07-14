@@ -168,7 +168,7 @@ function InputDemoTab() {
       <div class="flex flex-col items-center gap-6 w-full max-w-lg mt-12">
         <div class="w-full">
           <div class="text-slate-400 mb-2 font-semibold">
-            Native Widget (&lt;input&gt;):
+            Native Widget:
           </div>
           <input
             type="text"
@@ -332,7 +332,6 @@ function App(props: { children?: JSX.Element }): JSX.Element {
     <div
       class="flex w-full h-full bg-[#0B0F19] text-slate-100 font-sans select-none overflow-hidden"
       style="width: 100%; height: 100vh;"
-      onPointerDown={clearActiveInput}
     >
       <Sidebar tabs={TABS} />
       <div class="flex-1 flex flex-col relative bg-gradient-to-br from-[#0B0F19] to-[#111827] overflow-hidden">

@@ -9,7 +9,7 @@ pub fn start_bundle_watcher(
     std::thread::spawn(move || {
         let (notify_tx, notify_rx) = mpsc::channel();
         let mut watcher = notify::recommended_watcher(notify_tx).unwrap();
-        let gen_dir = dir.join("src/gen");
+        let gen_dir = dir; // `dir` is already `src/gen`
 
         let _ = watcher.watch(&gen_dir, RecursiveMode::Recursive);
         tracing::info!("Bundle watcher started on {:?}", gen_dir);
