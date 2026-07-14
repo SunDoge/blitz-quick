@@ -479,12 +479,42 @@ impl BlitzDocument for Applier {
     /// along the Solid Handle tree. After dispatch we flush the frame so the
     /// next redraw reflects any signal updates.
     fn handle_ui_event(&mut self, event: UiEvent) {
-        // Let blitz-dom run its native default actions first (scroll-container
-        // wheel scrolling, scrollbar thumb drag, focus, etc.). The JS side
-        // only gets the event for `onWheel`/`onPointer*` SolidJS handlers —
-        // without this, scroll containers never scroll because the override
-        // below bypasses EventDriver entirely.
-        self.doc.handle_ui_event(event.clone());
+        use blitz::traits::events::{DomEvent, DomEventData, EventState};
+        
+        let mut emitted_events = Vec::new();
+        {
+            struct Collector<'a>(&'a mut Vec<DomEvent>);
+            impl<'a> blitz_dom::EventHandler for Collector<'a> {
+                fn handle_event(
+                    &mut self,
+                    _chain: &[usize],
+                    event: &mut DomEvent,
+                    _doc: &mut dyn blitz_dom::Document,
+                    _event_state: &mut EventState,
+                ) {
+                    self.0.push(event.clone());
+                }
+            }
+            
+            let mut driver = blitz_dom::EventDriver::new(
+                &mut self.doc, 
+                Collector(&mut emitted_events),
+            );
+            driver.handle_ui_event(event.clone());
+        }
+
+        // Forward DOM input events to JS
+        for dom_event in emitted_events {
+            if let DomEventData::Input(e) = dom_event.data {
+                let sid = self.blitz_to_solid.get(&dom_event.target).copied().unwrap_or(Self::ROOT_SOLID_ID);
+                let payload = serde_json::to_string(&serde_json::json!({
+                    "value": e.value,
+                    "data": e.value,
+                })).unwrap();
+                let _ = self.js.dispatch_event(sid, crate::protocol::event::INPUT, &payload);
+                self.tick_once();
+            }
+        }
 
         let (code, num_data, payload, hit_xy) = match crate::events::translate_ui_event(&event) {
             Some(res) => res,
