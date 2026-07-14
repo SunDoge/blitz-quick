@@ -1,0 +1,12 @@
+diff --git a/packages/blitz-dom/src/events/driver.rs b/packages/blitz-dom/src/events/driver.rs
+index 4332b87..a583e90 100644
+--- a/packages/blitz-dom/src/events/driver.rs
++++ b/packages/blitz-dom/src/events/driver.rs
+@@ -252,6 +252,7 @@ impl<'doc, Handler: EventHandler> EventDriver<'doc, Handler> {
+                 let mut dom_event =
+                     DomEvent::new(target, DomEventData::AppleStandardKeybinding(data));
+                 self.run_default_action(&mut dom_event);
++                self.process_queue();
+             }
+         };
+ 
