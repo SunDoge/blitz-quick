@@ -1,6 +1,6 @@
 //! Apply decoded protocol ops to a blitz-dom document.
 //!
-//! The applier owns the `HtmlDocument` and a mapping from Solid-side virtual
+//! The applier owns the `BaseDocument` and a mapping from Solid-side virtual
 //! node ids (`u32`) to blitz slab node ids (`usize`). Each frame is decoded by
 //! `protocol::decode_frame` and applied in order.
 
@@ -8,9 +8,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::mpsc;
 
 use blitz_dom::{
-    BaseDocument, DEFAULT_CSS, DocGuard, DocGuardMut, Document as BlitzDocument, DocumentConfig,
+    Attribute, BaseDocument, DEFAULT_CSS, DocGuard, DocGuardMut, Document as BlitzDocument,
+    DocumentConfig, LocalName, QualName, ns,
 };
-use blitz_html::HtmlDocument;
 use blitz_traits::events::UiEvent;
 use blitz_traits::shell::{ColorScheme, Viewport};
 use snafu::{Snafu, ensure};
@@ -144,10 +144,10 @@ pub(crate) struct GenerationNode {
 
 /// An `Applier` is a blitz `Document` that drives a Solid app on QuickJS.
 /// On each `poll()` it runs one rAF tick (JS → binary frame → apply ops to the
-/// underlying `HtmlDocument`) and returns true while rAF callbacks remain
+/// underlying `BaseDocument`) and returns true while rAF callbacks remain
 /// queued, so blitz-shell keeps redrawing at vsync.
 pub struct Applier {
-    doc: HtmlDocument,
+    doc: BaseDocument,
     /// The QuickJS runtime running the bundled Solid app. None only briefly
     /// during construction (before boot).
     js: JsRuntime,
@@ -211,14 +211,13 @@ struct ActiveTimer {
 }
 
 impl Applier {
-    /// Build a document by parsing a minimal HTML shell with #root, then
-    /// loading DEFAULT_CSS as the UA stylesheet. The app's own stylesheet
+    /// Build a minimal HTML document with #root, then load DEFAULT_CSS as the
+    /// UA stylesheet. The app's own stylesheet
     /// (UnoCSS) is NOT loaded here — the JS side renders it into a <style>
     /// node (blitz-dom parses <style> textContent as an author stylesheet on
     /// flush), so CSS rides along the normal DOM ops and is hot-reloadable
-    /// from JS without touching Rust. We use the real HTML parser (not
-    /// hand-built nodes) so the document has the structure stylo's layout
-    /// expects (html>head+body), which is required for non-zero layout.
+    /// from JS without touching Rust. The explicit html>head+body structure is
+    /// required for Stylo to produce non-zero layout.
     pub fn new(
         config: AppConfig,
         on_runtime_init: impl Fn(&JsRuntime) -> rquickjs::Result<()> + 'static,
@@ -234,16 +233,32 @@ impl Applier {
             )),
             ..DocumentConfig::default()
         };
-        let html_shell = format!(
-            r#"<!DOCTYPE html><html><head><meta charset="utf-8"><style>{}</style></head><body><div id="root"></div></body></html>"#,
-            config.stylesheet
-        );
-        let doc = HtmlDocument::from_html(&html_shell, document_config);
-        let root_blitz_id = doc
-            .query_selector("#root")
-            .ok()
-            .flatten()
-            .unwrap_or_else(|| doc.root_node().id);
+        let mut doc = BaseDocument::new(document_config);
+        let document_id = doc.root_node().id;
+        let root_blitz_id = {
+            let mut mutr = doc.mutate();
+            let element_name = |name: &str| QualName::new(None, ns!(html), LocalName::from(name));
+
+            let html_id = mutr.create_element(element_name("html"), vec![]);
+            let head_id = mutr.create_element(element_name("head"), vec![]);
+            let style_id = mutr.create_element(element_name("style"), vec![]);
+            let style_text_id = mutr.create_text_node(&config.stylesheet);
+            let body_id = mutr.create_element(element_name("body"), vec![]);
+            let root_id = mutr.create_element(
+                element_name("div"),
+                vec![Attribute {
+                    name: element_name("id"),
+                    value: "root".to_string(),
+                }],
+            );
+
+            mutr.append_children(style_id, &[style_text_id]);
+            mutr.append_children(head_id, &[style_id]);
+            mutr.append_children(body_id, &[root_id]);
+            mutr.append_children(html_id, &[head_id, body_id]);
+            mutr.append_children(document_id, &[html_id]);
+            root_id
+        };
         let js = if let Some(vite) = &config.vite {
             JsRuntime::new_vite(&vite.server_url)?
         } else {

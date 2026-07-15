@@ -1,5 +1,24 @@
 import { expect, test } from "bun:test";
-import { createElement, dispatchEvent, EVENT_CODE, setProp } from "./index";
+import {
+  createElement,
+  dispatchEvent,
+  EVENT_CODE,
+  mount,
+  runSweep,
+  setProp,
+  writer,
+} from "./index";
+
+test("mount manages the host root lifecycle", () => {
+  const dispose = mount(() => createElement("main"));
+  writer.flush();
+
+  expect(dispose).toBeInstanceOf(Function);
+
+  dispose();
+  runSweep();
+  writer.flush();
+});
 
 test("input listeners receive a DOM-like currentTarget", () => {
   const input = createElement("input");

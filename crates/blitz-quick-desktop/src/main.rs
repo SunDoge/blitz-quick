@@ -2,11 +2,8 @@
 
 use std::path::{Path, PathBuf};
 
-use anyrender_vello::VelloWindowRenderer as WindowRenderer;
-use blitz::shell::{
-    BlitzApplication, BlitzShellProxy, EventLoop, WindowConfig, create_default_event_loop,
-};
 use blitz_quick::{AppConfig, Applier};
+use blitz_quick_desktop::DesktopApp;
 use clap::Parser;
 
 use crate::cli::Cli;
@@ -109,29 +106,25 @@ fn app_config(cli: &Cli, assets: &Assets) -> AppConfig {
 }
 
 fn run_window(cli: &Cli, assets: Assets) -> Result<(), AppError> {
-    let mut applier = Applier::new(app_config(cli, &assets), |js| {
-        js.context().with(|ctx| {
-            let function = rquickjs::Function::new(ctx.clone(), |message: String| {
-                tracing::info!(%message, "JS FFI message");
-                format!("Rust received: {message}")
-            })?;
-            ctx.globals().set("myCustomFfi", function)
+    let mut runtime = DesktopApp::new(app_config(cli, &assets))
+        .extension(|js| {
+            js.context().with(|ctx| {
+                let function = rquickjs::Function::new(ctx.clone(), |message: String| {
+                    tracing::info!(%message, "JS FFI message");
+                    format!("Rust received: {message}")
+                })?;
+                ctx.globals().set("myCustomFfi", function)
+            })
         })
-    })?;
+        .build()?;
 
     if let Some(server_url) = &cli.vite_url {
-        let reload = applier.reload_handle();
+        let reload = runtime.applier_mut().reload_handle();
         let _vite_thread = vite::start_hmr_client(server_url, reload)?;
+        runtime.run()?;
+    } else {
+        runtime.run()?;
     }
-
-    let event_loop: EventLoop = create_default_event_loop();
-    let (proxy, receiver) = BlitzShellProxy::new(event_loop.create_proxy());
-    let mut application: BlitzApplication<WindowRenderer> = BlitzApplication::new(proxy, receiver);
-    application.add_window(WindowConfig::new(
-        Box::new(applier) as _,
-        WindowRenderer::new(),
-    ));
-    event_loop.run_app(application)?;
     Ok(())
 }
 
@@ -161,7 +154,7 @@ fn run_screenshot(cli: &Cli, assets: &Assets, output: &Path) -> Result<(), AppEr
     Ok(())
 }
 
-fn render_dom_to_rgba(dom: &mut blitz::dom::BaseDocument, scale: f64, w: u32, h: u32) -> Vec<u8> {
+fn render_dom_to_rgba(dom: &mut blitz_dom::BaseDocument, scale: f64, w: u32, h: u32) -> Vec<u8> {
     use anyrender::ImageRenderer as _;
     use anyrender::PaintScene as _;
     use anyrender_vello_cpu::VelloCpuImageRenderer;
@@ -179,7 +172,7 @@ fn render_dom_to_rgba(dom: &mut blitz::dom::BaseDocument, scale: f64, w: u32, h:
                 None,
                 &Rect::new(0.0, 0.0, w as f64, h as f64),
             );
-            blitz::paint::paint_scene(scene, dom, scale, w, h, 0, 0);
+            blitz_paint::paint_scene(scene, dom, scale, w, h, 0, 0);
         },
         &mut buffer,
     );

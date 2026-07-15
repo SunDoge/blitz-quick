@@ -7,16 +7,15 @@ edition = "2024"
 # Enable system_fonts on blitz-dom directly: the `blitz` crate sets
 # default-features = false on blitz-dom and has no passthrough, so without this
 # the document only has the bullet font and text renders with no glyphs.
-blitz-dom = {
-  git = "https://github.com/DioxusLabs/blitz",
-  rev = "f1811c8",
+blitz-dom = { workspace = true }
+blitz-net = { workspace = true }
+blitz-traits = { workspace = true }
+reqwest = {
+  version = "0.13",
+  default-features = false,
+  features = ["blocking"]
 }
-blitz-html = { git = "https://github.com/DioxusLabs/blitz", rev = "f1811c8" }
-blitz-net = { git = "https://github.com/DioxusLabs/blitz", rev = "f1811c8" }
-blitz-traits = { git = "https://github.com/DioxusLabs/blitz", rev = "f1811c8" }
 rquickjs = { version = "0.12.1", features = ["full-async"] }
-reqwest = { version = "0.13", default-features = false, features = ["blocking"] }
-url = "2.5"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 snafu = "0.9.1"
@@ -25,3 +24,4 @@ snafu = "0.9.1"
 # fn enters this runtime's guard before calling Provider::fetch_with_callback.
 tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
 tracing = "0.1"
+url = "2.5"

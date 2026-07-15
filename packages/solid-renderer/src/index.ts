@@ -305,6 +305,21 @@ export function registerRoot(root: Handle): void {
   }
 }
 
+/** Mount a Solid application into the host-provided root node. */
+export function mount(code: () => JSX.Element): () => void {
+  const root: Handle = {
+    id: 1,
+    tag: "#root",
+    parent: null,
+    firstChild: null,
+    lastChild: null,
+    prev: null,
+    next: null,
+  };
+  registerRoot(root);
+  return render(code, root);
+}
+
 /**
  * Dispatch a DOM event from the host. Walks the Solid Handle tree upward from
  * the target (bubbling), firing any matching listener. The handler receives a

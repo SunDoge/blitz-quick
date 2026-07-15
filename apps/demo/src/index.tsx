@@ -1,7 +1,7 @@
 import "@blitz-quick/core";
 import "./reset.css";
 import "virtual:uno.css";
-import { type Handle, registerRoot, render } from "@blitz-quick/solid-renderer";
+import { mount } from "@blitz-quick/solid-renderer";
 import { MemoryRouter, Route, useLocation } from "@solidjs/router";
 import Globe from "lucide-solid/icons/globe";
 import Keyboard from "lucide-solid/icons/keyboard";
@@ -15,17 +15,6 @@ import { InputDemo } from "./pages/InputDemo";
 import { Logs } from "./pages/Logs";
 import { Network } from "./pages/Network";
 import { Settings as SettingsPage } from "./pages/Settings";
-
-// Root mount handle (id 1) — Rust hands this in as the #root node.
-const ROOT: Handle = {
-  id: 1,
-  tag: "#root",
-  parent: null,
-  firstChild: null,
-  lastChild: null,
-  prev: null,
-  next: null,
-};
 
 const [sysData, setSysData] = createSignal("Loading OS Data...");
 
@@ -89,14 +78,10 @@ function App(props: { children?: JSX.Element }): JSX.Element {
   );
 }
 
-registerRoot(ROOT);
-render(
-  () => (
-    <MemoryRouter root={App}>
-      <For each={TABS}>
-        {(tab) => <Route path={tab.path} component={tab.component} />}
-      </For>
-    </MemoryRouter>
-  ),
-  ROOT,
-);
+mount(() => (
+  <MemoryRouter root={App}>
+    <For each={TABS}>
+      {(tab) => <Route path={tab.path} component={tab.component} />}
+    </For>
+  </MemoryRouter>
+));

@@ -7,26 +7,28 @@ edition = "2024"
 anyrender = "0.11"
 anyrender_vello = "0.12"
 anyrender_vello_cpu = "0.14"
-blitz = {
-  git = "https://github.com/DioxusLabs/blitz",
-  rev = "f1811c8",
-  features = ["scrollbars"]
-}
-blitz-paint = {
-  git = "https://github.com/DioxusLabs/blitz",
-  rev = "f1811c8",
-  features = ["scrollbars"]
-}
+blitz-dom = { workspace = true }
+blitz-paint = { workspace = true, features = ["scrollbars"] }
 blitz-quick = { path = "../blitz-quick" }
+blitz-shell = { workspace = true }
 clap = { version = "4.5", features = ["derive"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
 peniko = "0.6"
-rquickjs = { version = "0.12.1", features = ["full-async"] }
 reqwest = { version = "0.13", default-features = false }
+rquickjs = { version = "0.12.1", features = ["full-async"] }
+rust-embed = "8.12.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1", features = ["rt-multi-thread"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
-tungstenite = { version = "0.28", default-features = false, features = ["handshake"] }
+tungstenite = {
+  version = "0.28",
+  default-features = false,
+  features = ["handshake"]
+}
 url = "2.5"
+
+
+[profile.release]
+strip = true
