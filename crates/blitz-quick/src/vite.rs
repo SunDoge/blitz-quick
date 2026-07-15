@@ -5,71 +5,7 @@ use rquickjs::loader::{ImportAttributes, Loader, Resolver};
 use rquickjs::{Ctx, Error, Module, Result};
 use url::Url;
 
-pub(crate) const HMR_CLIENT: &str = r#"
-const records = globalThis.__blitz_hmr_records ??= new Map();
-
-export function createHotContext(ownerPath) {
-  let record = records.get(ownerPath);
-  if (!record) {
-    record = { data: {}, current: null, next: null, loading: false };
-    records.set(ownerPath, record);
-  }
-
-  const context = {
-    data: record.data,
-    accepted: [],
-    disposed: [],
-    invalidated: false,
-    accept(callback) {
-      if (typeof callback === "function") this.accepted.push(callback);
-    },
-    dispose(callback) {
-      this.disposed.push(callback);
-    },
-    decline() {
-      this.invalidated = true;
-    },
-    invalidate() {
-      this.invalidated = true;
-    },
-    on() {},
-    send() {},
-    prune() {},
-  };
-
-  if (record.loading) record.next = context;
-  else record.current = context;
-  return context;
-}
-
-// Vite-generated CSS modules import these browser hooks. Blitz applies the
-// corresponding raw CSS through the native HMR channel instead.
-export function updateStyle() {}
-export function removeStyle() {}
-
-globalThis.__blitz_apply_hmr = async function (path, acceptedPath, timestamp) {
-  const record = records.get(path);
-  if (!record?.current) return false;
-
-  const previous = record.current;
-  for (const dispose of previous.disposed) dispose(record.data);
-  record.loading = true;
-  record.next = null;
-
-  try {
-    const separator = acceptedPath.includes("?") ? "&" : "?";
-    const module = await import(`${acceptedPath}${separator}t=${timestamp}`);
-    const next = record.next;
-    if (!next || next.invalidated) return false;
-    record.current = next;
-    for (const accept of previous.accepted) accept(module);
-    return !previous.invalidated;
-  } finally {
-    record.loading = false;
-    record.next = null;
-  }
-};
-"#;
+pub(crate) const HMR_CLIENT: &str = include_str!("gen/vite-client.js");
 
 pub(crate) struct ViteResolver {
     origin: Url,
@@ -191,6 +127,18 @@ impl Loader for ViteLoader {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn generated_hmr_client_is_a_valid_quickjs_module() {
+        let runtime = rquickjs::AsyncRuntime::new().unwrap();
+        let context =
+            futures_lite::future::block_on(rquickjs::AsyncContext::full(&runtime)).unwrap();
+
+        futures_lite::future::block_on(context.with(|ctx| {
+            Module::declare(ctx, "/@vite/client", HMR_CLIENT)
+                .expect("generated HMR client should compile");
+        }));
+    }
 
     #[test]
     fn resolves_vite_module_urls() {

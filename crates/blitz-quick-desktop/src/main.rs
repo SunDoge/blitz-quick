@@ -108,7 +108,7 @@ fn app_config(cli: &Cli, assets: &Assets) -> AppConfig {
 fn run_window(cli: &Cli, assets: Assets) -> Result<(), AppError> {
     let mut runtime = DesktopApp::new(app_config(cli, &assets))
         .extension(|js| {
-            js.context().with(|ctx| {
+            js.with(|ctx| {
                 let function = rquickjs::Function::new(ctx.clone(), |message: String| {
                     tracing::info!(%message, "JS FFI message");
                     format!("Rust received: {message}")

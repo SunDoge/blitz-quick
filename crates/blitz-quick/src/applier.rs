@@ -443,18 +443,26 @@ impl BlitzDocument for Applier {
         self.doc.inner_mut()
     }
 
-    fn poll(&mut self, _task_context: Option<std::task::Context<'_>>) -> bool {
+    fn poll(&mut self, mut task_context: Option<std::task::Context<'_>>) -> bool {
         let mut needs_redraw = false;
         // Enable IME if the shell provider has been attached.
         self.doc.inner().shell_provider.set_ime_enabled(true);
 
         // Store waker to schedule event loop wakeups for timers.
-        if let Some(ctx) = _task_context {
+        if let Some(ctx) = task_context.as_ref() {
             self.waker = Some(ctx.waker().clone());
             if let Ok(mut reload_waker) = self.reload_waker.lock() {
                 *reload_waker = Some(ctx.waker().clone());
             }
             self.fetch.set_waker(ctx.waker());
+        }
+
+        if let Some(ctx) = task_context.as_mut() {
+            match self.js.poll_pending_jobs(ctx) {
+                Ok(true) => needs_redraw = true,
+                Ok(false) => {}
+                Err(error) => tracing::error!(?error, "failed to poll QuickJS jobs"),
+            }
         }
         let now = std::time::Instant::now();
         if self
@@ -718,7 +726,7 @@ mod tests {
     use super::*;
 
     fn test_applier() -> Applier {
-        Applier::new(AppConfig::new(crate::jsrt::TEST_BUNDLE), |_| Ok(())).expect("create applier")
+        Applier::new(AppConfig::new(crate::jsrt::TEST_RUNTIME), |_| Ok(())).expect("create applier")
     }
 
     #[test]
@@ -791,7 +799,7 @@ mod tests {
         let mut applier = test_applier();
 
         // Verify that TextEncoder is correctly polyfilled and uses the Rust host encoder
-        applier.js.context().with(|ctx| {
+        applier.js.with(|ctx| {
             let res: String = ctx
                 .eval("new TextEncoder().encode('hello').join(',')")
                 .unwrap();
@@ -799,7 +807,7 @@ mod tests {
         });
 
         // Register a timeout of 50ms and an interval of 20ms
-        applier.js.context().with(|ctx| {
+        applier.js.with(|ctx| {
             ctx.eval::<(), _>(
                 r#"
                 globalThis.triggerCount = 0;
@@ -820,7 +828,7 @@ mod tests {
 
         // Initially no timers have expired
         applier.poll(None);
-        applier.js.context().with(|ctx| {
+        applier.js.with(|ctx| {
             let tc: i32 = ctx.globals().get("triggerCount").unwrap();
             let ic: i32 = ctx.globals().get("testIntervalCount").unwrap();
             assert_eq!(tc, 0);
@@ -830,7 +838,7 @@ mod tests {
         // Wait 30ms, interval should fire once, timeout should not fire
         std::thread::sleep(std::time::Duration::from_millis(30));
         applier.poll(None);
-        applier.js.context().with(|ctx| {
+        applier.js.with(|ctx| {
             let tc: i32 = ctx.globals().get("triggerCount").unwrap();
             let ic: i32 = ctx.globals().get("testIntervalCount").unwrap();
             assert_eq!(tc, 0);
@@ -840,7 +848,7 @@ mod tests {
         // Wait another 30ms (total 60ms), timeout should fire once, interval should fire again
         std::thread::sleep(std::time::Duration::from_millis(30));
         applier.poll(None);
-        applier.js.context().with(|ctx| {
+        applier.js.with(|ctx| {
             let tc: i32 = ctx.globals().get("triggerCount").unwrap();
             let ic: i32 = ctx.globals().get("testIntervalCount").unwrap();
             assert_eq!(tc, 1);
@@ -848,7 +856,7 @@ mod tests {
         });
 
         // Clear the interval
-        applier.js.context().with(|ctx| {
+        applier.js.with(|ctx| {
             ctx.eval::<(), _>(
                 r#"
                 clearInterval(testIntervalId);
@@ -860,7 +868,7 @@ mod tests {
         // Wait 30ms, interval should not increment anymore
         std::thread::sleep(std::time::Duration::from_millis(30));
         applier.poll(None);
-        applier.js.context().with(|ctx| {
+        applier.js.with(|ctx| {
             let ic: i32 = ctx.globals().get("testIntervalCount").unwrap();
             assert_eq!(ic, 2);
         });
@@ -877,7 +885,7 @@ mod tests {
         }
 
         let mut applier = test_applier();
-        applier.js.context().with(|ctx| {
+        applier.js.with(|ctx| {
             ctx.eval::<(), _>("setTimeout(() => {}, 100)")
                 .expect("register timeout");
         });

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import type { JSX } from "solid-js";
 import {
   createElement,
   dispatchEvent,
@@ -10,7 +11,7 @@ import {
 } from "./index";
 
 test("mount manages the host root lifecycle", () => {
-  const dispose = mount(() => createElement("main"));
+  const dispose = mount(() => createElement("main") as unknown as JSX.Element);
   writer.flush();
 
   expect(dispose).toBeInstanceOf(Function);

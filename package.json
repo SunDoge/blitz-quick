@@ -5,8 +5,8 @@
     "format": "biome format --write .",
     "check": "bun x tsc --noEmit",
     "test:hmr": "bun --conditions=development --conditions=browser test packages/solid-renderer/src/hmr.test.ts packages/solid-renderer/src/events.test.ts apps/demo/src/hmr-transform.test.ts",
-    "gen": "bun run scripts/gen-rust-op.ts",
-    "build": "bun run scripts/gen-rust-op.ts && bun run --filter demo build",
+    "gen": "bun run scripts/gen-rust-op.ts && bun run scripts/gen-vite-runtime.ts && bun run scripts/gen-test-runtime.ts",
+    "build": "bun run gen && bun run --filter demo build",
     "dev": "bun run --filter demo dev"
   },
   "workspaces": [

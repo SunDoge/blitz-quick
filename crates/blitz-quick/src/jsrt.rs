@@ -6,65 +6,15 @@
 //! returns the flushed binary frame bytes.
 
 use std::cell::RefCell;
+use std::future::Future;
 use std::rc::Rc;
+use std::task::{Context as TaskContext, Poll};
 
-use rquickjs::{Context, Function, Module, Runtime, TypedArray, Value};
+use rquickjs::{AsyncContext, AsyncRuntime, Ctx, Function, Module, TypedArray, Value};
 type JsResult<T> = rquickjs::Result<T>;
 
 #[cfg(test)]
-pub(crate) const TEST_BUNDLE: &str = r#"
-let nextTimerId = 1;
-const timers = new Map();
-globalThis.TextEncoder = class {
-  encode(value) { return __host_utf8_encode(String(value)); }
-};
-globalThis.setTimeout = function (callback, delay) {
-  const id = nextTimerId++;
-  timers.set(id, { callback, repeat: false });
-  __register_timer(id, delay, false);
-  return id;
-};
-globalThis.setInterval = function (callback, delay) {
-  const id = nextTimerId++;
-  timers.set(id, { callback, repeat: true });
-  __register_timer(id, delay, true);
-  return id;
-};
-globalThis.clearTimeout = globalThis.clearInterval = function (id) {
-  timers.delete(id);
-  __unregister_timer(id);
-};
-globalThis.__triggerTimer = function (id) {
-  const timer = timers.get(id);
-  if (!timer) return;
-  if (!timer.repeat) timers.delete(id);
-  timer.callback();
-};
-let nextFetchId = 1;
-globalThis.fetch = function (url, init) {
-  return new Promise(function (resolve, reject) {
-    __fetch_start(
-      nextFetchId++, String(url), init?.method ?? "GET", "{}", null, resolve, reject
-    );
-  }).then(function (res) {
-    if (res.error) throw new Error(res.error);
-    return {
-      status: res.status,
-      text: function () { return Promise.resolve(res.body); }
-    };
-  });
-};
-let initialFramePending = true;
-globalThis.__tick = function () {
-  if (initialFramePending) {
-    initialFramePending = false;
-    __bridge_flush(new Uint8Array([0, 0, 0, 0, 0, 0]));
-  }
-  return false;
-};
-globalThis.__hasRaf = function () { return false; };
-globalThis.__dispatchEvent = function () {};
-"#;
+pub(crate) const TEST_RUNTIME: &str = include_str!("gen/test-runtime.js");
 
 #[derive(Debug, Clone, Copy)]
 pub enum TimerCmd {
@@ -93,8 +43,8 @@ pub struct JsRuntime {
     last_gc: std::time::Instant,
     vite_origin: Option<url::Url>,
     vite_cache: Option<crate::vite::ViteModuleCache>,
-    ctx: Context,
-    _rt: Runtime,
+    ctx: AsyncContext,
+    rt: AsyncRuntime,
 }
 
 impl JsRuntime {
@@ -108,30 +58,33 @@ impl JsRuntime {
     }
 
     fn new_inner(vite_origin: Option<url::Url>) -> JsResult<Self> {
-        let rt = Runtime::new()?;
+        let rt = AsyncRuntime::new()?;
         // QuickJS's default GC threshold is high enough that rquickjs Value
         // wrappers (which hold refs on the Rust side) can accumulate without
         // triggering automatic collection — observed as a steady memory rise
         // on any event-driven tick (mouse move, window restore). A low
         // threshold makes the automatic GC kick in far more often.
-        rt.set_gc_threshold(256 * 1024);
-        rt.set_max_stack_size(2048 * 1024); // Increase JS call stack to 2MB for deep UI trees
+        futures_lite::future::block_on(async {
+            rt.set_gc_threshold(256 * 1024).await;
+            // Increase JS call stack to 2MB for deep UI trees.
+            rt.set_max_stack_size(2048 * 1024).await;
+        });
         let vite_cache = vite_origin
             .as_ref()
             .map(|_| crate::vite::ViteModuleCache::default());
         if let (Some(origin), Some(cache)) = (vite_origin.clone(), vite_cache.clone()) {
-            rt.set_loader(
+            futures_lite::future::block_on(rt.set_loader(
                 crate::vite::ViteResolver::new(origin),
                 crate::vite::ViteLoader::new(cache).map_err(|_| rquickjs::Error::Unknown)?,
-            );
+            ));
         }
-        let ctx = Context::full(&rt)?;
+        let ctx = futures_lite::future::block_on(AsyncContext::full(&rt))?;
         let out: Rc<RefCell<Vec<u8>>> = Rc::new(RefCell::new(Vec::new()));
         let timer_cmds = Rc::new(RefCell::new(Vec::new()));
         let fetch_promises = Rc::new(RefCell::new(std::collections::HashMap::new()));
 
-        let shared_event_data =
-            ctx.with(|ctx| -> JsResult<rquickjs::Persistent<Value<'static>>> {
+        let shared_event_data = futures_lite::future::block_on(ctx.with(
+            |ctx| -> JsResult<rquickjs::Persistent<Value<'static>>> {
                 let globals = ctx.globals();
                 let arr = TypedArray::<f64>::new(
                     ctx.clone(),
@@ -139,9 +92,10 @@ impl JsRuntime {
                 )?;
                 globals.set("__blitz_event_data", arr.clone())?;
                 Ok(rquickjs::Persistent::save(&ctx, arr.into_value()))
-            })?;
+            },
+        ))?;
 
-        ctx.with(|ctx| -> JsResult<()> {
+        futures_lite::future::block_on(ctx.with(|ctx| -> JsResult<()> {
             let globals = ctx.globals();
 
             // __bridge_flush(Uint8Array) -> copies the frame bytes out.
@@ -209,10 +163,10 @@ impl JsRuntime {
             }
 
             Ok(())
-        })?;
+        }))?;
 
         Ok(Self {
-            _rt: rt,
+            rt,
             ctx,
             out,
             booted: false,
@@ -225,6 +179,34 @@ impl JsRuntime {
         })
     }
 
+    /// Run a synchronous closure while holding the async QuickJS context lock.
+    ///
+    /// Blitz's document callbacks are synchronous, so ordinary JS entry points
+    /// use this adapter. Rust futures spawned by QuickJS are driven separately
+    /// by [`Self::poll_pending_jobs`] with the shell's waker.
+    pub fn with<F, R>(&self, f: F) -> R
+    where
+        F: for<'js> FnOnce(Ctx<'js>) -> R + rquickjs::markers::ParallelSend,
+        R: rquickjs::markers::ParallelSend,
+    {
+        futures_lite::future::block_on(self.ctx.with(f))
+    }
+
+    /// Poll QuickJS jobs and Rust futures without blocking the window thread.
+    /// Returns whether any job made progress during this poll.
+    pub fn poll_pending_jobs(&self, task_context: &mut TaskContext<'_>) -> Result<bool, String> {
+        let mut made_progress = false;
+        loop {
+            let future = self.rt.execute_pending_job();
+            let mut future = std::pin::pin!(future);
+            match future.as_mut().poll(task_context) {
+                Poll::Ready(Ok(true)) => made_progress = true,
+                Poll::Ready(Ok(false)) | Poll::Pending => return Ok(made_progress),
+                Poll::Ready(Err(error)) => return Err(error.to_string()),
+            }
+        }
+    }
+
     pub fn boot_vite(&mut self, server_url: &str, entry: &str) -> JsResult<()> {
         if self.booted {
             return Ok(());
@@ -235,8 +217,7 @@ impl JsRuntime {
             .map_err(|_| rquickjs::Error::Unknown)?
             .to_string();
         let entry_literal = serde_json::to_string(&entry).map_err(|_| rquickjs::Error::Unknown)?;
-        let ctx = self.ctx.clone();
-        ctx.with(|ctx| -> JsResult<()> {
+        self.with(|ctx| -> JsResult<()> {
             use rquickjs::CatchResultExt;
 
             let result = Module::evaluate(
@@ -287,8 +268,7 @@ impl JsRuntime {
             .as_ref()
             .ok_or(rquickjs::Error::Unknown)?
             .insert(update_url.into(), source);
-        let ctx = self.ctx.clone();
-        ctx.with(|ctx| -> JsResult<bool> {
+        self.with(|ctx| -> JsResult<bool> {
             let apply: Function = ctx.globals().get("__blitz_apply_hmr")?;
             let promise: rquickjs::Promise = apply.call((path, accepted_path, timestamp))?;
             promise.finish()
@@ -299,9 +279,8 @@ impl JsRuntime {
         &self,
         bridge: std::sync::Arc<crate::fetch::FetchBridge>,
     ) -> JsResult<()> {
-        let ctx = self.ctx.clone();
         let fetch_promises = self.fetch_promises.clone();
-        ctx.with(|ctx| -> JsResult<()> {
+        self.with(|ctx| -> JsResult<()> {
             let f = Function::new(
                 ctx.clone(),
                 move |id: u32,
@@ -333,9 +312,8 @@ impl JsRuntime {
         if self.booted {
             return Ok(());
         }
-        let ctx = self.ctx.clone();
         let src = source.to_string();
-        ctx.with(|ctx| -> JsResult<()> {
+        self.with(|ctx| -> JsResult<()> {
             use rquickjs::prelude::CatchResultExt;
             ctx.eval::<(), _>(src.as_str())
                 .catch(&ctx)
@@ -376,8 +354,7 @@ impl JsRuntime {
     /// more rAF callbacks remain queued (so the host can keep redrawing).
     pub fn tick(&mut self) -> JsResult<(Vec<u8>, bool)> {
         self.out.borrow_mut().clear();
-        let ctx = self.ctx.clone();
-        let has_raf = ctx.with(|ctx| -> JsResult<bool> {
+        let has_raf = self.with(|ctx| -> JsResult<bool> {
             let globals = ctx.globals();
             let tick: Function = globals.get("__tick")?;
             // __tick runs queued rAF callbacks, flushes, and returns whether
@@ -396,7 +373,7 @@ impl JsRuntime {
         })?;
 
         if self.last_gc.elapsed() >= std::time::Duration::from_millis(250) {
-            self.ctx.with(|ctx| ctx.run_gc());
+            futures_lite::future::block_on(self.rt.run_gc());
             self.last_gc = std::time::Instant::now();
         }
 
@@ -406,8 +383,7 @@ impl JsRuntime {
     /// Whether any rAF callbacks are queued on the JS side. The host uses this
     /// to decide whether to keep redrawing (rAF-driven, vsync-aligned).
     pub fn has_raf(&mut self) -> bool {
-        let ctx = self.ctx.clone();
-        ctx.with(|ctx| -> bool {
+        self.with(|ctx| -> bool {
             let globals = ctx.globals();
             let f: Function = match globals.get("__hasRaf") {
                 Ok(f) => f,
@@ -421,9 +397,8 @@ impl JsRuntime {
     /// a JSON string the JS side parses into an event object (clientX, key,
     /// etc.). An empty payload means "no detail" (e.g. focus/blur).
     pub fn dispatch_event(&mut self, solid_id: u32, event_type: u8, payload: &str) -> JsResult<()> {
-        let ctx = self.ctx.clone();
         let payload = payload.to_string();
-        ctx.with(move |ctx| -> JsResult<()> {
+        self.with(move |ctx| -> JsResult<()> {
             let globals = ctx.globals();
             let f: Function = globals.get("__dispatchEvent")?;
             let _: Value = f.call((solid_id, event_type, payload))?;
@@ -437,9 +412,8 @@ impl JsRuntime {
         event_type: u8,
         data: [f64; crate::protocol::event_data::LEN],
     ) -> JsResult<()> {
-        let ctx = self.ctx.clone();
         let shared_event_data = self.shared_event_data.clone();
-        ctx.with(move |ctx| -> JsResult<()> {
+        self.with(move |ctx| -> JsResult<()> {
             let arr = shared_event_data.restore(&ctx)?;
             let arr = TypedArray::<f64>::from_value(arr)?;
             if let Some(raw) = arr.as_raw()
@@ -464,8 +438,7 @@ impl JsRuntime {
         if completions.is_empty() {
             return Ok(());
         }
-        let ctx = self.ctx.clone();
-        ctx.with(|ctx| -> JsResult<()> {
+        self.with(|ctx| -> JsResult<()> {
             for c in completions {
                 let pending = self.fetch_promises.borrow_mut().remove(&c.id);
                 let Some(pending) = pending else {
@@ -498,18 +471,12 @@ impl JsRuntime {
         })
     }
 
-    /// Access the underlying context (for advanced embedding).
-    pub fn context(&self) -> &Context {
-        &self.ctx
-    }
-
     pub fn take_timer_cmds(&self) -> Vec<TimerCmd> {
         self.timer_cmds.borrow_mut().drain(..).collect()
     }
 
     pub fn trigger_timer(&self, timer_id: u32) -> JsResult<()> {
-        let ctx = self.ctx.clone();
-        ctx.with(|ctx| -> JsResult<()> {
+        self.with(|ctx| -> JsResult<()> {
             let globals = ctx.globals();
             let trigger: Function = globals.get("__triggerTimer")?;
             let _: Value = trigger.call((timer_id,))?;
@@ -523,12 +490,92 @@ mod tests {
     use super::*;
 
     #[test]
+    fn rust_future_resolves_a_js_promise_and_wakes_the_shell() {
+        struct WakeCounter(std::sync::atomic::AtomicUsize);
+
+        impl std::task::Wake for WakeCounter {
+            fn wake(self: std::sync::Arc<Self>) {
+                self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
+
+            fn wake_by_ref(self: &std::sync::Arc<Self>) {
+                self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
+        }
+
+        let runtime = JsRuntime::new().expect("runtime");
+        let ready = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let future_waker = std::sync::Arc::new(std::sync::Mutex::new(None));
+        runtime.with(|ctx| {
+            let ready = ready.clone();
+            let future_waker = future_waker.clone();
+            let function = Function::new(
+                ctx.clone(),
+                rquickjs::function::Async(move || {
+                    let ready = ready.clone();
+                    let future_waker = future_waker.clone();
+                    async move {
+                        futures_lite::future::poll_fn(|ctx| {
+                            if ready.load(std::sync::atomic::Ordering::Acquire) {
+                                Poll::Ready(())
+                            } else {
+                                *future_waker.lock().unwrap() = Some(ctx.waker().clone());
+                                Poll::Pending
+                            }
+                        })
+                        .await;
+                        Ok::<_, rquickjs::Error>(42_u32)
+                    }
+                }),
+            )
+            .expect("create async function");
+            ctx.globals()
+                .set("nativeAsyncValue", function)
+                .expect("register async function");
+            ctx.eval::<(), _>(
+                "globalThis.__asyncValue = null; nativeAsyncValue().then(value => __asyncValue = value);",
+            )
+            .expect("start Rust future");
+        });
+
+        let wake_counter = std::sync::Arc::new(WakeCounter(std::sync::atomic::AtomicUsize::new(0)));
+        let waker = std::task::Waker::from(wake_counter.clone());
+        let mut task_context = TaskContext::from_waker(&waker);
+        runtime
+            .poll_pending_jobs(&mut task_context)
+            .expect("poll pending future");
+
+        ready.store(true, std::sync::atomic::Ordering::Release);
+        let wake_count_before = wake_counter.0.load(std::sync::atomic::Ordering::Relaxed);
+        future_waker
+            .lock()
+            .unwrap()
+            .take()
+            .expect("future registered a waker")
+            .wake();
+        assert_eq!(
+            wake_counter.0.load(std::sync::atomic::Ordering::Relaxed),
+            wake_count_before + 1
+        );
+
+        assert!(
+            runtime
+                .poll_pending_jobs(&mut task_context)
+                .expect("resolve Rust future")
+        );
+        let value = runtime
+            .with(|ctx| ctx.globals().get::<_, u32>("__asyncValue"))
+            .expect("read resolved value");
+        assert_eq!(value, 42);
+    }
+
+    #[test]
     fn boots_and_emits_initial_frame() {
         let mut rt = JsRuntime::new().expect("runtime");
         let fetch = std::sync::Arc::new(crate::fetch::FetchBridge::new());
         rt.register_fetch(fetch.clone())
             .expect("failed to register fetch host fn");
-        rt.boot(TEST_BUNDLE).expect("boot");
+        rt.boot(TEST_RUNTIME).expect("boot");
         // First tick flushes the app's initial render.
         let (frame0, _) = rt.tick().expect("tick0");
         assert!(!frame0.is_empty(), "initial render should emit ops");
@@ -543,10 +590,10 @@ mod tests {
         let bridge = Arc::new(FetchBridge::new());
         bridge.set_waker(std::task::Waker::noop());
         rt.register_fetch(bridge.clone()).expect("register fetch");
-        rt.boot(TEST_BUNDLE).expect("boot");
+        rt.boot(TEST_RUNTIME).expect("boot");
 
         // Kick off a fetch from JS and stash the resolved text in a global.
-        rt.context().with(|ctx| {
+        rt.with(|ctx| {
             ctx.eval::<(), _>(
                 r#"
                 globalThis.__fetched = null;
@@ -568,7 +615,7 @@ mod tests {
                 rt.resolve_fetches(completions)
                     .expect("resolve fetch completion");
             }
-            let (text, err) = rt.context().with(|ctx| {
+            let (text, err) = rt.with(|ctx| {
                 let t: Option<String> = ctx.globals().get("__fetched").ok().flatten();
                 let e: Option<String> = ctx.globals().get("__fetchedErr").ok().flatten();
                 (t, e)
