@@ -21,7 +21,11 @@ enum ViteUpdate {
         accepted_path: String,
         timestamp: u64,
     },
-    CssUpdate,
+    CssUpdate {
+        #[serde(rename = "acceptedPath")]
+        accepted_path: String,
+        timestamp: u64,
+    },
     #[serde(other)]
     Other,
 }
@@ -33,7 +37,10 @@ enum ViteMessage {
         accepted_path: String,
         timestamp: u64,
     },
-    CssUpdate,
+    CssUpdate {
+        accepted_path: String,
+        timestamp: u64,
+    },
     FullReload,
 }
 
@@ -84,22 +91,26 @@ pub fn start_hmr_client(
                     } => {
                         tracing::debug!(%path, %accepted_path, timestamp, "received Vite HMR update");
                         let started = std::time::Instant::now();
-                        let (module, stylesheet) = runtime.block_on(async {
-                            tokio::join!(
-                                fetch_module(&client, &server_url, &accepted_path, timestamp,),
-                                fetch_stylesheet(&client, &server_url),
-                            )
-                        });
-                        match module {
+                        match runtime.block_on(fetch_module(
+                            &client,
+                            &server_url,
+                            &accepted_path,
+                            timestamp,
+                        )) {
                             Ok(source) => {
                                 tracing::debug!(%path, elapsed = ?started.elapsed(), "prefetched Vite HMR module");
-                                match stylesheet {
+                                match runtime.block_on(fetch_stylesheet(
+                                    &client,
+                                    &server_url,
+                                    "/__uno.css",
+                                    timestamp,
+                                )) {
                                     Ok(stylesheet) => {
                                         let _ =
                                             reload.send(blitz_quick::ReloadMsg::Css(stylesheet));
                                     }
                                     Err(error) => {
-                                        tracing::warn!(?error, "failed to refresh Vite stylesheet");
+                                        tracing::warn!(?error, "failed to refresh UnoCSS module");
                                     }
                                 }
                                 reload.send(blitz_quick::ReloadMsg::HmrUpdate {
@@ -115,8 +126,16 @@ pub fn start_hmr_client(
                             }
                         }
                     }
-                    ViteMessage::CssUpdate => {
-                        match runtime.block_on(fetch_stylesheet(&client, &server_url)) {
+                    ViteMessage::CssUpdate {
+                        accepted_path,
+                        timestamp,
+                    } => {
+                        match runtime.block_on(fetch_stylesheet(
+                            &client,
+                            &server_url,
+                            &accepted_path,
+                            timestamp,
+                        )) {
                             Ok(stylesheet) => reload.send(blitz_quick::ReloadMsg::Css(stylesheet)),
                             Err(error) => {
                                 tracing::error!(?error, "failed to fetch Vite stylesheet update");
@@ -161,8 +180,14 @@ async fn fetch_module(
 async fn fetch_stylesheet(
     client: &reqwest::Client,
     server_url: &url::Url,
+    accepted_path: &str,
+    timestamp: u64,
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let stylesheet_url = server_url.join("/@blitz-quick/styles.css")?;
+    let mut stylesheet_url = server_url.join(accepted_path)?;
+    stylesheet_url
+        .query_pairs_mut()
+        .append_pair("direct", "")
+        .append_pair("t", &timestamp.to_string());
     let response = client
         .get(stylesheet_url)
         .send()
@@ -188,12 +213,31 @@ fn messages(payload: VitePayload) -> Vec<ViteMessage> {
                     path,
                     accepted_path,
                     timestamp,
-                } => Some(ViteMessage::Update {
-                    path,
+                } => {
+                    if accepted_path
+                        .split_once('?')
+                        .map_or(accepted_path.as_str(), |(path, _)| path)
+                        .ends_with(".css")
+                    {
+                        Some(ViteMessage::CssUpdate {
+                            accepted_path,
+                            timestamp,
+                        })
+                    } else {
+                        Some(ViteMessage::Update {
+                            path,
+                            accepted_path,
+                            timestamp,
+                        })
+                    }
+                }
+                ViteUpdate::CssUpdate {
+                    accepted_path,
+                    timestamp,
+                } => Some(ViteMessage::CssUpdate {
                     accepted_path,
                     timestamp,
                 }),
-                ViteUpdate::CssUpdate => Some(ViteMessage::CssUpdate),
                 ViteUpdate::Other => None,
             })
             .collect(),
@@ -233,10 +277,43 @@ mod tests {
     #[test]
     fn handles_css_updates_and_ignores_unknown_payloads() {
         let connected = serde_json::from_str(r#"{"type":"connected"}"#).unwrap();
-        let css_update =
-            serde_json::from_str(r#"{"type":"update","updates":[{"type":"css-update"}]}"#).unwrap();
+        let css_update = serde_json::from_str(
+            r#"{"type":"update","updates":[{
+                "type":"css-update",
+                "acceptedPath":"/@id/__x00__virtual:uno.css",
+                "timestamp":42
+            }]}"#,
+        )
+        .unwrap();
 
         assert!(messages(connected).is_empty());
-        assert_eq!(messages(css_update), vec![ViteMessage::CssUpdate]);
+        assert_eq!(
+            messages(css_update),
+            vec![ViteMessage::CssUpdate {
+                accepted_path: "/@id/__x00__virtual:uno.css".to_owned(),
+                timestamp: 42,
+            }]
+        );
+    }
+
+    #[test]
+    fn treats_vite_css_wrapper_modules_as_stylesheets() {
+        let payload = serde_json::from_str(
+            r#"{"type":"update","updates":[{
+                "type":"js-update",
+                "path":"/__uno.css",
+                "acceptedPath":"/__uno.css",
+                "timestamp":42
+            }]}"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            messages(payload),
+            vec![ViteMessage::CssUpdate {
+                accepted_path: "/__uno.css".to_owned(),
+                timestamp: 42,
+            }]
+        );
     }
 }

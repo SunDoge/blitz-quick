@@ -385,7 +385,7 @@ function bubble(nodeId: number, code: number, ev: any): void {
   let cur: number | null = nodeId;
   while (cur != null) {
     const slot: number = cur & 0xfffff;
-    ev.currentTarget = cur;
+    ev.currentTarget = cur === nodeId ? ev.target : { id: cur };
     const m = listenersBySlot[slot];
     const fn = m?.get(code);
     if (fn) {

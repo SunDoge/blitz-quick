@@ -1,4 +1,4 @@
-import { ScrollText } from "lucide-solid";
+import ScrollText from "lucide-solid/icons/scroll-text";
 import { For } from "solid-js";
 
 export function Logs() {

@@ -1,4 +1,4 @@
-import { Settings as SettingsIcon } from "lucide-solid";
+import SettingsIcon from "lucide-solid/icons/settings";
 import { createSignal } from "solid-js";
 import { ToggleRow } from "../components/ToggleRow";
 

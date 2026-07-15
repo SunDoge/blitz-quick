@@ -4,7 +4,7 @@
   "scripts": {
     "format": "biome format --write .",
     "check": "bun x tsc --noEmit",
-    "test:hmr": "bun --conditions=development --conditions=browser test packages/solid-renderer/src/hmr.test.ts apps/demo/src/hmr-transform.test.ts",
+    "test:hmr": "bun --conditions=development --conditions=browser test packages/solid-renderer/src/hmr.test.ts packages/solid-renderer/src/events.test.ts apps/demo/src/hmr-transform.test.ts",
     "gen": "bun run scripts/gen-rust-op.ts",
     "build": "bun run scripts/gen-rust-op.ts && bun run --filter demo build",
     "dev": "bun run --filter demo dev"

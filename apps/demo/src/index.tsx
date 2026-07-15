@@ -1,13 +1,13 @@
 import "@blitz-quick/core";
+import "./reset.css";
+import "virtual:uno.css";
 import { type Handle, registerRoot, render } from "@blitz-quick/solid-renderer";
 import { MemoryRouter, Route, useLocation } from "@solidjs/router";
-import {
-  Globe,
-  Keyboard,
-  LayoutDashboard,
-  ScrollText,
-  Settings,
-} from "lucide-solid";
+import Globe from "lucide-solid/icons/globe";
+import Keyboard from "lucide-solid/icons/keyboard";
+import LayoutDashboard from "lucide-solid/icons/layout-dashboard";
+import ScrollText from "lucide-solid/icons/scroll-text";
+import Settings from "lucide-solid/icons/settings";
 import { createSignal, For, type JSX, onMount } from "solid-js";
 import { Sidebar, type Tab } from "./components/Sidebar";
 import { Dashboard } from "./pages/Dashboard";

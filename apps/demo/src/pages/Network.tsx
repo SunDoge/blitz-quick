@@ -1,4 +1,4 @@
-import { Globe } from "lucide-solid";
+import Globe from "lucide-solid/icons/globe";
 import { createSignal } from "solid-js";
 
 export function Network() {

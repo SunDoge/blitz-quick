@@ -441,7 +441,13 @@ impl BlitzDocument for Applier {
             }
             self.fetch.set_waker(ctx.waker());
         }
-        self.last_spawned_wake = None;
+        let now = std::time::Instant::now();
+        if self
+            .last_spawned_wake
+            .is_some_and(|deadline| now >= deadline)
+        {
+            self.last_spawned_wake = None;
+        }
 
         // Drain completed fetches into JS
         let completions = self.fetch.drain();
@@ -566,7 +572,9 @@ impl BlitzDocument for Applier {
         let has_pending_timers = !self.timers.is_empty();
         if !has_raf && has_pending_timers {
             let earliest = self.timers.iter().map(|t| t.expires_at).min().unwrap();
-            let should_spawn = self.last_spawned_wake != Some(earliest);
+            let should_spawn = self
+                .last_spawned_wake
+                .is_none_or(|scheduled| earliest < scheduled);
             if should_spawn && let Some(waker) = &self.waker {
                 self.last_spawned_wake = Some(earliest);
                 let duration = earliest.saturating_duration_since(std::time::Instant::now());
@@ -576,6 +584,8 @@ impl BlitzDocument for Applier {
                     waker.wake();
                 });
             }
+        } else if !has_pending_timers {
+            self.last_spawned_wake = None;
         }
 
         if has_raf || needs_redraw {
@@ -843,18 +853,31 @@ mod tests {
 
     #[test]
     fn reuses_the_scheduled_timer_wake() {
+        struct WakeCounter(std::sync::atomic::AtomicUsize);
+
+        impl std::task::Wake for WakeCounter {
+            fn wake(self: std::sync::Arc<Self>) {
+                self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
+        }
+
         let mut applier = test_applier();
         applier.js.context().with(|ctx| {
-            ctx.eval::<(), _>("setTimeout(() => {}, 1000)")
+            ctx.eval::<(), _>("setTimeout(() => {}, 100)")
                 .expect("register timeout");
         });
 
-        let waker = std::task::Waker::noop();
-        applier.poll(Some(std::task::Context::from_waker(waker)));
+        let wake_counter = std::sync::Arc::new(WakeCounter(std::sync::atomic::AtomicUsize::new(0)));
+        let waker = std::task::Waker::from(wake_counter.clone());
+        applier.poll(Some(std::task::Context::from_waker(&waker)));
         let first_deadline = applier.last_spawned_wake.expect("scheduled wake");
-        applier.poll(Some(std::task::Context::from_waker(waker)));
+        for _ in 0..50 {
+            applier.poll(Some(std::task::Context::from_waker(&waker)));
+        }
+        std::thread::sleep(std::time::Duration::from_millis(200));
 
         assert_eq!(applier.last_spawned_wake, Some(first_deadline));
+        assert_eq!(wake_counter.0.load(std::sync::atomic::Ordering::Relaxed), 1);
     }
 
     #[test]

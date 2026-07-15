@@ -42,6 +42,11 @@ export function createHotContext(ownerPath) {
   return context;
 }
 
+// Vite-generated CSS modules import these browser hooks. Blitz applies the
+// corresponding raw CSS through the native HMR channel instead.
+export function updateStyle() {}
+export function removeStyle() {}
+
 globalThis.__blitz_apply_hmr = async function (path, acceptedPath, timestamp) {
   const record = records.get(path);
   if (!record?.current) return false;
@@ -177,7 +182,9 @@ impl Loader for ViteLoader {
             self.cache.insert(name.to_owned(), source.clone());
             source
         };
-        Module::declare(ctx.clone(), name, source)
+        let module = Module::declare(ctx.clone(), name, source)?;
+        module.meta()?.set("url", name)?;
+        Ok(module)
     }
 }
 

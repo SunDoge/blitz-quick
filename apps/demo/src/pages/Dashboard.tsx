@@ -1,4 +1,6 @@
-import { Activity, Server, Zap } from "lucide-solid";
+import Activity from "lucide-solid/icons/activity";
+import Server from "lucide-solid/icons/server";
+import Zap from "lucide-solid/icons/zap";
 import { createSignal, For } from "solid-js";
 
 export function Dashboard(props: { sysData: string }) {

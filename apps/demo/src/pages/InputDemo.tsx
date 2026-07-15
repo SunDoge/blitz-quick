@@ -1,4 +1,4 @@
-import { Keyboard } from "lucide-solid";
+import Keyboard from "lucide-solid/icons/keyboard";
 import { createSignal } from "solid-js";
 
 export function InputDemo() {
