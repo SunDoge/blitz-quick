@@ -11,7 +11,6 @@ use clap::Parser;
 use crate::cli::Cli;
 
 mod cli;
-mod vite;
 
 const BUNDLE_JS: &str = include_str!("gen/bundle.js");
 const BUNDLE_CSS: &str = include_str!("gen/bundle.css");
@@ -123,7 +122,7 @@ fn run_window(cli: &Cli, assets: Assets) -> Result<(), AppError> {
 
     if let Some(server_url) = &cli.vite_url {
         let reload = runtime.applier_mut().reload_handle();
-        let _vite_thread = vite::start_hmr_client(server_url, reload)?;
+        let _vite_thread = blitz_quick::start_hmr_client(server_url, reload)?;
         runtime.run()?;
     } else {
         runtime.run()?;

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use rquickjs::loader::{ImportAttributes, Loader, Resolver};
-use rquickjs::{Ctx, Error, Module, Result};
+use rquickjs::{Ctx, Error, Function, Module, Result};
 use url::Url;
 
 pub(crate) const HMR_CLIENT: &str = include_str!("gen/vite-client.js");
@@ -47,6 +47,96 @@ impl Resolver for ViteResolver {
 #[derive(Clone, Default)]
 pub(crate) struct ViteModuleCache {
     sources: Arc<Mutex<HashMap<String, String>>>,
+}
+
+/// All Vite-related state for one JsRuntime: the dev-server origin, the
+/// module source cache (shared with the Loader + HMR prefetch), and the
+/// methods that drive boot + hot-module replacement. Encapsulated so the
+/// runtime only holds `Option<ViteState>` instead of scattered `vite_*` fields.
+pub(crate) struct ViteState {
+    origin: Url,
+    cache: ViteModuleCache,
+}
+
+impl ViteState {
+    pub(crate) fn new(origin: Url) -> Self {
+        Self {
+            cache: ViteModuleCache::default(),
+            origin,
+        }
+    }
+
+    /// Install the Vite module loader + resolver onto the runtime so that
+    /// `import` inside JS fetches modules from the dev server.
+    pub(crate) fn install_loader(&self, rt: &rquickjs::AsyncRuntime) -> rquickjs::Result<()> {
+        futures_lite::future::block_on(rt.set_loader(
+            ViteResolver::new(self.origin.clone()),
+            ViteLoader::new(self.cache.clone()).map_err(|_| rquickjs::Error::Unknown)?,
+        ));
+        Ok(())
+    }
+
+    /// Evaluate the Vite entry module (`import "<entry>"`). Called once after
+    /// the context is ready to kick off the app's initial render.
+    pub(crate) fn boot<'js>(&self, ctx: &rquickjs::Ctx<'js>, entry: &str) -> rquickjs::Result<()> {
+        use rquickjs::CatchResultExt;
+        let entry_url = self
+            .origin
+            .join(entry)
+            .map_err(|_| rquickjs::Error::Unknown)?
+            .to_string();
+        let entry_literal =
+            serde_json::to_string(&entry_url).map_err(|_| rquickjs::Error::Unknown)?;
+        let result = Module::evaluate(
+            ctx.clone(),
+            "blitz-quick:vite-entry",
+            format!("import {entry_literal};"),
+        )
+        .and_then(|promise| promise.finish::<()>());
+        match result.catch(ctx) {
+            Ok(()) => Ok(()),
+            Err(caught) => {
+                match &caught {
+                    rquickjs::CaughtError::Exception(exception) => {
+                        tracing::error!(
+                            entry = %entry_url,
+                            message = exception.message().as_deref().unwrap_or("unknown"),
+                            stack = exception.stack().as_deref().unwrap_or("unavailable"),
+                            "failed to evaluate Vite entry"
+                        );
+                    }
+                    _ => {
+                        tracing::error!(entry = %entry_url, error = %caught, "failed to evaluate Vite entry");
+                    }
+                }
+                Err(caught.throw(ctx))
+            }
+        }
+    }
+
+    /// Cache a hot-updated module's source (keyed by URL + timestamp) and call
+    /// the JS `__blitz_apply_hmr` hook to reload it. Returns whether the JS
+    /// side accepted the update (true) or needs a full reload (false).
+    pub(crate) fn apply_hmr<'js>(
+        &self,
+        ctx: &rquickjs::Ctx<'js>,
+        path: &str,
+        accepted_path: &str,
+        timestamp: u64,
+        source: String,
+    ) -> rquickjs::Result<bool> {
+        let mut update_url = self
+            .origin
+            .join(accepted_path)
+            .map_err(|_| rquickjs::Error::Unknown)?;
+        update_url
+            .query_pairs_mut()
+            .append_pair("t", &timestamp.to_string());
+        self.cache.insert(update_url.into(), source);
+        let apply: Function = ctx.globals().get("__blitz_apply_hmr")?;
+        let promise: rquickjs::Promise = apply.call((path, accepted_path, timestamp))?;
+        promise.finish()
+    }
 }
 
 impl ViteModuleCache {
@@ -124,6 +214,297 @@ impl Loader for ViteLoader {
     }
 }
 
+// ---------------------------------------------------------------------------
+// HMR client — connects to Vite's WebSocket, fetches updated modules on
+// notification, and forwards them to the Applier via ReloadHandle.
+// ---------------------------------------------------------------------------
+
+use serde::Deserialize;
+use snafu::{ResultExt, Snafu};
+use tungstenite::client::IntoClientRequest;
+
+#[derive(Debug, Snafu)]
+pub enum ViteError {
+    #[snafu(display("invalid Vite server URL: {source}"))]
+    InvalidUrl { source: url::ParseError },
+
+    #[snafu(display("invalid Vite WebSocket scheme"))]
+    InvalidScheme,
+
+    #[snafu(display("WebSocket connection failed: {source}"))]
+    WebSocket { source: tungstenite::Error },
+
+    #[snafu(display("HTTP request to Vite server failed: {source}"))]
+    Http { source: reqwest::Error },
+
+    #[snafu(display("Vite returned unexpected content-type: expected {expected}, got {actual}"))]
+    ContentType { expected: String, actual: String },
+
+    #[snafu(display("invalid header value: {source}"))]
+    Header {
+        source: tungstenite::http::header::InvalidHeaderValue,
+    },
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "kebab-case")]
+enum VitePayload {
+    Update {
+        updates: Vec<ViteUpdate>,
+    },
+    FullReload,
+    #[serde(other)]
+    Other,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "kebab-case")]
+enum ViteUpdate {
+    JsUpdate {
+        path: String,
+        #[serde(rename = "acceptedPath")]
+        accepted_path: String,
+        timestamp: u64,
+    },
+    CssUpdate {
+        #[serde(rename = "acceptedPath")]
+        accepted_path: String,
+        timestamp: u64,
+    },
+    #[serde(other)]
+    Other,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum ViteMessage {
+    Update {
+        path: String,
+        accepted_path: String,
+        timestamp: u64,
+    },
+    CssUpdate {
+        accepted_path: String,
+        timestamp: u64,
+    },
+    FullReload,
+}
+
+/// Start a Vite HMR client on a background thread. Connects to the Vite dev
+/// server's WebSocket, fetches updated module/stylesheet sources via blocking
+/// HTTP, and forwards them to the Applier through `reload`.
+///
+/// `server_url` is the Vite dev server origin (e.g. `http://127.0.0.1:5173`).
+/// It can also be read from the `VITE_URL` env var via [`vite_url_from_env`].
+pub fn start_hmr_client(
+    server_url: &str,
+    reload: crate::ReloadHandle,
+) -> std::result::Result<std::thread::JoinHandle<()>, ViteError> {
+    let mut websocket_url = url::Url::parse(server_url).context(InvalidUrlSnafu)?;
+    websocket_url
+        .set_scheme(if websocket_url.scheme() == "https" {
+            "wss"
+        } else {
+            "ws"
+        })
+        .map_err(|_| ViteError::InvalidScheme)?;
+    let mut request = websocket_url
+        .as_str()
+        .into_client_request()
+        .context(WebSocketSnafu)?;
+    request.headers_mut().insert(
+        tungstenite::http::header::SEC_WEBSOCKET_PROTOCOL,
+        "vite-hmr".parse().context(HeaderSnafu)?,
+    );
+    let (mut socket, _) = tungstenite::connect(request).context(WebSocketSnafu)?;
+    let client = reqwest::blocking::Client::builder()
+        .no_proxy()
+        .build()
+        .context(HttpSnafu)?;
+    let server_url = url::Url::parse(server_url).context(InvalidUrlSnafu)?;
+
+    Ok(std::thread::spawn(move || {
+        tracing::info!(url = %websocket_url, "Vite HMR client connected");
+        while let Ok(message) = socket.read() {
+            let Ok(text) = message.to_text() else {
+                continue;
+            };
+            let payload = match serde_json::from_str::<VitePayload>(text) {
+                Ok(payload) => payload,
+                Err(error) => {
+                    tracing::warn!(?error, payload = text, "invalid Vite HMR payload");
+                    continue;
+                }
+            };
+            for message in messages(payload) {
+                let result = match message {
+                    ViteMessage::Update {
+                        path,
+                        accepted_path,
+                        timestamp,
+                    } => {
+                        tracing::debug!(%path, %accepted_path, timestamp, "received Vite HMR update");
+                        match fetch_module(&client, &server_url, &accepted_path, timestamp) {
+                            Ok(source) => {
+                                match fetch_stylesheet(
+                                    &client,
+                                    &server_url,
+                                    "/__uno.css",
+                                    timestamp,
+                                ) {
+                                    Ok(stylesheet) => {
+                                        let _ = reload.send(crate::ReloadMsg::Css(stylesheet));
+                                    }
+                                    Err(error) => {
+                                        tracing::warn!(?error, "failed to refresh UnoCSS module");
+                                    }
+                                }
+                                reload.send(crate::ReloadMsg::HmrUpdate {
+                                    path,
+                                    accepted_path,
+                                    timestamp,
+                                    source,
+                                })
+                            }
+                            Err(error) => {
+                                tracing::error!(%path, %accepted_path, ?error, "failed to prefetch Vite HMR module");
+                                continue;
+                            }
+                        }
+                    }
+                    ViteMessage::CssUpdate {
+                        accepted_path,
+                        timestamp,
+                    } => match fetch_stylesheet(&client, &server_url, &accepted_path, timestamp) {
+                        Ok(stylesheet) => reload.send(crate::ReloadMsg::Css(stylesheet)),
+                        Err(error) => {
+                            tracing::error!(?error, "failed to fetch Vite stylesheet update");
+                            continue;
+                        }
+                    },
+                    ViteMessage::FullReload => reload.send(crate::ReloadMsg::FullReload),
+                };
+                if result.is_err() {
+                    tracing::warn!("Vite HMR receiver disconnected");
+                    return;
+                }
+            }
+        }
+        tracing::warn!("Vite HMR client disconnected");
+    }))
+}
+
+fn fetch_module(
+    client: &reqwest::blocking::Client,
+    server_url: &url::Url,
+    accepted_path: &str,
+    timestamp: u64,
+) -> std::result::Result<String, ViteError> {
+    let mut module_url = server_url
+        .join(accepted_path)
+        .map_err(|_| ViteError::InvalidScheme)?;
+    module_url
+        .query_pairs_mut()
+        .append_pair("t", &timestamp.to_string());
+    let response = client
+        .get(module_url)
+        .send()
+        .context(HttpSnafu)?
+        .error_for_status()
+        .context(HttpSnafu)?;
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default();
+    if !content_type.contains("javascript") {
+        return Err(ViteError::ContentType {
+            expected: "javascript".into(),
+            actual: content_type.into(),
+        });
+    }
+    Ok(response.text().context(HttpSnafu)?)
+}
+
+fn fetch_stylesheet(
+    client: &reqwest::blocking::Client,
+    server_url: &url::Url,
+    accepted_path: &str,
+    timestamp: u64,
+) -> std::result::Result<String, ViteError> {
+    let mut stylesheet_url = server_url
+        .join(accepted_path)
+        .map_err(|_| ViteError::InvalidScheme)?;
+    stylesheet_url
+        .query_pairs_mut()
+        .append_pair("direct", "")
+        .append_pair("t", &timestamp.to_string());
+    let response = client
+        .get(stylesheet_url)
+        .send()
+        .context(HttpSnafu)?
+        .error_for_status()
+        .context(HttpSnafu)?;
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default();
+    if !content_type.contains("text/css") {
+        return Err(ViteError::ContentType {
+            expected: "text/css".into(),
+            actual: content_type.into(),
+        });
+    }
+    Ok(response.text().context(HttpSnafu)?)
+}
+
+/// Read the Vite dev server URL from the `VITE_URL` environment variable.
+pub fn vite_url_from_env() -> Option<String> {
+    std::env::var("VITE_URL").ok().filter(|s| !s.is_empty())
+}
+
+fn messages(payload: VitePayload) -> Vec<ViteMessage> {
+    match payload {
+        VitePayload::Update { updates } => updates
+            .into_iter()
+            .filter_map(|update| match update {
+                ViteUpdate::JsUpdate {
+                    path,
+                    accepted_path,
+                    timestamp,
+                } => {
+                    if accepted_path
+                        .split_once('?')
+                        .map_or(accepted_path.as_str(), |(path, _)| path)
+                        .ends_with(".css")
+                    {
+                        Some(ViteMessage::CssUpdate {
+                            accepted_path,
+                            timestamp,
+                        })
+                    } else {
+                        Some(ViteMessage::Update {
+                            path,
+                            accepted_path,
+                            timestamp,
+                        })
+                    }
+                }
+                ViteUpdate::CssUpdate {
+                    accepted_path,
+                    timestamp,
+                } => Some(ViteMessage::CssUpdate {
+                    accepted_path,
+                    timestamp,
+                }),
+                ViteUpdate::Other => None,
+            })
+            .collect(),
+        VitePayload::FullReload => vec![ViteMessage::FullReload],
+        VitePayload::Other => Vec::new(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -171,6 +552,73 @@ mod tests {
         assert_eq!(
             cache.get("http://127.0.0.1:5173/src/App.tsx?t=42"),
             Some("export const value = 42;".to_owned())
+        );
+    }
+
+    #[test]
+    fn forwards_vite_javascript_updates() {
+        let payload = serde_json::from_str(
+            r#"{
+                "type": "update",
+                "updates": [{
+                    "type": "js-update",
+                    "path": "/src/Counter.tsx",
+                    "acceptedPath": "/src/Counter.tsx",
+                    "timestamp": 42
+                }]
+            }"#,
+        )
+        .unwrap();
+        assert_eq!(
+            messages(payload),
+            vec![ViteMessage::Update {
+                path: "/src/Counter.tsx".to_owned(),
+                accepted_path: "/src/Counter.tsx".to_owned(),
+                timestamp: 42,
+            }]
+        );
+    }
+
+    #[test]
+    fn handles_css_updates_and_ignores_unknown_payloads() {
+        let connected = serde_json::from_str(r#"{"type":"connected"}"#).unwrap();
+        let css_update = serde_json::from_str(
+            r#"{"type":"update","updates":[{
+                "type":"css-update",
+                "acceptedPath":"/@id/__x00__virtual:uno.css",
+                "timestamp":42
+            }]}"#,
+        )
+        .unwrap();
+
+        assert!(messages(connected).is_empty());
+        assert_eq!(
+            messages(css_update),
+            vec![ViteMessage::CssUpdate {
+                accepted_path: "/@id/__x00__virtual:uno.css".to_owned(),
+                timestamp: 42,
+            }]
+        );
+    }
+
+    #[test]
+    fn treats_vite_css_wrapper_modules_as_stylesheets() {
+        let payload = serde_json::from_str(
+            r#"{"type":"update","updates":[{
+                "type":"js-update",
+                "path":"/__uno.css",
+                "acceptedPath":"/__uno.css",
+                "timestamp":42
+            }]}"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            messages(payload),
+            vec![ViteMessage::CssUpdate {
+                accepted_path: "/__uno.css".to_owned(),
+                timestamp: 42,
+            }]
         );
     }
 }

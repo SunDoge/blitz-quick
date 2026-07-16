@@ -477,6 +477,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "tracing",
+ "tungstenite",
  "url",
 ]
 
@@ -495,15 +496,12 @@ dependencies = [
  "clap",
  "image",
  "peniko",
- "reqwest",
  "rquickjs",
  "rust-embed",
  "serde",
  "serde_json",
- "tokio",
  "tracing",
  "tracing-subscriber",
- "tungstenite",
  "url",
 ]
 
