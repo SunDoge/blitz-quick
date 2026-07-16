@@ -27,72 +27,78 @@ export function StoryList(): JSX.Element {
   });
 
   return (
-    <section class="h-full min-h-0 flex flex-col bg-white overflow-hidden">
-      <div class="h-16 flex-none px-5 flex items-center gap-4 border-b border-[#dfe3e6] bg-[#f8f9fa]">
-        <div class="min-w-0">
-          <h1 class="m-0 text-[#20272e] text-base font-650 leading-tight">
+    <section class="h-full min-h-0 flex flex-col relative z-10">
+      <div class="h-20 flex-none px-8 flex items-center gap-6 border-b border-white/5 bg-[#0c0c0e]/80 backdrop-blur-md">
+        <div class="min-w-0 flex-1">
+          <h1 class="m-0 text-zinc-100 text-xl font-bold tracking-tight">
             Top stories
           </h1>
-          <p class="m-0 mt-1 text-[#87919a] text-11px">
+          <p class="m-0 mt-1 text-zinc-500 text-xs font-medium">
             Ranked by the Hacker News community
           </p>
         </div>
-        <label class="w-60 ml-auto h-8 px-2.5 flex items-center gap-2 border border-[#cbd1d6] rounded bg-white text-[#78838d] focus-within:border-[#8e9aa5]">
+        <label class="w-72 h-9 px-3.5 flex items-center gap-2.5 border border-white/10 rounded-lg bg-white/5 text-zinc-400 focus-within:ring-2 focus-within:ring-[#ff7b00]/30 focus-within:border-[#ff7b00]/50 transition-all shadow-inner">
           <Search size={15} />
           <input
-            class="w-full min-w-0 border-0 outline-none bg-transparent text-[#26323d] text-13px"
+            class="w-full min-w-0 border-0 outline-none bg-transparent text-zinc-200 text-sm placeholder-zinc-500"
             type="text"
             value={query()}
-            placeholder="Filter stories"
+            placeholder="Search stories..."
             aria-label="Filter stories"
             onInput={(event) => setQuery(event.currentTarget.value)}
           />
         </label>
       </div>
 
-      <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+      <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4">
         <Show
           when={!loading() || stories().length > 0}
           fallback={<LoadingList />}
         >
           <Show when={!loadError()} fallback={<LoadError />}>
             <Show when={visibleStories().length > 0} fallback={<EmptyState />}>
-              <ol class="m-0 p-0 list-none">
+              <ol class="m-0 p-0 list-none space-y-1.5">
                 <For each={visibleStories()}>
                   {(story, index) => (
-                    <li class="h-18 px-4 grid grid-cols-[32px_minmax(0,1fr)_64px] items-center gap-3 border-b border-[#e9ecee] hover:bg-[#f7f8f9]">
-                      <span class="text-[#a5adb4] font-mono text-xs">
+                    <li
+                      class="group px-4 py-3.5 flex items-center gap-4 rounded-xl border border-transparent hover:border-white/5 hover:bg-white/[0.03] active:scale-[0.99] transition-all cursor-pointer"
+                      onClick={() => navigate(`/story/${story.id}`)}
+                    >
+                      <span class="w-6 text-right text-zinc-600 font-mono text-xs font-bold opacity-70 group-hover:opacity-100 group-hover:text-[#ff7b00] transition-colors">
                         {String(index() + 1).padStart(2, "0")}
                       </span>
-                      <button
-                        class="min-w-0 p-0 border-0 bg-transparent text-left cursor-pointer"
-                        type="button"
-                        onClick={() => navigate(`/story/${story.id}`)}
-                      >
-                        <span class="min-w-0 flex items-baseline gap-2">
-                          <strong class="min-w-0 overflow-hidden text-[#20272e] text-13px font-600 leading-snug text-ellipsis whitespace-nowrap">
+                      <div class="flex-1 min-w-0 flex flex-col gap-1.5">
+                        <div class="flex items-baseline gap-3">
+                          <strong class="text-zinc-300 text-sm font-semibold leading-tight group-hover:text-white transition-colors truncate">
                             {story.title}
                           </strong>
-                          <span class="lt-md:hidden flex-none text-[#8b959e] text-11px">
+                          <span class="lt-md:hidden text-zinc-500 text-xs font-medium truncate flex-shrink">
                             {storyHost(story.url)}
                           </span>
-                        </span>
-                        <span class="mt-1.5 flex gap-3.5 text-[#7c8790] text-11px">
-                          <span>{story.score} points</span>
-                          <span>by {story.by}</span>
+                        </div>
+                        <div class="flex items-center gap-3 text-zinc-500 text-xs font-medium">
+                          <span class="flex items-center gap-1.5 text-zinc-400">
+                            <span class="w-1.5 h-1.5 rounded-full bg-[#ff7b00]/80" />
+                            {story.score} pts
+                          </span>
+                          <span class="text-zinc-700">•</span>
+                          <span>
+                            by <span class="text-zinc-400">{story.by}</span>
+                          </span>
+                          <span class="text-zinc-700">•</span>
                           <span>{relativeTime(story.time)}</span>
-                        </span>
-                      </button>
-                      <button
-                        class="lt-md:hidden p-0 border-0 bg-transparent text-left cursor-pointer flex flex-col items-end text-[#8a949d] text-10px"
-                        type="button"
-                        onClick={() => navigate(`/story/${story.id}`)}
-                      >
-                        <strong class="text-[#44515c] text-15px">
-                          {story.descendants ?? 0}
-                        </strong>
-                        <span>comments</span>
-                      </button>
+                        </div>
+                      </div>
+                      <div class="lt-md:hidden flex-none flex flex-col items-end justify-center">
+                        <div class="px-2.5 py-1.5 rounded-lg bg-transparent group-hover:bg-[#ff7b00]/10 border border-transparent group-hover:border-[#ff7b00]/20 transition-colors flex items-center gap-1.5">
+                          <strong class="text-zinc-500 group-hover:text-[#ff7b00] text-xs transition-colors">
+                            {story.descendants ?? 0}
+                          </strong>
+                          <span class="text-zinc-600 group-hover:text-[#ff7b00]/70 text-xs transition-colors">
+                            💬
+                          </span>
+                        </div>
+                      </div>
                     </li>
                   )}
                 </For>
@@ -102,9 +108,9 @@ export function StoryList(): JSX.Element {
         </Show>
       </div>
 
-      <footer class="h-8 flex-none px-4 flex items-center justify-between border-t border-[#dfe3e6] bg-[#f5f6f7] text-[#7f8992] text-10px">
-        <span>{visibleStories().length} stories</span>
-        <span>Updated from Hacker News API</span>
+      <footer class="h-10 flex-none px-6 flex items-center justify-between border-t border-white/5 bg-[#0a0a0c] text-zinc-600 text-xs font-medium">
+        <span>{visibleStories().length} stories matched</span>
+        <span>Live from Hacker News API</span>
       </footer>
     </section>
   );
@@ -112,11 +118,11 @@ export function StoryList(): JSX.Element {
 
 function LoadError(): JSX.Element {
   return (
-    <div class="min-h-85 p-10 flex flex-col items-center justify-center gap-2 text-[#7c8790] text-center">
-      <strong class="text-[#26323d]">Stories could not be loaded</strong>
-      <span class="text-[#b34b3e]">{loadError()}</span>
+    <div class="min-h-85 p-10 flex flex-col items-center justify-center gap-3 text-zinc-500 text-center">
+      <strong class="text-zinc-300 text-lg">Failed to load stories</strong>
+      <span class="text-red-400/80 text-sm">{loadError()}</span>
       <button
-        class="mt-3 px-3.5 py-2 border border-[#cbd1d6] rounded bg-white cursor-pointer"
+        class="mt-4 px-4 py-2 border border-white/10 rounded-lg bg-white/5 hover:bg-white/10 text-white text-sm font-medium cursor-pointer transition-all active:scale-95"
         type="button"
         onClick={() => void loadStories()}
       >
@@ -128,9 +134,9 @@ function LoadError(): JSX.Element {
 
 function EmptyState(): JSX.Element {
   return (
-    <div class="min-h-85 p-10 flex flex-col items-center justify-center gap-2 text-[#7c8790] text-center">
-      <strong class="text-[#26323d]">No matching stories</strong>
-      <span>Try a different title, author, or domain.</span>
+    <div class="min-h-85 p-10 flex flex-col items-center justify-center gap-2 text-zinc-500 text-center">
+      <strong class="text-zinc-300 text-lg">No matching stories</strong>
+      <span class="text-sm">Try a different title, author, or domain.</span>
     </div>
   );
 }

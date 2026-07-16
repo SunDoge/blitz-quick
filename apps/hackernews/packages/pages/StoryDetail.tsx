@@ -12,56 +12,68 @@ export function StoryDetail(): JSX.Element {
   );
 
   return (
-    <section class="h-full min-h-0 flex flex-col bg-white overflow-hidden">
-      <div class="h-13 flex-none px-4 flex items-center border-b border-[#dfe3e6] bg-[#f8f9fa]">
+    <section class="h-full min-h-0 flex flex-col relative z-10">
+      <div class="h-16 flex-none px-6 flex items-center border-b border-white/5 bg-[#0c0c0e]/80 backdrop-blur-md">
         <button
-          class="h-8 px-2.5 flex items-center gap-2 border border-[#ccd2d7] rounded bg-white text-[#56616b] text-xs cursor-pointer"
+          class="h-8 px-3 flex items-center gap-2 border border-white/10 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-medium cursor-pointer transition-all active:scale-95"
           type="button"
           onClick={() => navigate(-1)}
         >
           <ArrowLeft size={14} />
-          Stories
+          Back to feed
         </button>
-        <span class="ml-4 text-xs text-[#929ba3]">Story details</span>
+        <span class="ml-4 text-xs font-medium text-zinc-600">
+          Story details
+        </span>
       </div>
       <Show when={story()} fallback={<MissingStory />}>
         {(current) => (
-          <article class="flex-1 min-h-0 overflow-y-auto px-8 py-7">
-            <p class="m-0 mb-1 text-[#d95316] text-11px font-700 uppercase">
-              {storyHost(current().url)}
-            </p>
-            <h1 class="m-0 max-w-175 text-[#20272e] text-2xl font-650 leading-tight">
-              {current().title}
-            </h1>
-            <div class="mt-4.5 flex lt-md:flex-col lt-md:items-start gap-4.5 text-[#7c8790] text-xs">
-              <span>
-                <strong class="text-[#45515c]">{current().score}</strong> points
-              </span>
-              <span>
-                submitted by{" "}
-                <strong class="text-[#45515c]">{current().by}</strong>
-              </span>
-              <span>{relativeTime(current().time)}</span>
-            </div>
-            <div class="mt-8.5 flex lt-md:flex-col lt-md:items-start gap-2.5">
-              <Show when={current().url}>
+          <article class="flex-1 min-h-0 overflow-y-auto px-10 py-10">
+            <div class="max-w-3xl mx-auto">
+              <p class="m-0 mb-3 text-[#ff7b00] text-xs font-bold uppercase tracking-wider">
+                {storyHost(current().url)}
+              </p>
+              <h1 class="m-0 text-zinc-100 text-3xl font-bold leading-tight tracking-tight">
+                {current().title}
+              </h1>
+              <div class="mt-6 flex lt-md:flex-col lt-md:items-start gap-4 text-zinc-500 text-sm font-medium">
+                <span class="flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#ff7b00]/80" />
+                  <strong class="text-zinc-300 font-semibold">
+                    {current().score}
+                  </strong>{" "}
+                  points
+                </span>
+                <span class="lt-md:hidden text-zinc-700">•</span>
+                <span>
+                  by{" "}
+                  <strong class="text-zinc-300 font-semibold">
+                    {current().by}
+                  </strong>
+                </span>
+                <span class="lt-md:hidden text-zinc-700">•</span>
+                <span>{relativeTime(current().time)}</span>
+              </div>
+              <div class="mt-10 flex lt-md:flex-col lt-md:items-start gap-3">
+                <Show when={current().url}>
+                  <a
+                    class="px-5 py-2.5 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#ff6b00] to-[#ff8c33] hover:from-[#ff7b00] hover:to-[#ff9c33] text-white text-sm font-semibold no-underline shadow-[0_0_15px_rgba(255,107,0,0.2)] transition-all active:scale-95"
+                    href={current().url}
+                  >
+                    Read article <ExternalLink size={14} />
+                  </a>
+                </Show>
                 <a
-                  class="px-3.5 py-2.5 flex items-center gap-2 rounded bg-[#e85b1a] text-white text-xs font-600 no-underline"
-                  href={current().url}
+                  class="px-5 py-2.5 flex items-center justify-center gap-2 border border-white/10 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-sm font-semibold no-underline transition-all active:scale-95"
+                  href={`https://news.ycombinator.com/item?id=${current().id}`}
                 >
-                  Read original article <ExternalLink size={13} />
+                  {current().descendants ?? 0} comments on HN
                 </a>
-              </Show>
-              <a
-                class="px-3.5 py-2.5 border border-[#ccd2d7] rounded bg-white text-[#46535e] text-xs font-600 no-underline"
-                href={`https://news.ycombinator.com/item?id=${current().id}`}
-              >
-                {current().descendants ?? 0} comments on Hacker News
-              </a>
-            </div>
-            <div class="max-w-175 mt-10 pt-4 flex items-center gap-2 border-t border-[#e7eaec] text-[#8a949d] text-11px">
-              <span class="w-1.75 h-1.75 rounded-full bg-[#37a66b]" />
-              Story data fetched asynchronously by Rust and rendered in Solid
+              </div>
+              <div class="mt-14 pt-6 flex items-center gap-2.5 border-t border-white/5 text-zinc-600 text-xs font-medium">
+                <span class="w-2 h-2 rounded-full bg-emerald-500/80 shadow-[0_0_8px_rgba(16,185,129,0.3)]" />
+                Data bridged instantly from Rust
+              </div>
             </div>
           </article>
         )}
@@ -72,9 +84,9 @@ export function StoryDetail(): JSX.Element {
 
 function MissingStory(): JSX.Element {
   return (
-    <div class="min-h-85 p-10 flex flex-col items-center justify-center gap-2 text-[#7c8790] text-center">
-      <strong class="text-[#26323d]">Story not found</strong>
-      <span>Return to the feed and select another story.</span>
+    <div class="min-h-85 p-10 flex flex-col items-center justify-center gap-2 text-zinc-500 text-center">
+      <strong class="text-zinc-300 text-lg">Story not found</strong>
+      <span class="text-sm">Return to the feed and select another story.</span>
     </div>
   );
 }
