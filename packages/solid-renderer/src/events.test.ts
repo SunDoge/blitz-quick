@@ -41,3 +41,15 @@ test("input listeners receive a DOM-like currentTarget", () => {
 
   expect(currentTarget).toEqual({ id: input.id, value: "typed text" });
 });
+
+test("host click is dispatched exactly once after pointerup", () => {
+  const button = createElement("button");
+  let clicks = 0;
+  setProp(button, "onClick", () => clicks++, undefined);
+
+  dispatchEvent(button.id, EVENT_CODE.pointerup, "");
+  expect(clicks).toBe(0);
+
+  dispatchEvent(button.id, EVENT_CODE.click, "");
+  expect(clicks).toBe(1);
+});

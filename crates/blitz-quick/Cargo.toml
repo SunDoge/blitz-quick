@@ -16,7 +16,7 @@ vite = ["dep:tungstenite"]
 blitz-dom = { workspace = true }
 blitz-traits = { workspace = true }
 futures-lite = "2"
-rquickjs = { version = "0.12.1", features = ["full-async"] }
+rquickjs = { version = "0.12.1", features = ["full-async", "rust-alloc"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 snafu = "0.9.1"

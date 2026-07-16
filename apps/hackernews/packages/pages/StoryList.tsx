@@ -43,16 +43,18 @@ export function StoryList(): JSX.Element {
 
   return (
     <section class="h-full min-h-0 flex flex-col">
-      <header class="h-18 flex-none px-7 flex items-center gap-6 border-b border-[var(--color-border)]">
+      <header class="h-16 flex-none px-6 flex items-center gap-5 border-b border-[var(--color-border)] bg-[var(--color-raised)]">
         <div class="min-w-0 flex-1">
-          <h1 class="m-0 text-xl font-semibold">{viewLabels[activeView()]}</h1>
-          <p class="m-0 mt-1 text-[var(--color-text-muted)] text-xs">
+          <h1 class="m-0 text-xl font-semibold leading-tight">
+            {viewLabels[activeView()]}
+          </h1>
+          <p class="m-0 text-[var(--color-text-muted)] text-xs">
             {activeView() === "saved"
               ? "Stories saved during this session"
               : "Live from the Hacker News API"}
           </p>
         </div>
-        <label class="w-64 h-9 px-3 flex items-center gap-2 border border-[var(--color-border)] rounded-md text-[var(--color-text-muted)] focus-within:border-[var(--color-accent)]">
+        <label class="w-60 h-9 px-3 flex items-center gap-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-md text-[var(--color-text-muted)] focus-within:border-[var(--color-accent)]">
           <Search size={15} />
           <input
             class="w-full min-w-0 border-0 outline-none bg-transparent text-[var(--color-text)] text-sm"
@@ -68,7 +70,7 @@ export function StoryList(): JSX.Element {
         </label>
       </header>
 
-      <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5 py-3">
+      <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-2">
         <Show
           when={!loading() || activeView() === "saved"}
           fallback={<LoadingList />}
@@ -80,7 +82,7 @@ export function StoryList(): JSX.Element {
                   {(story, index) => (
                     // biome-ignore lint/a11y/useSemanticElements: Blitz currently mislays out flex button elements.
                     <div
-                      class={`h-18 px-3 flex items-center gap-4 border-b border-[var(--color-border-soft)] cursor-pointer hover:bg-[var(--color-hover)] ${
+                      class={`min-h-20 px-3 py-3 flex items-center gap-3 border-b border-[var(--color-border-soft)] cursor-pointer hover:bg-[var(--color-hover)] ${
                         isVisited(story.id)
                           ? "text-[var(--color-text-muted)]"
                           : "text-[var(--color-text)]"
@@ -94,7 +96,7 @@ export function StoryList(): JSX.Element {
                       role="button"
                       tabIndex={0}
                     >
-                      <span class="w-7 text-right text-[var(--color-text-muted)] font-mono text-xs">
+                      <span class="w-7 flex-none text-right text-[var(--color-text-muted)] font-mono text-xs">
                         {index() + 1}
                       </span>
                       <div class="flex-1 min-w-0">
@@ -102,14 +104,14 @@ export function StoryList(): JSX.Element {
                           <strong class="text-sm font-medium">
                             {story.title}
                           </strong>
-                          <Show when={story.url}>
-                            <span class="text-[var(--color-text-muted)] text-xs whitespace-nowrap">
-                              {" "}
-                              ({storyHost(story.url)})
-                            </span>
-                          </Show>
                         </div>
-                        <div class="mt-1.5 flex items-center gap-2 text-[var(--color-text-muted)] text-xs">
+                        <div class="mt-2 flex items-center gap-2 text-[var(--color-text-muted)] text-xs truncate">
+                          <Show when={story.url}>
+                            <span class="max-w-44 truncate text-[var(--color-text-secondary)]">
+                              {storyHost(story.url)}
+                            </span>
+                            <span>·</span>
+                          </Show>
                           <span>{story.score} points</span>
                           <span>·</span>
                           <span>{story.by}</span>
@@ -117,7 +119,7 @@ export function StoryList(): JSX.Element {
                           <span>{relativeTime(story.time)}</span>
                         </div>
                       </div>
-                      <span class="flex items-center gap-1 text-[var(--color-text-muted)] text-xs">
+                      <span class="w-12 flex-none flex items-center justify-end gap-1 text-[var(--color-text-muted)] text-xs">
                         <MessageSquare size={13} />
                         {story.descendants ?? 0}
                       </span>
@@ -131,7 +133,7 @@ export function StoryList(): JSX.Element {
         </Show>
       </div>
 
-      <footer class="h-9 flex-none px-7 flex items-center border-t border-[var(--color-border)] text-[var(--color-text-muted)] text-xs">
+      <footer class="h-9 flex-none px-6 flex items-center border-t border-[var(--color-border)] bg-[var(--color-raised)] text-[var(--color-text-muted)] text-xs">
         {visibleStories().length} stories
       </footer>
     </section>

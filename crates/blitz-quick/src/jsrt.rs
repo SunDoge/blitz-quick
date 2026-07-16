@@ -13,6 +13,7 @@ use rquickjs::{AsyncContext, AsyncRuntime, Ctx, Function, TypedArray, Value};
 type JsResult<T> = rquickjs::Result<T>;
 
 const CORE_PRELUDE: &str = include_str!("gen/core-prelude.js");
+const MEMORY_LOG_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
 
 #[cfg(test)]
 pub(crate) const TEST_RUNTIME: &str = include_str!("gen/test-runtime.js");
@@ -36,7 +37,7 @@ pub struct JsRuntime {
     booted: bool,
     timer_cmds: Rc<RefCell<Vec<TimerCmd>>>,
     shared_event_data: rquickjs::Persistent<Value<'static>>,
-    last_gc: std::time::Instant,
+    last_memory_log: std::time::Instant,
     #[cfg(feature = "vite")]
     vite: Option<crate::vite::ViteState>,
     #[cfg(feature = "vite")]
@@ -62,7 +63,6 @@ impl JsRuntime {
         let vite = crate::vite::ViteState::new(origin);
         let rt = AsyncRuntime::new()?;
         futures_lite::future::block_on(async {
-            rt.set_gc_threshold(256 * 1024).await;
             rt.set_max_stack_size(2048 * 1024).await;
         });
         vite.install_loader(&rt)?;
@@ -74,7 +74,6 @@ impl JsRuntime {
     fn new_inner() -> JsResult<Self> {
         let rt = AsyncRuntime::new()?;
         futures_lite::future::block_on(async {
-            rt.set_gc_threshold(256 * 1024).await;
             rt.set_max_stack_size(2048 * 1024).await;
         });
         Self::build_inner(rt)
@@ -190,7 +189,7 @@ impl JsRuntime {
             booted: false,
             timer_cmds,
             shared_event_data,
-            last_gc: std::time::Instant::now(),
+            last_memory_log: std::time::Instant::now(),
             #[cfg(feature = "vite")]
             vite: None,
             #[cfg(feature = "vite")]
@@ -260,15 +259,16 @@ impl JsRuntime {
         self._local.block_on(&self._tokio, self.ctx.with(f))
     }
 
-    /// Drive rquickjs async jobs + drain pending JS jobs. Called from the
-    /// shell's poll loop. Uses `rt.idle()` with a 1ms timeout so async host
-    /// functions (reqwest, timers) make progress without blocking the UI.
+    /// Drive rquickjs async jobs and report whether more async work remains.
+    /// Pending work is not itself a redraw request; the resulting protocol
+    /// frame, if any, decides whether the shell needs to render.
     pub fn poll_pending_jobs(&self, _task_context: &mut TaskContext<'_>) -> Result<bool, String> {
         let _guard = self._tokio.handle().enter();
-        self._local.block_on(&self._tokio, async {
+        let pending = self._local.block_on(&self._tokio, async {
             let _ = tokio::time::timeout(std::time::Duration::from_millis(1), self.rt.idle()).await;
+            self.rt.is_job_pending().await
         });
-        Ok(true)
+        Ok(pending)
     }
 
     #[cfg(feature = "vite")]
@@ -416,18 +416,36 @@ impl JsRuntime {
 
             while ctx.execute_pending_job() {}
 
-            // rquickjs Value wrappers hold refs on the Rust side, invisible to
-            // QuickJS's malloc-counted automatic GC — they accumulate on every
-            // Only manual collection reclaims them. Cheap when little has changed,
-            // but we throttle it to avoid overhead during high framerates.
-            // ctx.run_gc(); // Done outside the with block so we can mutate self.last_gc
-
             res
         })?;
 
-        if self.last_gc.elapsed() >= std::time::Duration::from_millis(250) {
-            futures_lite::future::block_on(self.rt.run_gc());
-            self.last_gc = std::time::Instant::now();
+        if self.last_memory_log.elapsed() >= MEMORY_LOG_INTERVAL {
+            let usage = futures_lite::future::block_on(self.rt.memory_usage());
+            tracing::info!(
+                target: "blitz_quick::memory",
+                malloc_size = usage.malloc_size,
+                memory_used_size = usage.memory_used_size,
+                malloc_count = usage.malloc_count,
+                memory_used_count = usage.memory_used_count,
+                atom_count = usage.atom_count,
+                atom_size = usage.atom_size,
+                string_count = usage.str_count,
+                string_size = usage.str_size,
+                object_count = usage.obj_count,
+                object_size = usage.obj_size,
+                property_count = usage.prop_count,
+                property_size = usage.prop_size,
+                shape_count = usage.shape_count,
+                shape_size = usage.shape_size,
+                js_function_count = usage.js_func_count,
+                js_function_size = usage.js_func_size,
+                array_count = usage.array_count,
+                fast_array_count = usage.fast_array_count,
+                binary_object_count = usage.binary_object_count,
+                binary_object_size = usage.binary_object_size,
+                "QuickJS memory usage"
+            );
+            self.last_memory_log = std::time::Instant::now();
         }
 
         Ok((self.out.borrow().clone(), has_raf))
@@ -444,6 +462,10 @@ impl JsRuntime {
             };
             f.call::<(), bool>(()).unwrap_or(false)
         })
+    }
+
+    pub(crate) fn next_memory_log_at(&self) -> std::time::Instant {
+        self.last_memory_log + MEMORY_LOG_INTERVAL
     }
 
     /// Dispatch a DOM event from Rust back into a Solid handler. `payload` is

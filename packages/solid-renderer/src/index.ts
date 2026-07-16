@@ -17,6 +17,7 @@ import { createMemo, splitProps, untrack } from "solid-js";
 export const isServer = false;
 export const getRequestEvent = () => undefined;
 export const delegateEvents = () => {};
+
 import type { JSX } from "solid-js";
 import { createRenderer as solidCreateRenderer } from "solid-js/universal";
 
@@ -289,10 +290,11 @@ export function Dynamic(props: any) {
     switch (typeof component) {
       case "function":
         return untrack(() => component(others));
-      case "string":
+      case "string": {
         const el = createElement(component);
         spread(el, others, false);
         return el;
+      }
     }
     return null;
   });
@@ -324,7 +326,7 @@ export function mount(code: () => JSX.Element): () => void {
  * Dispatch a DOM event from the host. Walks the Solid Handle tree upward from
  * the target (bubbling), firing any matching listener. The handler receives a
  * DOM-like event object built from `payloadJson`. stopPropagation() halts the
- * walk. A pointerup also synthesizes a `click` (browser semantics).
+ * walk. The host EventDriver is responsible for synthesizing click events.
  */
 export function dispatchEvent(
   solidId: number,
@@ -384,15 +386,6 @@ export function dispatchEvent(
   };
 
   bubble(solidId, eventCode, ev);
-
-  if (eventCode === EVENT_CODE.pointerup) {
-    ev.type = eventName(EVENT_CODE.click);
-    ev.stopPropagation = () => {
-      stopped = true;
-    };
-    stopped = false; // Reset for the click event
-    bubble(solidId, EVENT_CODE.click, ev);
-  }
 }
 
 /** Walk parent chain from `nodeId`, firing `code` listeners until stopped. */

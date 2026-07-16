@@ -32,16 +32,16 @@ export function Sidebar(): JSX.Element {
   };
 
   return (
-    <aside class="w-60 flex-none flex flex-col bg-[var(--color-surface)] border-r border-[var(--color-border)]">
-      <div class="h-18 px-5 flex items-center gap-3">
-        <div class="w-8 h-8 rounded-md flex items-center justify-center bg-[var(--color-accent)] text-white font-bold">
+    <aside class="w-56 flex-none flex flex-col bg-[var(--color-surface)] border-r border-[var(--color-border)]">
+      <div class="h-16 px-5 flex items-center gap-3 border-b border-[var(--color-border-soft)]">
+        <div class="w-8 h-8 rounded-sm flex items-center justify-center bg-[var(--color-accent)] text-white font-bold">
           Y
         </div>
         <strong class="text-[var(--color-text)] text-sm">Hacker News</strong>
       </div>
 
-      <nav class="flex-1 px-3 py-3" aria-label="Story feeds">
-        <p class="m-0 px-3 pb-2 text-[var(--color-text-muted)] text-xs font-semibold">
+      <nav class="flex-1 px-3 py-4" aria-label="Story feeds">
+        <p class="m-0 px-2 pb-2 text-[var(--color-text-muted)] text-xs font-semibold">
           Feeds
         </p>
         <SidebarItem
@@ -64,7 +64,7 @@ export function Sidebar(): JSX.Element {
           onActivate={() => openView("best")}
         />
 
-        <p class="m-0 mt-6 px-3 pb-2 text-[var(--color-text-muted)] text-xs font-semibold">
+        <p class="m-0 mt-5 px-2 pb-2 text-[var(--color-text-muted)] text-xs font-semibold">
           Library
         </p>
         <SidebarItem
@@ -76,7 +76,7 @@ export function Sidebar(): JSX.Element {
         />
       </nav>
 
-      <div class="p-4 border-t border-[var(--color-border)]">
+      <div class="px-3 py-3 border-t border-[var(--color-border)]">
         <SidebarItem
           icon={theme() === "light" ? <Moon size={16} /> : <Sun size={16} />}
           label={theme() === "light" ? "Dark theme" : "Light theme"}
@@ -110,7 +110,7 @@ function SidebarItem(props: SidebarItemProps): JSX.Element {
   return (
     // biome-ignore lint/a11y/useSemanticElements: Blitz currently mislays out flex button elements.
     <div
-      class={`w-full h-10 px-3 flex items-center gap-3 rounded-md text-sm cursor-pointer bg-black/1 ${
+      class={`w-full h-10 px-2 flex items-center gap-3 rounded-md text-sm cursor-pointer bg-black/1 ${
         props.active
           ? "bg-[var(--color-raised)] text-[var(--color-text)] font-semibold"
           : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover)]"

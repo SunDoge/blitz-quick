@@ -224,6 +224,8 @@ struct ActiveTimer {
     repeat: bool,
 }
 
+const ASYNC_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(16);
+
 impl Applier {
     /// Build a minimal HTML document with #root, then load DEFAULT_CSS as the
     /// UA stylesheet. The app's own stylesheet
@@ -504,10 +506,10 @@ impl BlitzDocument for Applier {
             }
         }
 
+        let mut has_pending_async = false;
         if let Some(ctx) = task_context.as_mut() {
             match self.js.poll_pending_jobs(ctx) {
-                Ok(true) => needs_redraw = true,
-                Ok(false) => {}
+                Ok(pending) => has_pending_async = pending,
                 Err(error) => tracing::error!(?error, "failed to poll QuickJS jobs"),
             }
         }
@@ -667,10 +669,16 @@ impl BlitzDocument for Applier {
             }
         }
 
-        // If we are not actively animating but have pending timers, schedule a wake-up thread.
-        let has_pending_timers = !self.timers.is_empty();
-        if !has_raf && has_pending_timers {
-            let earliest = self.timers.iter().map(|t| t.expires_at).min().unwrap();
+        // Wake for the next JS timer or memory sample even when the window is idle.
+        if !has_raf {
+            let earliest = self
+                .timers
+                .iter()
+                .map(|timer| timer.expires_at)
+                .chain(std::iter::once(self.js.next_memory_log_at()))
+                .chain(has_pending_async.then(|| std::time::Instant::now() + ASYNC_POLL_INTERVAL))
+                .min()
+                .expect("memory logging always provides a wake deadline");
             let should_spawn = self
                 .last_spawned_wake
                 .is_none_or(|scheduled| earliest < scheduled);
@@ -683,8 +691,6 @@ impl BlitzDocument for Applier {
                     waker.wake();
                 });
             }
-        } else if !has_pending_timers {
-            self.last_spawned_wake = None;
         }
 
         if has_raf || needs_redraw {
@@ -947,6 +953,15 @@ mod tests {
 
         assert_eq!(applier.last_spawned_wake, Some(first_deadline));
         assert_eq!(wake_counter.0.load(std::sync::atomic::Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn idle_runtime_does_not_request_continuous_redraw() {
+        let mut applier = test_applier();
+        let waker = std::task::Waker::noop();
+
+        applier.poll(Some(std::task::Context::from_waker(waker)));
+        assert!(!applier.poll(Some(std::task::Context::from_waker(waker))));
     }
 
     #[test]

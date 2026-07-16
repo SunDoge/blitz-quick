@@ -1390,10 +1390,11 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       switch (typeof component) {
         case "function":
           return untrack(() => component(others));
-        case "string":
+        case "string": {
           const el = createElement(component);
           spread(el, others, false);
           return el;
+        }
       }
       return null;
     });
@@ -1459,14 +1460,6 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       }
     };
     bubble(solidId, eventCode, ev);
-    if (eventCode === EVENT_CODE.pointerup) {
-      ev.type = eventName(EVENT_CODE.click);
-      ev.stopPropagation = () => {
-        stopped = true;
-      };
-      stopped = false;
-      bubble(solidId, EVENT_CODE.click, ev);
-    }
   }
   function bubble(nodeId, code, ev) {
     var _a;
@@ -3401,20 +3394,20 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       insertNode(_el$, _el$2);
       insertNode(_el$, _el$7);
       insertNode(_el$, _el$10);
-      setProp(_el$, "class", "w-60 flex-none flex flex-col bg-[var(--color-surface)] border-r border-[var(--color-border)]");
+      setProp(_el$, "class", "w-56 flex-none flex flex-col bg-[var(--color-surface)] border-r border-[var(--color-border)]");
       insertNode(_el$2, _el$3);
       insertNode(_el$2, _el$5);
-      setProp(_el$2, "class", "h-18 px-5 flex items-center gap-3");
+      setProp(_el$2, "class", "h-16 px-5 flex items-center gap-3 border-b border-[var(--color-border-soft)]");
       insertNode(_el$3, createTextNode(`Y`));
-      setProp(_el$3, "class", "w-8 h-8 rounded-md flex items-center justify-center bg-[var(--color-accent)] text-white font-bold");
+      setProp(_el$3, "class", "w-8 h-8 rounded-sm flex items-center justify-center bg-[var(--color-accent)] text-white font-bold");
       insertNode(_el$5, createTextNode(`Hacker News`));
       setProp(_el$5, "class", "text-[var(--color-text)] text-sm");
       insertNode(_el$7, _el$8);
       insertNode(_el$7, _el$0);
-      setProp(_el$7, "class", "flex-1 px-3 py-3");
+      setProp(_el$7, "class", "flex-1 px-3 py-4");
       setProp(_el$7, "aria-label", "Story feeds");
       insertNode(_el$8, createTextNode(`Feeds`));
-      setProp(_el$8, "class", "m-0 px-3 pb-2 text-[var(--color-text-muted)] text-xs font-semibold");
+      setProp(_el$8, "class", "m-0 px-2 pb-2 text-[var(--color-text-muted)] text-xs font-semibold");
       insert(_el$7, createComponent(SidebarItem, {
         get active() {
           return activeView() === "top";
@@ -3455,7 +3448,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         onActivate: () => openView("best")
       }), _el$0);
       insertNode(_el$0, createTextNode(`Library`));
-      setProp(_el$0, "class", "m-0 mt-6 px-3 pb-2 text-[var(--color-text-muted)] text-xs font-semibold");
+      setProp(_el$0, "class", "m-0 mt-5 px-2 pb-2 text-[var(--color-text-muted)] text-xs font-semibold");
       insert(_el$7, createComponent(SidebarItem, {
         get active() {
           return activeView() === "saved";
@@ -3471,7 +3464,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         label: "Saved",
         onActivate: () => openView("saved")
       }), null);
-      setProp(_el$10, "class", "p-4 border-t border-[var(--color-border)]");
+      setProp(_el$10, "class", "px-3 py-3 border-t border-[var(--color-border)]");
       insert(_el$10, createComponent(SidebarItem, {
         get icon() {
           return memo(() => theme() === "light")() ? createComponent(moon_default, {
@@ -3534,7 +3527,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           })() : null;
         })(), null);
         effect((_p$) => {
-          var _v$ = `w-full h-10 px-3 flex items-center gap-3 rounded-md text-sm cursor-pointer bg-black/1 ${props.active ? "bg-[var(--color-raised)] text-[var(--color-text)] font-semibold" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover)]"} ${props.disabled ? "opacity-50" : ""}`, _v$2 = `pointer-events-none ${props.active ? "text-[var(--color-accent)]" : "text-[var(--color-text-muted)]"}`;
+          var _v$ = `w-full h-10 px-2 flex items-center gap-3 rounded-md text-sm cursor-pointer bg-black/1 ${props.active ? "bg-[var(--color-raised)] text-[var(--color-text)] font-semibold" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover)]"} ${props.disabled ? "opacity-50" : ""}`, _v$2 = `pointer-events-none ${props.active ? "text-[var(--color-accent)]" : "text-[var(--color-text-muted)]"}`;
           _v$ !== _p$.e && (_p$.e = setProp(_el$11, "class", _v$, _p$.e));
           _v$2 !== _p$.t && (_p$.t = setProp(_el$12, "class", _v$2, _p$.t));
           return _p$;
@@ -3550,7 +3543,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     return (() => {
       var _el$ = createElement("div"), _el$2 = createElement("main");
       insertNode(_el$, _el$2);
-      setProp(_el$, "class", "w-full h-screen overflow-hidden flex bg-[var(--color-bg)] text-[var(--color-text)] font-sans select-none antialiased");
+      setProp(_el$, "class", "w-full h-full overflow-hidden flex bg-[var(--color-bg)] text-[var(--color-text)] font-sans select-none antialiased");
       insert(_el$, createComponent(Sidebar, {}), _el$2);
       setProp(_el$2, "class", "flex-1 min-w-0 min-h-0 overflow-hidden bg-[var(--color-bg)]");
       insert(_el$2, () => props.children);
@@ -3785,16 +3778,16 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       setProp(_el$, "class", "h-full min-h-0 flex flex-col");
       insertNode(_el$2, _el$3);
       insertNode(_el$2, _el$6);
-      setProp(_el$2, "class", "h-18 flex-none px-7 flex items-center gap-6 border-b border-[var(--color-border)]");
+      setProp(_el$2, "class", "h-16 flex-none px-6 flex items-center gap-5 border-b border-[var(--color-border)] bg-[var(--color-raised)]");
       insertNode(_el$3, _el$4);
       insertNode(_el$3, _el$5);
       setProp(_el$3, "class", "min-w-0 flex-1");
-      setProp(_el$4, "class", "m-0 text-xl font-semibold");
+      setProp(_el$4, "class", "m-0 text-xl font-semibold leading-tight");
       insert(_el$4, () => viewLabels[activeView()]);
-      setProp(_el$5, "class", "m-0 mt-1 text-[var(--color-text-muted)] text-xs");
+      setProp(_el$5, "class", "m-0 text-[var(--color-text-muted)] text-xs");
       insert(_el$5, () => activeView() === "saved" ? "Stories saved during this session" : "Live from the Hacker News API");
       insertNode(_el$6, _el$7);
-      setProp(_el$6, "class", "w-64 h-9 px-3 flex items-center gap-2 border border-[var(--color-border)] rounded-md text-[var(--color-text-muted)] focus-within:border-[var(--color-accent)]");
+      setProp(_el$6, "class", "w-60 h-9 px-3 flex items-center gap-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-md text-[var(--color-text-muted)] focus-within:border-[var(--color-accent)]");
       insert(_el$6, createComponent(search_default, {
         size: 15
       }), _el$7);
@@ -3815,7 +3808,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           });
         }
       }), null);
-      setProp(_el$8, "class", "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5 py-3");
+      setProp(_el$8, "class", "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-2");
       insert(_el$8, createComponent(Show, {
         get when() {
           return !loading() || activeView() === "saved";
@@ -3849,10 +3842,10 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
                     children: (story, index) => (
                       // biome-ignore lint/a11y/useSemanticElements: Blitz currently mislays out flex button elements.
                       (() => {
-                        var _el$10 = createElement("div"), _el$11 = createElement("span"), _el$12 = createElement("div"), _el$13 = createElement("div"), _el$14 = createElement("strong"), _el$19 = createElement("div"), _el$20 = createElement("span"), _el$21 = createTextNode(` points`), _el$22 = createElement("span"), _el$24 = createElement("span"), _el$25 = createElement("span"), _el$27 = createElement("span"), _el$28 = createElement("span");
+                        var _el$10 = createElement("div"), _el$11 = createElement("span"), _el$12 = createElement("div"), _el$13 = createElement("div"), _el$14 = createElement("strong"), _el$15 = createElement("div"), _el$19 = createElement("span"), _el$20 = createTextNode(` points`), _el$21 = createElement("span"), _el$23 = createElement("span"), _el$24 = createElement("span"), _el$26 = createElement("span"), _el$27 = createElement("span");
                         insertNode(_el$10, _el$11);
                         insertNode(_el$10, _el$12);
-                        insertNode(_el$10, _el$28);
+                        insertNode(_el$10, _el$27);
                         setProp(_el$10, "onClick", () => openStory(story));
                         setProp(_el$10, "onKeyDown", (event) => {
                           if (event.key === "Enter" || event.key === " ") {
@@ -3861,49 +3854,53 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
                         });
                         setProp(_el$10, "role", "button");
                         setProp(_el$10, "tabIndex", 0);
-                        setProp(_el$11, "class", "w-7 text-right text-[var(--color-text-muted)] font-mono text-xs");
+                        setProp(_el$11, "class", "w-7 flex-none text-right text-[var(--color-text-muted)] font-mono text-xs");
                         insert(_el$11, () => index() + 1);
                         insertNode(_el$12, _el$13);
-                        insertNode(_el$12, _el$19);
+                        insertNode(_el$12, _el$15);
                         setProp(_el$12, "class", "flex-1 min-w-0");
                         insertNode(_el$13, _el$14);
                         setProp(_el$13, "class", "leading-tight");
                         setProp(_el$14, "class", "text-sm font-medium");
                         insert(_el$14, () => story.title);
-                        insert(_el$13, createComponent(Show, {
+                        insertNode(_el$15, _el$19);
+                        insertNode(_el$15, _el$21);
+                        insertNode(_el$15, _el$23);
+                        insertNode(_el$15, _el$24);
+                        insertNode(_el$15, _el$26);
+                        setProp(_el$15, "class", "mt-2 flex items-center gap-2 text-[var(--color-text-muted)] text-xs truncate");
+                        insert(_el$15, createComponent(Show, {
                           get when() {
                             return story.url;
                           },
                           get children() {
-                            var _el$15 = createElement("span"), _el$16 = createTextNode(` (`), _el$18 = createTextNode(`)`);
-                            insertNode(_el$15, _el$16);
-                            insertNode(_el$15, _el$18);
-                            setProp(_el$15, "class", "text-[var(--color-text-muted)] text-xs whitespace-nowrap");
-                            insert(_el$15, () => storyHost(story.url), _el$18);
-                            return _el$15;
+                            return [(() => {
+                              var _el$16 = createElement("span");
+                              setProp(_el$16, "class", "max-w-44 truncate text-[var(--color-text-secondary)]");
+                              insert(_el$16, () => storyHost(story.url));
+                              return _el$16;
+                            })(), (() => {
+                              var _el$17 = createElement("span");
+                              insertNode(_el$17, createTextNode(`·`));
+                              return _el$17;
+                            })()];
                           }
-                        }), null);
+                        }), _el$19);
                         insertNode(_el$19, _el$20);
-                        insertNode(_el$19, _el$22);
-                        insertNode(_el$19, _el$24);
-                        insertNode(_el$19, _el$25);
-                        insertNode(_el$19, _el$27);
-                        setProp(_el$19, "class", "mt-1.5 flex items-center gap-2 text-[var(--color-text-muted)] text-xs");
-                        insertNode(_el$20, _el$21);
-                        insert(_el$20, () => story.score, _el$21);
-                        insertNode(_el$22, createTextNode(`·`));
-                        insert(_el$24, () => story.by);
-                        insertNode(_el$25, createTextNode(`·`));
-                        insert(_el$27, () => relativeTime(story.time));
-                        setProp(_el$28, "class", "flex items-center gap-1 text-[var(--color-text-muted)] text-xs");
-                        insert(_el$28, createComponent(message_square_default, {
+                        insert(_el$19, () => story.score, _el$20);
+                        insertNode(_el$21, createTextNode(`·`));
+                        insert(_el$23, () => story.by);
+                        insertNode(_el$24, createTextNode(`·`));
+                        insert(_el$26, () => relativeTime(story.time));
+                        setProp(_el$27, "class", "w-12 flex-none flex items-center justify-end gap-1 text-[var(--color-text-muted)] text-xs");
+                        insert(_el$27, createComponent(message_square_default, {
                           size: 13
                         }), null);
-                        insert(_el$28, () => story.descendants ?? 0, null);
+                        insert(_el$27, () => story.descendants ?? 0, null);
                         insert(_el$10, createComponent(BookmarkAction, {
                           story
                         }), null);
-                        effect((_$p) => setProp(_el$10, "class", `h-18 px-3 flex items-center gap-4 border-b border-[var(--color-border-soft)] cursor-pointer hover:bg-[var(--color-hover)] ${isVisited(story.id) ? "text-[var(--color-text-muted)]" : "text-[var(--color-text)]"}`, _$p));
+                        effect((_$p) => setProp(_el$10, "class", `min-h-20 px-3 py-3 flex items-center gap-3 border-b border-[var(--color-border-soft)] cursor-pointer hover:bg-[var(--color-hover)] ${isVisited(story.id) ? "text-[var(--color-text-muted)]" : "text-[var(--color-text)]"}`, _$p));
                         return _el$10;
                       })()
                     )
@@ -3916,7 +3913,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         }
       }));
       insertNode(_el$0, _el$1);
-      setProp(_el$0, "class", "h-9 flex-none px-7 flex items-center border-t border-[var(--color-border)] text-[var(--color-text-muted)] text-xs");
+      setProp(_el$0, "class", "h-9 flex-none px-6 flex items-center border-t border-[var(--color-border)] bg-[var(--color-raised)] text-[var(--color-text-muted)] text-xs");
       insert(_el$0, () => visibleStories().length, _el$1);
       effect((_$p) => setProp(_el$7, "value", query(), _$p));
       return _el$;
@@ -3930,14 +3927,14 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     return (
       // biome-ignore lint/a11y/useSemanticElements: Nested native buttons are not laid out correctly by Blitz yet.
       (() => {
-        var _el$29 = createElement("span");
-        setProp(_el$29, "onClick", toggle);
-        setProp(_el$29, "onKeyDown", (event) => {
+        var _el$28 = createElement("span");
+        setProp(_el$28, "onClick", toggle);
+        setProp(_el$28, "onKeyDown", (event) => {
           if (event.key === "Enter" || event.key === " ") toggle(event);
         });
-        setProp(_el$29, "role", "button");
-        setProp(_el$29, "tabIndex", 0);
-        insert(_el$29, createComponent(bookmark_default, {
+        setProp(_el$28, "role", "button");
+        setProp(_el$28, "tabIndex", 0);
+        insert(_el$28, createComponent(bookmark_default, {
           size: 16,
           get fill() {
             return isSaved(props.story.id) ? "currentColor" : "none";
@@ -3945,55 +3942,55 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         }));
         effect((_p$) => {
           var _v$ = isSaved(props.story.id) ? "text-[var(--color-accent)]" : "text-[var(--color-text-muted)]", _v$2 = isSaved(props.story.id) ? "Remove saved story" : "Save story";
-          _v$ !== _p$.e && (_p$.e = setProp(_el$29, "class", _v$, _p$.e));
-          _v$2 !== _p$.t && (_p$.t = setProp(_el$29, "title", _v$2, _p$.t));
+          _v$ !== _p$.e && (_p$.e = setProp(_el$28, "class", _v$, _p$.e));
+          _v$2 !== _p$.t && (_p$.t = setProp(_el$28, "title", _v$2, _p$.t));
           return _p$;
         }, {
           e: void 0,
           t: void 0
         });
-        return _el$29;
+        return _el$28;
       })()
     );
   }
   function LoadError() {
     return (() => {
-      var _el$30 = createElement("div"), _el$31 = createElement("strong"), _el$33 = createElement("span"), _el$34 = createElement("span");
-      insertNode(_el$30, _el$31);
-      insertNode(_el$30, _el$33);
-      insertNode(_el$30, _el$34);
-      setProp(_el$30, "class", "min-h-80 flex flex-col items-center justify-center gap-3 text-[var(--color-text-muted)] text-center");
-      insertNode(_el$31, createTextNode(`Could not load stories`));
-      setProp(_el$31, "class", "text-[var(--color-text)]");
-      setProp(_el$33, "class", "text-[var(--color-danger)] text-sm");
-      insert(_el$33, loadError);
-      insertNode(_el$34, createTextNode(`Try again`));
-      setProp(_el$34, "class", "text-[var(--color-accent)] text-sm cursor-pointer");
-      setProp(_el$34, "onClick", () => void loadStories(void 0, true));
-      setProp(_el$34, "onKeyDown", (event) => {
+      var _el$29 = createElement("div"), _el$30 = createElement("strong"), _el$32 = createElement("span"), _el$33 = createElement("span");
+      insertNode(_el$29, _el$30);
+      insertNode(_el$29, _el$32);
+      insertNode(_el$29, _el$33);
+      setProp(_el$29, "class", "min-h-80 flex flex-col items-center justify-center gap-3 text-[var(--color-text-muted)] text-center");
+      insertNode(_el$30, createTextNode(`Could not load stories`));
+      setProp(_el$30, "class", "text-[var(--color-text)]");
+      setProp(_el$32, "class", "text-[var(--color-danger)] text-sm");
+      insert(_el$32, loadError);
+      insertNode(_el$33, createTextNode(`Try again`));
+      setProp(_el$33, "class", "text-[var(--color-accent)] text-sm cursor-pointer");
+      setProp(_el$33, "onClick", () => void loadStories(void 0, true));
+      setProp(_el$33, "onKeyDown", (event) => {
         if (event.key === "Enter" || event.key === " ") {
           void loadStories(void 0, true);
         }
       });
-      setProp(_el$34, "role", "button");
-      setProp(_el$34, "tabIndex", 0);
-      return _el$30;
+      setProp(_el$33, "role", "button");
+      setProp(_el$33, "tabIndex", 0);
+      return _el$29;
     })();
   }
   function EmptyState() {
     return (() => {
-      var _el$36 = createElement("div"), _el$37 = createElement("strong"), _el$38 = createElement("span");
-      insertNode(_el$36, _el$37);
-      insertNode(_el$36, _el$38);
-      setProp(_el$36, "class", "min-h-80 flex flex-col items-center justify-center gap-2 text-[var(--color-text-muted)] text-center");
-      insert(_el$36, createComponent(bookmark_default, {
+      var _el$35 = createElement("div"), _el$36 = createElement("strong"), _el$37 = createElement("span");
+      insertNode(_el$35, _el$36);
+      insertNode(_el$35, _el$37);
+      setProp(_el$35, "class", "min-h-80 flex flex-col items-center justify-center gap-2 text-[var(--color-text-muted)] text-center");
+      insert(_el$35, createComponent(bookmark_default, {
         size: 22
-      }), _el$37);
-      setProp(_el$37, "class", "text-[var(--color-text)]");
-      insert(_el$37, () => activeView() === "saved" ? "No saved stories" : "No matching stories");
-      setProp(_el$38, "class", "text-sm");
-      insert(_el$38, () => activeView() === "saved" ? "Use the bookmark icon to keep a story here." : "Try another search.");
-      return _el$36;
+      }), _el$36);
+      setProp(_el$36, "class", "text-[var(--color-text)]");
+      insert(_el$36, () => activeView() === "saved" ? "No saved stories" : "No matching stories");
+      setProp(_el$37, "class", "text-sm");
+      insert(_el$37, () => activeView() === "saved" ? "Use the bookmark icon to keep a story here." : "Try another search.");
+      return _el$35;
     })();
   }
   mount(() => createComponent(ThemeProvider, {

@@ -5,23 +5,36 @@ members = ["apps/hackernews", "crates/*"]
 [workspace.dependencies]
 blitz-dom = {
   git = "https://github.com/DioxusLabs/blitz",
-  rev = "1973351",
+  rev = "02523b833ada999d70f72784b592d61df7279f62",
 }
-blitz-net = { git = "https://github.com/DioxusLabs/blitz", rev = "1973351" }
+blitz-net = {
+  git = "https://github.com/DioxusLabs/blitz",
+  rev = "02523b833ada999d70f72784b592d61df7279f62"
+}
 blitz-paint = {
   git = "https://github.com/DioxusLabs/blitz",
-  rev = "1973351",
+  rev = "02523b833ada999d70f72784b592d61df7279f62",
 }
-blitz-shell = { git = "https://github.com/DioxusLabs/blitz", rev = "1973351" }
-blitz-traits = { git = "https://github.com/DioxusLabs/blitz", rev = "1973351" }
+blitz-shell = {
+  git = "https://github.com/DioxusLabs/blitz",
+  rev = "02523b833ada999d70f72784b592d61df7279f62"
+}
+blitz-traits = {
+  git = "https://github.com/DioxusLabs/blitz",
+  rev = "02523b833ada999d70f72784b592d61df7279f62"
+}
 
 # crates
 blitz-quick = { path = "crates/blitz-quick" }
-blitz-quick-desktop = { path = "crates/blitz-quick-desktop", default-features = false }
+blitz-quick-desktop = {
+  path = "crates/blitz-quick-desktop",
+  default-features = false
+}
 snafu = "0.9.1"
 
 [profile.dev.package."*"]
 opt-level = 2
 
 [profile.release]
+opt-level = "s"
 strip = true
