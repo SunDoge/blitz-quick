@@ -112,13 +112,12 @@ function LoadError(): JSX.Element {
     <div class="min-h-85 p-10 flex flex-col items-center justify-center gap-3 text-[#71717a] text-center">
       <strong class="text-[#d4d4d8] text-lg">Failed to load stories</strong>
       <span class="text-[#f87171] text-sm">{loadError()}</span>
-      <button
-        class="mt-4 px-4 py-2 border border-[#3f3f46] rounded-lg bg-[#18181b] hover:bg-[#27272a] text-white text-sm font-medium cursor-pointer transition-all active:scale-95"
-        type="button"
+      <div
+        class="mt-4 px-4 py-2 flex items-center gap-2 border border-[#3f3f46] rounded-lg bg-[#18181b] hover:bg-[#27272a] text-white text-sm font-medium cursor-pointer transition-all active:scale-95"
         onClick={() => void loadStories()}
       >
         Try again
-      </button>
+      </div>
     </div>
   );
 }

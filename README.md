@@ -20,7 +20,7 @@ In traditional Webview / Electron architectures, massive DOM trees and complex B
 This is a Monorepo workflow powered by Bun + Cargo:
 
 - **`crates/blitz-quick/`**: Embeddable QuickJS + Blitz runtime library.
-- **`crates/blitz-quick-desktop/`**: Desktop host, Vite HMR client, and screenshot renderer for the demo app.
+- **`crates/blitz-quick-desktop/`**: Reusable desktop window, event-loop, and Vello renderer integration.
 - **`packages/protocol/`**: TypeScript definitions for Opcodes and EventCodes for JS-Rust communication (the Source of Truth).
 - **`packages/core/`**: Low-level runtime shims (e.g., FFI bindings, patched implementations of `requestAnimationFrame` and timers).
 - **`packages/solid-renderer/`**: The core custom SolidJS renderer. It intercepts SolidJS's `createElement` and similar methods, translating them into binary rendering instructions for Rust.
@@ -48,59 +48,27 @@ You need the following toolchains installed:
    bun run build
    ```
 
-3. **Start the Rust Host Application**:
+3. **Start the Hacker News Application**:
    ```bash
-   cargo run -p blitz-quick-desktop
+   cargo run -p hackernews
    ```
 
 > **Development Mode (Hot Reloading)**:
 > Run Vite and the desktop host in separate terminals:
 >
 > ```bash
-> bun run dev
-> cargo run -p blitz-quick-desktop -- --vite-url http://127.0.0.1:5173
+> bun run --filter hackernews dev
+> cargo run -p hackernews --features vite
 > ```
 >
 > The desktop host loads Vite's transformed ESM modules into QuickJS and
 > forwards Vite HMR updates to `solid-refresh`. Accepted component updates keep
 > the QuickJS context and unaffected Solid parents alive. Updates that require
-> Vite's `full-reload` fallback currently require restarting the desktop host.
+> Vite's `full-reload` fallback currently requires restarting the application.
 
-### Desktop host options
-
-Run an application from a distribution directory containing `bundle.js` and
-`bundle.css`:
-
-```bash
-cargo run -p blitz-quick-desktop -- --dist-dir ./dist
-```
-
-JavaScript and CSS can also be selected independently:
-
-```bash
-cargo run -p blitz-quick-desktop -- --js ./dist/app.js --css ./dist/app.css
-```
-
-The Vite entry defaults to `/src/index.tsx` and can be overridden:
-
-```bash
-cargo run -p blitz-quick-desktop -- \
-  --vite-url http://127.0.0.1:5173 \
-  --vite-entry /src/main.tsx
-```
-
-For headless and visual tests, `--screenshot` accepts an optional output path.
-The viewport, scale, and tick count are configurable:
-
-```bash
-cargo run -p blitz-quick-desktop --features screenshot -- \
-  --dist-dir ./dist \
-  --screenshot ./artifacts/frame.png \
-  --width 1024 \
-  --height 768 \
-  --scale 1.5 \
-  --ticks 3
-```
+`blitz-quick-desktop` is a library rather than a standalone launcher. Rust
+applications construct a `DesktopApp` with their JavaScript, stylesheet, and
+native extensions; see `apps/hackernews/src/main.rs` for the complete host.
 
 ## 🛠️ Quality & Standards
 

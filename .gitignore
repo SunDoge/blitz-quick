@@ -1,9 +1,7 @@
 /target
 node_modules
-# crates/blitz-quick-desktop/src/gen holds generated demo artifacts.
-# but op.rs is a committed codegen product of the TS source of truth.
-crates/blitz-quick-desktop/src/gen/bundle.js
-crates/blitz-quick-desktop/src/gen/bundle.css
+# Generated demo distribution artifacts.
+apps/demo/dist/
 # Screenshot / render artifacts.
 *.png
 

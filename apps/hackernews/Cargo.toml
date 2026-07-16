@@ -11,10 +11,7 @@ path = "src/main.rs"
 blitz-net = { workspace = true }
 blitz-paint = { workspace = true }
 blitz-quick = { workspace = true }
-blitz-quick-desktop = {
-  path = "../../crates/blitz-quick-desktop",
-  default-features = false
-}
+blitz-quick-desktop = { workspace = true, default-features = false }
 blitz-shell = { workspace = true }
 futures-lite = "2"
 reqwest = { version = "0.13", default-features = false, features = ["json"] }

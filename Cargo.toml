@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "apps/hackernews"]
+members = ["apps/hackernews", "crates/*"]
 
 [workspace.dependencies]
 blitz-dom = {
@@ -17,6 +17,7 @@ blitz-traits = { git = "https://github.com/DioxusLabs/blitz", rev = "1973351" }
 
 # crates
 blitz-quick = { path = "crates/blitz-quick" }
+blitz-quick-desktop = { path = "crates/blitz-quick-desktop" }
 snafu = "0.9.1"
 
 [profile.dev.package."*"]

@@ -14,14 +14,13 @@ export function StoryDetail(): JSX.Element {
   return (
     <section class="h-full min-h-0 flex flex-col relative z-10">
       <div class="h-16 flex-none px-6 flex items-center border-b border-[#27272a] bg-[#0c0c0e]">
-        <button
+        <div
           class="h-8 px-3 flex items-center gap-2 border border-[#3f3f46] rounded-lg bg-[#18181b] hover:bg-[#27272a] text-[#d4d4d8] text-xs font-medium cursor-pointer transition-all active:scale-95"
-          type="button"
           onClick={() => navigate(-1)}
         >
           <ArrowLeft size={14} />
           Back to feed
-        </button>
+        </div>
         <span class="ml-4 text-xs font-medium text-[#71717a]">Story details</span>
       </div>
       <Show when={story()} fallback={<MissingStory />}>

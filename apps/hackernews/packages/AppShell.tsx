@@ -26,13 +26,12 @@ export function AppShell(props: { children?: JSX.Element }): JSX.Element {
         </div>
 
         <nav class="flex-1 px-3 py-4 flex flex-col gap-1" aria-label="Stories">
-          <button
+          <div
             class={`w-full h-11 px-3 flex items-center gap-3 border-0 rounded-lg text-left text-sm font-medium cursor-pointer transition-all duration-200 ${
               isFeed()
                 ? "bg-[#27272a] text-white"
                 : "bg-transparent text-[#a1a1aa] hover:bg-[#1f1f23] hover:text-[#d4d4d8]"
             }`}
-            type="button"
             onClick={() => navigate("/")}
           >
             <Newspaper
@@ -45,22 +44,23 @@ export function AppShell(props: { children?: JSX.Element }): JSX.Element {
             >
               {stories().length || ""}
             </span>
-          </button>
+          </div>
         </nav>
 
         <div class="p-5 mt-auto">
-          <button
-            class="w-full h-10 px-4 flex items-center justify-center gap-2 border border-[#3f3f46] rounded-lg bg-[#1c1c22] hover:bg-[#25252d] text-[#d4d4d8] text-xs font-medium cursor-pointer transition-all disabled:opacity-50 active:scale-95"
-            type="button"
-            disabled={loading()}
-            onClick={() => void loadStories()}
+          <div
+            class="w-full h-10 px-4 flex items-center justify-center gap-2 border border-[#3f3f46] rounded-lg bg-[#1c1c22] hover:bg-[#25252d] text-[#d4d4d8] text-xs font-medium cursor-pointer transition-all active:scale-95"
+            style={loading() ? "opacity: 0.5; pointer-events: none;" : ""}
+            onClick={() => {
+              if (!loading()) void loadStories();
+            }}
           >
             <RefreshCw
               size={14}
               class={loading() ? "animate-spin text-[#ff7b00]" : ""}
             />
             <span>{loading() ? "Updating Feed..." : "Refresh Feed"}</span>
-          </button>
+          </div>
           <div class="mt-5 flex items-center justify-center gap-2 text-[10px] text-[#52525b] uppercase tracking-widest font-semibold">
             <span class="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
             Blitz Desktop

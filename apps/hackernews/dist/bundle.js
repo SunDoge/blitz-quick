@@ -3259,7 +3259,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       if (stories().length === 0) void loadStories();
     });
     return (() => {
-      var _el$ = createElement("div"), _el$2 = createElement("aside"), _el$3 = createElement("div"), _el$4 = createElement("div"), _el$6 = createElement("span"), _el$8 = createElement("nav"), _el$9 = createElement("button"), _el$0 = createElement("span"), _el$10 = createElement("span"), _el$11 = createElement("div"), _el$12 = createElement("button"), _el$13 = createElement("span"), _el$14 = createElement("div"), _el$15 = createElement("span"), _el$16 = createTextNode(`Blitz Desktop`), _el$17 = createElement("main");
+      var _el$ = createElement("div"), _el$2 = createElement("aside"), _el$3 = createElement("div"), _el$4 = createElement("div"), _el$6 = createElement("span"), _el$8 = createElement("nav"), _el$9 = createElement("div"), _el$0 = createElement("span"), _el$10 = createElement("span"), _el$11 = createElement("div"), _el$12 = createElement("div"), _el$13 = createElement("span"), _el$14 = createElement("div"), _el$15 = createElement("span"), _el$16 = createTextNode(`Blitz Desktop`), _el$17 = createElement("main");
       insertNode(_el$, _el$2);
       insertNode(_el$, _el$17);
       setProp(_el$, "class", "w-full h-screen overflow-hidden flex bg-[#0c0c0e] text-[#d4d4d8] font-sans select-none antialiased");
@@ -3279,7 +3279,6 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       setProp(_el$8, "aria-label", "Stories");
       insertNode(_el$9, _el$0);
       insertNode(_el$9, _el$10);
-      setProp(_el$9, "type", "button");
       setProp(_el$9, "onClick", () => navigate("/"));
       insert(_el$9, createComponent(newspaper_default, {
         size: 18,
@@ -3293,9 +3292,10 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       insertNode(_el$11, _el$14);
       setProp(_el$11, "class", "p-5 mt-auto");
       insertNode(_el$12, _el$13);
-      setProp(_el$12, "class", "w-full h-10 px-4 flex items-center justify-center gap-2 border border-[#3f3f46] rounded-lg bg-[#1c1c22] hover:bg-[#25252d] text-[#d4d4d8] text-xs font-medium cursor-pointer transition-all disabled:opacity-50 active:scale-95");
-      setProp(_el$12, "type", "button");
-      setProp(_el$12, "onClick", () => void loadStories());
+      setProp(_el$12, "class", "w-full h-10 px-4 flex items-center justify-center gap-2 border border-[#3f3f46] rounded-lg bg-[#1c1c22] hover:bg-[#25252d] text-[#d4d4d8] text-xs font-medium cursor-pointer transition-all active:scale-95");
+      setProp(_el$12, "onClick", () => {
+        if (!loading()) void loadStories();
+      });
       insert(_el$12, createComponent(refresh_cw_default, {
         size: 14,
         get ["class"]() {
@@ -3310,10 +3310,10 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       setProp(_el$17, "class", "flex-1 min-w-0 min-h-0 overflow-hidden bg-[#0c0c0e]");
       insert(_el$17, () => props.children);
       effect((_p$) => {
-        var _v$ = `w-full h-11 px-3 flex items-center gap-3 border-0 rounded-lg text-left text-sm font-medium cursor-pointer transition-all duration-200 ${isFeed() ? "bg-[#27272a] text-white" : "bg-transparent text-[#a1a1aa] hover:bg-[#1f1f23] hover:text-[#d4d4d8]"}`, _v$2 = `ml-auto text-xs px-2 py-0.5 rounded-full ${isFeed() ? "bg-black text-[#d4d4d8]" : "bg-transparent text-[#52525b]"}`, _v$3 = loading();
+        var _v$ = `w-full h-11 px-3 flex items-center gap-3 border-0 rounded-lg text-left text-sm font-medium cursor-pointer transition-all duration-200 ${isFeed() ? "bg-[#27272a] text-white" : "bg-transparent text-[#a1a1aa] hover:bg-[#1f1f23] hover:text-[#d4d4d8]"}`, _v$2 = `ml-auto text-xs px-2 py-0.5 rounded-full ${isFeed() ? "bg-black text-[#d4d4d8]" : "bg-transparent text-[#52525b]"}`, _v$3 = loading() ? "opacity: 0.5; pointer-events: none;" : "";
         _v$ !== _p$.e && (_p$.e = setProp(_el$9, "class", _v$, _p$.e));
         _v$2 !== _p$.t && (_p$.t = setProp(_el$10, "class", _v$2, _p$.t));
-        _v$3 !== _p$.a && (_p$.a = setProp(_el$12, "disabled", _v$3, _p$.a));
+        _v$3 !== _p$.a && (_p$.a = setProp(_el$12, "style", _v$3, _p$.a));
         return _p$;
       }, {
         e: void 0,
@@ -3355,7 +3355,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const navigate = useNavigate();
     const story = createMemo(() => stories().find((item) => item.id === Number(params.id)));
     return (() => {
-      var _el$ = createElement("section"), _el$2 = createElement("div"), _el$3 = createElement("button"), _el$4 = createTextNode(`Back to feed`), _el$5 = createElement("span");
+      var _el$ = createElement("section"), _el$2 = createElement("div"), _el$3 = createElement("div"), _el$4 = createTextNode(`Back to feed`), _el$5 = createElement("span");
       insertNode(_el$, _el$2);
       setProp(_el$, "class", "h-full min-h-0 flex flex-col relative z-10");
       insertNode(_el$2, _el$3);
@@ -3363,7 +3363,6 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       setProp(_el$2, "class", "h-16 flex-none px-6 flex items-center border-b border-[#27272a] bg-[#0c0c0e]");
       insertNode(_el$3, _el$4);
       setProp(_el$3, "class", "h-8 px-3 flex items-center gap-2 border border-[#3f3f46] rounded-lg bg-[#18181b] hover:bg-[#27272a] text-[#d4d4d8] text-xs font-medium cursor-pointer transition-all active:scale-95");
-      setProp(_el$3, "type", "button");
       setProp(_el$3, "onClick", () => navigate(-1));
       insert(_el$3, createComponent(arrow_left_default, {
         size: 14
@@ -3628,7 +3627,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   }
   function LoadError() {
     return (() => {
-      var _el$38 = createElement("div"), _el$39 = createElement("strong"), _el$41 = createElement("span"), _el$42 = createElement("button");
+      var _el$38 = createElement("div"), _el$39 = createElement("strong"), _el$41 = createElement("span"), _el$42 = createElement("div");
       insertNode(_el$38, _el$39);
       insertNode(_el$38, _el$41);
       insertNode(_el$38, _el$42);
@@ -3638,8 +3637,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       setProp(_el$41, "class", "text-[#f87171] text-sm");
       insert(_el$41, loadError);
       insertNode(_el$42, createTextNode(`Try again`));
-      setProp(_el$42, "class", "mt-4 px-4 py-2 border border-[#3f3f46] rounded-lg bg-[#18181b] hover:bg-[#27272a] text-white text-sm font-medium cursor-pointer transition-all active:scale-95");
-      setProp(_el$42, "type", "button");
+      setProp(_el$42, "class", "mt-4 px-4 py-2 flex items-center gap-2 border border-[#3f3f46] rounded-lg bg-[#18181b] hover:bg-[#27272a] text-white text-sm font-medium cursor-pointer transition-all active:scale-95");
       setProp(_el$42, "onClick", () => void loadStories());
       return _el$38;
     })();
