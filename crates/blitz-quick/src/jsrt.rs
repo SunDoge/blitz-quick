@@ -12,6 +12,8 @@ use std::task::Context as TaskContext;
 use rquickjs::{AsyncContext, AsyncRuntime, Ctx, Function, TypedArray, Value};
 type JsResult<T> = rquickjs::Result<T>;
 
+const CORE_PRELUDE: &str = include_str!("gen/core-prelude.js");
+
 #[cfg(test)]
 pub(crate) const TEST_RUNTIME: &str = include_str!("gen/test-runtime.js");
 
@@ -163,7 +165,12 @@ impl JsRuntime {
             _local: local,
         };
         this.register_core_host_fns()?;
+        this.install_core_prelude()?;
         Ok(this)
+    }
+
+    fn install_core_prelude(&self) -> JsResult<()> {
+        self.with(|ctx| ctx.eval::<(), _>(CORE_PRELUDE))
     }
 
     /// Install the stateless host functions: logging, UTF-8 codec, `sysInfo`,
@@ -225,10 +232,7 @@ impl JsRuntime {
     pub fn poll_pending_jobs(&self, _task_context: &mut TaskContext<'_>) -> Result<bool, String> {
         let _guard = self._tokio.handle().enter();
         self._local.block_on(&self._tokio, async {
-            let _ = tokio::time::timeout(
-                std::time::Duration::from_millis(1),
-                self.rt.idle(),
-            ).await;
+            let _ = tokio::time::timeout(std::time::Duration::from_millis(1), self.rt.idle()).await;
         });
         Ok(true)
     }
@@ -445,6 +449,8 @@ impl JsRuntime {
 
 #[cfg(test)]
 mod tests {
+    use std::task::Poll;
+
     use super::*;
 
     #[test]

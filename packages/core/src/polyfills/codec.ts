@@ -1,4 +1,4 @@
-export {};
+import { clone as structuredCloneImpl } from "structured-clone";
 
 // TextEncoder / TextDecoder / structuredClone. TextEncoder+Decoder are backed
 // by the host UTF-8 codec (`__host_utf8_encode`/`__host_utf8_decode`);
@@ -50,7 +50,5 @@ if (
 // implementation of the structured clone algorithm) instead of a hand-rolled
 // recursive cloner.
 if (typeof structuredClone === "undefined") {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { clone } = require("structured-clone");
-  (globalThis as any).structuredClone = clone;
+  (globalThis as any).structuredClone = structuredCloneImpl;
 }

@@ -1590,6 +1590,7 @@ name = "hackernews"
 version = "0.1.0"
 dependencies = [
  "blitz-net",
+ "blitz-paint",
  "blitz-quick",
  "blitz-quick-desktop",
  "blitz-shell",

@@ -9,6 +9,7 @@ path = "src/main.rs"
 
 [dependencies]
 blitz-net = { workspace = true }
+blitz-paint = { workspace = true }
 blitz-quick = { workspace = true }
 blitz-quick-desktop = {
   path = "../../crates/blitz-quick-desktop",
