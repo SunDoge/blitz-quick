@@ -17,7 +17,7 @@ blitz-traits = { git = "https://github.com/DioxusLabs/blitz", rev = "1973351" }
 
 # crates
 blitz-quick = { path = "crates/blitz-quick" }
-blitz-quick-desktop = { path = "crates/blitz-quick-desktop" }
+blitz-quick-desktop = { path = "crates/blitz-quick-desktop", default-features = false }
 snafu = "0.9.1"
 
 [profile.dev.package."*"]

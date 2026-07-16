@@ -422,9 +422,11 @@ name = "blitz-quick-desktop"
 version = "0.1.0"
 dependencies = [
  "anyrender_vello",
+ "blitz-paint",
  "blitz-quick",
  "blitz-shell",
  "rquickjs",
+ "snafu",
 ]
 
 [[package]]

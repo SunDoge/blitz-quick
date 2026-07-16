@@ -60,8 +60,8 @@ export function StoryList(): JSX.Element {
               <ol class="m-0 p-0 list-none flex flex-col gap-1.5">
                 <For each={visibleStories()}>
                   {(story, index) => (
-                    <li 
-                      class="group px-4 py-3.5 flex items-center gap-4 rounded-xl border border-transparent hover:border-[#27272a] hover:bg-[#18181b] active:scale-[0.99] transition-all cursor-pointer" 
+                    <li
+                      class="group px-4 py-3.5 flex items-center gap-4 rounded-xl border border-transparent hover:border-[#27272a] hover:bg-[#18181b] active:scale-[0.99] transition-all cursor-pointer"
                       onClick={() => navigate(`/story/${story.id}`)}
                     >
                       <span class="w-6 text-right text-[#52525b] font-mono text-xs font-bold opacity-70 group-hover:opacity-100 group-hover:text-[#ff7b00] transition-colors">
@@ -77,17 +77,26 @@ export function StoryList(): JSX.Element {
                           </span>
                         </div>
                         <div class="flex items-center gap-3 text-[#71717a] text-xs font-medium">
-                          <span class="flex items-center gap-1.5 text-[#a1a1aa]"><span class="w-1.5 h-1.5 rounded-full bg-[#ff7b00]" />{story.score} pts</span>
+                          <span class="flex items-center gap-1.5 text-[#a1a1aa]">
+                            <span class="w-1.5 h-1.5 rounded-full bg-[#ff7b00]" />
+                            {story.score} pts
+                          </span>
                           <span class="text-[#3f3f46]">•</span>
-                          <span>by <span class="text-[#a1a1aa]">{story.by}</span></span>
+                          <span>
+                            by <span class="text-[#a1a1aa]">{story.by}</span>
+                          </span>
                           <span class="text-[#3f3f46]">•</span>
                           <span>{relativeTime(story.time)}</span>
                         </div>
                       </div>
                       <div class="lt-md:hidden flex-none flex flex-col items-end justify-center">
                         <div class="px-2.5 py-1.5 rounded-lg bg-transparent group-hover:bg-[#ff7b00]/10 border border-transparent group-hover:border-[#ff7b00]/20 transition-colors flex items-center gap-1.5">
-                          <strong class="text-[#71717a] group-hover:text-[#ff7b00] text-xs transition-colors">{story.descendants ?? 0}</strong>
-                          <span class="text-[#52525b] group-hover:text-[#ff7b00]/70 text-xs transition-colors">💬</span>
+                          <strong class="text-[#71717a] group-hover:text-[#ff7b00] text-xs transition-colors">
+                            {story.descendants ?? 0}
+                          </strong>
+                          <span class="text-[#52525b] group-hover:text-[#ff7b00]/70 text-xs transition-colors">
+                            💬
+                          </span>
                         </div>
                       </div>
                     </li>

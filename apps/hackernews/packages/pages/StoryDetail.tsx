@@ -21,7 +21,9 @@ export function StoryDetail(): JSX.Element {
           <ArrowLeft size={14} />
           Back to feed
         </div>
-        <span class="ml-4 text-xs font-medium text-[#71717a]">Story details</span>
+        <span class="ml-4 text-xs font-medium text-[#71717a]">
+          Story details
+        </span>
       </div>
       <Show when={story()} fallback={<MissingStory />}>
         {(current) => (
@@ -36,11 +38,17 @@ export function StoryDetail(): JSX.Element {
               <div class="mt-6 flex lt-md:flex-col lt-md:items-start gap-4 text-[#71717a] text-sm font-medium">
                 <span class="flex items-center gap-1.5">
                   <span class="w-1.5 h-1.5 rounded-full bg-[#ff7b00]" />
-                  <strong class="text-[#d4d4d8] font-semibold">{current().score}</strong> points
+                  <strong class="text-[#d4d4d8] font-semibold">
+                    {current().score}
+                  </strong>{" "}
+                  points
                 </span>
                 <span class="lt-md:hidden text-[#3f3f46]">•</span>
                 <span>
-                  by <strong class="text-[#d4d4d8] font-semibold">{current().by}</strong>
+                  by{" "}
+                  <strong class="text-[#d4d4d8] font-semibold">
+                    {current().by}
+                  </strong>
                 </span>
                 <span class="lt-md:hidden text-[#3f3f46]">•</span>
                 <span>{relativeTime(current().time)}</span>

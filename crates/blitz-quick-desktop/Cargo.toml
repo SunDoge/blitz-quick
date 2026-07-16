@@ -4,13 +4,15 @@ version = "0.1.0"
 edition = "2024"
 autobins = false
 
+[dependencies]
+anyrender_vello = "0.12"
+blitz-paint = { workspace = true }
+blitz-quick = { path = "../blitz-quick" }
+blitz-shell = { workspace = true }
+rquickjs = { version = "0.12.1", features = ["full-async"] }
+snafu = { workspace = true }
+
 [features]
 default = ["vite"]
 # Vite dev-server integration (module loading + HMR). Off for release builds.
 vite = ["blitz-quick/vite"]
-
-[dependencies]
-anyrender_vello = "0.12"
-blitz-quick = { path = "../blitz-quick" }
-blitz-shell = { workspace = true }
-rquickjs = { version = "0.12.1", features = ["full-async"] }

@@ -1,7 +1,16 @@
 var __defProp = Object.defineProperty;
-var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
-(function() {
+var __defNormalProp = (obj, key, value) =>
+  key in obj
+    ? __defProp(obj, key, {
+        enumerable: true,
+        configurable: true,
+        writable: true,
+        value,
+      })
+    : (obj[key] = value);
+var __publicField = (obj, key, value) =>
+  __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+(function () {
   "use strict";
   const OP = {
     CreateElement: 1,
@@ -20,7 +29,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     RemoveEventListener: 14,
     SetClassName: 15,
     FrameEnd: 16,
-    DropNode: 17
+    DropNode: 17,
   };
   const EVENT_CODE = {
     click: 1,
@@ -45,7 +54,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     dblclick: 20,
     focusin: 21,
     focusout: 22,
-    scroll: 23
+    scroll: 23,
   };
   const EVENT_DATA_SLOT = {
     clientX: 0,
@@ -54,7 +63,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     buttons: 3,
     mods: 4,
     deltaX: 5,
-    deltaY: 6
+    deltaY: 6,
   };
   Object.keys(EVENT_DATA_SLOT).length;
   let encoder;
@@ -67,18 +76,18 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     for (let i = 0; i < s.length; i++) {
       const c = s.charCodeAt(i);
       if (c < 128) out.push(c);
-      else if (c < 2048) out.push(192 | c >> 6, 128 | c & 63);
+      else if (c < 2048) out.push(192 | (c >> 6), 128 | (c & 63));
       else if (c >= 55296 && c <= 56319) {
         const c2 = s.charCodeAt(++i);
         const cp = 65536 + ((c & 1023) << 10) + (c2 & 63);
         out.push(
-          240 | cp >> 18,
-          128 | cp >> 12 & 63,
-          128 | cp >> 6 & 63,
-          128 | cp & 63
+          240 | (cp >> 18),
+          128 | ((cp >> 12) & 63),
+          128 | ((cp >> 6) & 63),
+          128 | (cp & 63),
         );
       } else {
-        out.push(224 | c >> 12, 128 | c >> 6 & 63, 128 | c & 63);
+        out.push(224 | (c >> 12), 128 | ((c >> 6) & 63), 128 | (c & 63));
       }
     }
     return new Uint8Array(out);
@@ -107,23 +116,23 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       this.ensure(2);
       const c = this.cursor;
       this.buf[c] = v & 255;
-      this.buf[c + 1] = v >> 8 & 255;
+      this.buf[c + 1] = (v >> 8) & 255;
       this.cursor += 2;
     }
     u32(v) {
       this.ensure(4);
       const c = this.cursor;
       this.buf[c] = v & 255;
-      this.buf[c + 1] = v >> 8 & 255;
-      this.buf[c + 2] = v >> 16 & 255;
-      this.buf[c + 3] = v >> 24 & 255;
+      this.buf[c + 1] = (v >> 8) & 255;
+      this.buf[c + 2] = (v >> 16) & 255;
+      this.buf[c + 3] = (v >> 24) & 255;
       this.cursor += 4;
     }
     str(s) {
       const bytes = utf8Encode(s);
       if (bytes.length > 65535) {
         throw new RangeError(
-          `protocol string is ${bytes.length} bytes; maximum is 65535`
+          `protocol string is ${bytes.length} bytes; maximum is 65535`,
         );
       }
       this.u16(bytes.length);
@@ -133,14 +142,18 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     }
     emit(op) {
       if (this.count === 65535) {
-        throw new RangeError("protocol frame cannot contain more than 65535 ops");
+        throw new RangeError(
+          "protocol frame cannot contain more than 65535 ops",
+        );
       }
       this.u8(op);
       this.count++;
     }
     createElement(id, tag, attrs = null) {
       if (attrs && attrs.length > 65535) {
-        throw new RangeError("element cannot contain more than 65535 attributes");
+        throw new RangeError(
+          "element cannot contain more than 65535 attributes",
+        );
       }
       this.emit(OP.CreateElement);
       this.u32(id);
@@ -239,11 +252,11 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       this.seq++;
       const s = this.seq;
       this.buf[0] = s & 255;
-      this.buf[1] = s >> 8 & 255;
-      this.buf[2] = s >> 16 & 255;
-      this.buf[3] = s >> 24 & 255;
+      this.buf[1] = (s >> 8) & 255;
+      this.buf[2] = (s >> 16) & 255;
+      this.buf[3] = (s >> 24) & 255;
       this.buf[4] = this.count & 255;
-      this.buf[5] = this.count >> 8 & 255;
+      this.buf[5] = (this.count >> 8) & 255;
       const out = this.buf.subarray(0, this.cursor);
       this.cursor = 6;
       this.count = 0;
@@ -256,7 +269,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   const SUPPORTS_PROXY = typeof Proxy === "function";
   const $TRACK = Symbol("solid-track");
   const signalOptions = {
-    equals: equalFn
+    equals: equalFn,
   };
   let runEffects = runQueue;
   const STALE = 1;
@@ -265,7 +278,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     owned: null,
     cleanups: null,
     context: null,
-    owner: null
+    owner: null,
   };
   var Owner = null;
   let Transition = null;
@@ -275,12 +288,19 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   let Effects = null;
   let ExecCount = 0;
   function createRoot(fn, detachedOwner) {
-    const listener = Listener, owner = Owner, unowned = fn.length === 0, current = owner, root = unowned ? UNOWNED : {
-      owned: null,
-      cleanups: null,
-      context: current ? current.context : null,
-      owner: current
-    }, updateFn = unowned ? fn : () => fn(() => untrack(() => cleanNode(root)));
+    const listener = Listener,
+      owner = Owner,
+      unowned = fn.length === 0,
+      current = owner,
+      root = unowned
+        ? UNOWNED
+        : {
+            owned: null,
+            cleanups: null,
+            context: current ? current.context : null,
+            owner: current,
+          },
+      updateFn = unowned ? fn : () => fn(() => untrack(() => cleanNode(root)));
     Owner = root;
     Listener = null;
     try {
@@ -291,12 +311,14 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     }
   }
   function createSignal(value, options) {
-    options = options ? Object.assign({}, signalOptions, options) : signalOptions;
+    options = options
+      ? Object.assign({}, signalOptions, options)
+      : signalOptions;
     const s = {
       value,
       observers: null,
       observerSlots: null,
-      comparator: options.equals || void 0
+      comparator: options.equals || void 0,
     };
     const setter = (value2) => {
       if (typeof value2 === "function") {
@@ -317,7 +339,9 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     Effects ? Effects.push(c) : updateComputation(c);
   }
   function createMemo(fn, value, options) {
-    options = options ? Object.assign({}, signalOptions, options) : signalOptions;
+    options = options
+      ? Object.assign({}, signalOptions, options)
+      : signalOptions;
     const c = createComputation(fn, value, true, 0);
     c.observers = null;
     c.observerSlots = null;
@@ -333,7 +357,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const listener = Listener;
     Listener = null;
     try {
-      if (ExternalSourceConfig) ;
+      if (ExternalSourceConfig);
       return fn();
     } finally {
       Listener = listener;
@@ -362,7 +386,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     createEffect(() => untrack(fn));
   }
   function onCleanup(fn) {
-    if (Owner === null) ;
+    if (Owner === null);
     else if (Owner.cleanups === null) Owner.cleanups = [fn];
     else Owner.cleanups.push(fn);
     return fn;
@@ -402,12 +426,16 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     return {
       id,
       Provider: createProvider(id),
-      defaultValue
+      defaultValue,
     };
   }
   function useContext(context) {
     let value;
-    return Owner && Owner.context && (value = Owner.context[context.id]) !== void 0 ? value : context.defaultValue;
+    return Owner &&
+      Owner.context &&
+      (value = Owner.context[context.id]) !== void 0
+      ? value
+      : context.defaultValue;
   }
   function children(fn) {
     const children2 = createMemo(fn);
@@ -459,7 +487,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           for (let i = 0; i < node.observers.length; i += 1) {
             const o = node.observers[i];
             const TransitionRunning = Transition && Transition.running;
-            if (TransitionRunning && Transition.disposed.has(o)) ;
+            if (TransitionRunning && Transition.disposed.has(o));
             if (TransitionRunning ? !o.tState : !o.state) {
               if (o.pure) Updates.push(o);
               else Effects.push(o);
@@ -469,7 +497,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           }
           if (Updates.length > 1e6) {
             Updates = [];
-            if (IS_DEV) ;
+            if (IS_DEV);
             throw new Error();
           }
         }, false);
@@ -485,7 +513,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   }
   function runComputation(node, value, time) {
     let nextValue;
-    const owner = Owner, listener = Listener;
+    const owner = Owner,
+      listener = Listener;
     Listener = Owner = node;
     try {
       nextValue = node.fn(value);
@@ -522,9 +551,9 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       value: init,
       owner: Owner,
       context: Owner ? Owner.context : null,
-      pure
+      pure,
     };
-    if (Owner === null) ;
+    if (Owner === null);
     else if (Owner !== UNOWNED) {
       {
         if (!Owner.owned) Owner.owned = [c];
@@ -536,9 +565,13 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   function runTop(node) {
     if (node.state === 0) return;
     if (node.state === PENDING) return lookUpstream(node);
-    if (node.suspense && untrack(node.suspense.inFallback)) return node.suspense.effects.push(node);
+    if (node.suspense && untrack(node.suspense.inFallback))
+      return node.suspense.effects.push(node);
     const ancestors = [node];
-    while ((node = node.owner) && (!node.updatedAt || node.updatedAt < ExecCount)) {
+    while (
+      (node = node.owner) &&
+      (!node.updatedAt || node.updatedAt < ExecCount)
+    ) {
       if (node.state) ancestors.push(node);
     }
     for (let i = ancestors.length - 1; i >= 0; i--) {
@@ -584,7 +617,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     for (let i = 0; i < queue.length; i++) runTop(queue[i]);
   }
   function runUserEffects(queue) {
-    let i, userLength = 0;
+    let i,
+      userLength = 0;
     for (i = 0; i < queue.length; i++) {
       const e = queue[i];
       if (!e.user) runTop(e);
@@ -599,7 +633,11 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       if (source.sources) {
         const state = source.state;
         if (state === STALE) {
-          if (source !== ignore && (!source.updatedAt || source.updatedAt < ExecCount)) runTop(source);
+          if (
+            source !== ignore &&
+            (!source.updatedAt || source.updatedAt < ExecCount)
+          )
+            runTop(source);
         } else if (state === PENDING) lookUpstream(source, ignore);
       }
     }
@@ -619,9 +657,12 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     let i;
     if (node.sources) {
       while (node.sources.length) {
-        const source = node.sources.pop(), index = node.sourceSlots.pop(), obs = source.observers;
+        const source = node.sources.pop(),
+          index = node.sourceSlots.pop(),
+          obs = source.observers;
         if (obs && obs.length) {
-          const n = obs.pop(), s = source.observerSlots.pop();
+          const n = obs.pop(),
+            s = source.observerSlots.pop();
           if (index < obs.length) {
             n.sourceSlots[s] = index;
             obs[index] = n;
@@ -647,7 +688,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   function castError(err) {
     if (err instanceof Error) return err;
     return new Error(typeof err === "string" ? err : "Unknown error", {
-      cause: err
+      cause: err,
     });
   }
   function handleError(err, owner = Owner) {
@@ -655,7 +696,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     throw error;
   }
   function resolveChildren(children2) {
-    if (typeof children2 === "function" && !children2.length) return resolveChildren(children2());
+    if (typeof children2 === "function" && !children2.length)
+      return resolveChildren(children2());
     if (Array.isArray(children2)) {
       const results = [];
       for (let i = 0; i < children2.length; i++) {
@@ -674,13 +716,17 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   function createProvider(id, options) {
     return function provider(props) {
       let res;
-      createRenderEffect(() => res = untrack(() => {
-        Owner.context = {
-          ...Owner.context,
-          [id]: props.value
-        };
-        return children(() => props.children);
-      }), void 0);
+      createRenderEffect(
+        () =>
+          (res = untrack(() => {
+            Owner.context = {
+              ...Owner.context,
+              [id]: props.value,
+            };
+            return children(() => props.children);
+          })),
+        void 0,
+      );
       return res;
     };
   }
@@ -689,13 +735,28 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     for (let i = 0; i < d.length; i++) d[i]();
   }
   function mapArray(list, mapFn, options = {}) {
-    let items = [], mapped = [], disposers = [], len = 0, indexes = mapFn.length > 1 ? [] : null;
+    let items = [],
+      mapped = [],
+      disposers = [],
+      len = 0,
+      indexes = mapFn.length > 1 ? [] : null;
     onCleanup(() => dispose(disposers));
     return () => {
-      let newItems = list() || [], newLen = newItems.length, i, j;
+      let newItems = list() || [],
+        newLen = newItems.length,
+        i,
+        j;
       newItems[$TRACK];
       return untrack(() => {
-        let newIndices, newIndicesNext, temp, tempdisposers, tempIndexes, start, end, newEnd, item;
+        let newIndices,
+          newIndicesNext,
+          temp,
+          tempdisposers,
+          tempIndexes,
+          start,
+          end,
+          newEnd,
+          item;
         if (newLen === 0) {
           if (len !== 0) {
             dispose(disposers);
@@ -724,8 +785,16 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           temp = new Array(newLen);
           tempdisposers = new Array(newLen);
           indexes && (tempIndexes = new Array(newLen));
-          for (start = 0, end = Math.min(len, newLen); start < end && items[start] === newItems[start]; start++) ;
-          for (end = len - 1, newEnd = newLen - 1; end >= start && newEnd >= start && items[end] === newItems[newEnd]; end--, newEnd--) {
+          for (
+            start = 0, end = Math.min(len, newLen);
+            start < end && items[start] === newItems[start];
+            start++
+          );
+          for (
+            end = len - 1, newEnd = newLen - 1;
+            end >= start && newEnd >= start && items[end] === newItems[newEnd];
+            end--, newEnd--
+          ) {
             temp[newEnd] = mapped[end];
             tempdisposers[newEnd] = disposers[end];
             indexes && (tempIndexes[newEnd] = indexes[end]);
@@ -759,7 +828,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
               }
             } else mapped[j] = createRoot(mapper);
           }
-          mapped = mapped.slice(0, len = newLen);
+          mapped = mapped.slice(0, (len = newLen));
           items = newItems.slice(0);
         }
         return mapped;
@@ -800,12 +869,12 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           return _.get(property);
         },
         set: trueFn,
-        deleteProperty: trueFn
+        deleteProperty: trueFn,
       };
     },
     ownKeys(_) {
       return _.keys();
-    }
+    },
   };
   function resolveSource(s) {
     return !(s = typeof s === "function" ? s() : s) ? {} : s;
@@ -820,29 +889,34 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     let proxy = false;
     for (let i = 0; i < sources.length; i++) {
       const s = sources[i];
-      proxy = proxy || !!s && $PROXY in s;
-      sources[i] = typeof s === "function" ? (proxy = true, createMemo(s)) : s;
+      proxy = proxy || (!!s && $PROXY in s);
+      sources[i] =
+        typeof s === "function" ? ((proxy = true), createMemo(s)) : s;
     }
     if (SUPPORTS_PROXY && proxy) {
-      return new Proxy({
-        get(property) {
-          for (let i = sources.length - 1; i >= 0; i--) {
-            const v = resolveSource(sources[i])[property];
-            if (v !== void 0) return v;
-          }
+      return new Proxy(
+        {
+          get(property) {
+            for (let i = sources.length - 1; i >= 0; i--) {
+              const v = resolveSource(sources[i])[property];
+              if (v !== void 0) return v;
+            }
+          },
+          has(property) {
+            for (let i = sources.length - 1; i >= 0; i--) {
+              if (property in resolveSource(sources[i])) return true;
+            }
+            return false;
+          },
+          keys() {
+            const keys2 = [];
+            for (let i = 0; i < sources.length; i++)
+              keys2.push(...Object.keys(resolveSource(sources[i])));
+            return [...new Set(keys2)];
+          },
         },
-        has(property) {
-          for (let i = sources.length - 1; i >= 0; i--) {
-            if (property in resolveSource(sources[i])) return true;
-          }
-          return false;
-        },
-        keys() {
-          const keys2 = [];
-          for (let i = 0; i < sources.length; i++) keys2.push(...Object.keys(resolveSource(sources[i])));
-          return [...new Set(keys2)];
-        }
-      }, propTraps);
+        propTraps,
+      );
     }
     const sourcesMap = {};
     const defined = /* @__PURE__ */ Object.create(null);
@@ -855,11 +929,17 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         if (key === "__proto__" || key === "constructor") continue;
         const desc = Object.getOwnPropertyDescriptor(source, key);
         if (!defined[key]) {
-          defined[key] = desc.get ? {
-            enumerable: true,
-            configurable: true,
-            get: resolveSources.bind(sourcesMap[key] = [desc.get.bind(source)])
-          } : desc.value !== void 0 ? desc : void 0;
+          defined[key] = desc.get
+            ? {
+                enumerable: true,
+                configurable: true,
+                get: resolveSources.bind(
+                  (sourcesMap[key] = [desc.get.bind(source)]),
+                ),
+              }
+            : desc.value !== void 0
+              ? desc
+              : void 0;
         } else {
           const sources2 = sourcesMap[key];
           if (sources2) {
@@ -872,7 +952,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const target = {};
     const definedKeys = Object.keys(defined);
     for (let i = definedKeys.length - 1; i >= 0; i--) {
-      const key = definedKeys[i], desc = defined[key];
+      const key = definedKeys[i],
+        desc = defined[key];
       if (desc && desc.get) Object.defineProperty(target, key, desc);
       else target[key] = desc ? desc.value : void 0;
     }
@@ -883,29 +964,37 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     if (SUPPORTS_PROXY && $PROXY in props) {
       const blocked = len > 1 ? keys2.flat() : keys2[0];
       const res = keys2.map((k) => {
-        return new Proxy({
-          get(property) {
-            return k.includes(property) ? props[property] : void 0;
+        return new Proxy(
+          {
+            get(property) {
+              return k.includes(property) ? props[property] : void 0;
+            },
+            has(property) {
+              return k.includes(property) && property in props;
+            },
+            keys() {
+              return k.filter((property) => property in props);
+            },
           },
-          has(property) {
-            return k.includes(property) && property in props;
-          },
-          keys() {
-            return k.filter((property) => property in props);
-          }
-        }, propTraps);
+          propTraps,
+        );
       });
-      res.push(new Proxy({
-        get(property) {
-          return blocked.includes(property) ? void 0 : props[property];
-        },
-        has(property) {
-          return blocked.includes(property) ? false : property in props;
-        },
-        keys() {
-          return Object.keys(props).filter((k) => !blocked.includes(k));
-        }
-      }, propTraps));
+      res.push(
+        new Proxy(
+          {
+            get(property) {
+              return blocked.includes(property) ? void 0 : props[property];
+            },
+            has(property) {
+              return blocked.includes(property) ? false : property in props;
+            },
+            keys() {
+              return Object.keys(props).filter((k) => !blocked.includes(k));
+            },
+          },
+          propTraps,
+        ),
+      );
       return res;
     }
     const objects = [];
@@ -921,36 +1010,59 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         }
       }
       const desc = Object.getOwnPropertyDescriptor(props, propName);
-      const isDefaultDesc = !desc.get && !desc.set && desc.enumerable && desc.writable && desc.configurable;
-      isDefaultDesc ? objects[keyIndex][propName] = desc.value : Object.defineProperty(objects[keyIndex], propName, desc);
+      const isDefaultDesc =
+        !desc.get &&
+        !desc.set &&
+        desc.enumerable &&
+        desc.writable &&
+        desc.configurable;
+      isDefaultDesc
+        ? (objects[keyIndex][propName] = desc.value)
+        : Object.defineProperty(objects[keyIndex], propName, desc);
     }
     return objects;
   }
   const narrowedError = (name) => `Stale read from <${name}>.`;
   function For(props) {
     const fallback = "fallback" in props && {
-      fallback: () => props.fallback
+      fallback: () => props.fallback,
     };
-    return createMemo(mapArray(() => props.each, props.children, fallback || void 0));
+    return createMemo(
+      mapArray(() => props.each, props.children, fallback || void 0),
+    );
   }
   function Show(props) {
     const keyed = props.keyed;
     const conditionValue = createMemo(() => props.when, void 0, void 0);
-    const condition = keyed ? conditionValue : createMemo(conditionValue, void 0, {
-      equals: (a, b) => !a === !b
-    });
-    return createMemo(() => {
-      const c = condition();
-      if (c) {
-        const child = props.children;
-        const fn = typeof child === "function" && child.length > 0;
-        return fn ? untrack(() => child(keyed ? c : () => {
-          if (!untrack(condition)) throw narrowedError("Show");
-          return conditionValue();
-        })) : child;
-      }
-      return props.fallback;
-    }, void 0, void 0);
+    const condition = keyed
+      ? conditionValue
+      : createMemo(conditionValue, void 0, {
+          equals: (a, b) => !a === !b,
+        });
+    return createMemo(
+      () => {
+        const c = condition();
+        if (c) {
+          const child = props.children;
+          const fn = typeof child === "function" && child.length > 0;
+          return fn
+            ? untrack(() =>
+                child(
+                  keyed
+                    ? c
+                    : () => {
+                        if (!untrack(condition)) throw narrowedError("Show");
+                        return conditionValue();
+                      },
+                ),
+              )
+            : child;
+        }
+        return props.fallback;
+      },
+      void 0,
+      void 0,
+    );
   }
   const memo$1 = (fn) => createMemo(() => fn());
   function createRenderer$1({
@@ -963,17 +1075,22 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     setProperty,
     getParentNode,
     getFirstChild,
-    getNextSibling
+    getNextSibling,
   }) {
     function insert2(parent, accessor, marker, initial) {
       if (marker !== void 0 && !initial) initial = [];
-      if (typeof accessor !== "function") return insertExpression(parent, accessor, initial, marker);
-      createRenderEffect((current) => insertExpression(parent, accessor(), current, marker), initial);
+      if (typeof accessor !== "function")
+        return insertExpression(parent, accessor, initial, marker);
+      createRenderEffect(
+        (current) => insertExpression(parent, accessor(), current, marker),
+        initial,
+      );
     }
     function insertExpression(parent, value, current, marker, unwrapArray) {
       while (typeof current === "function") current = current();
       if (value === current) return current;
-      const t = typeof value, multi = marker !== void 0;
+      const t = typeof value,
+        multi = marker !== void 0;
       if (t === "string" || t === "number") {
         if (t === "number") value = value.toString();
         if (multi) {
@@ -984,7 +1101,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           current = cleanChildren(parent, current, marker, node);
         } else {
           if (current !== "" && typeof current === "string") {
-            replaceText(getFirstChild(parent), current = value);
+            replaceText(getFirstChild(parent), (current = value));
           } else {
             cleanChildren(parent, current, marker, createTextNode2(value));
             current = value;
@@ -1002,12 +1119,21 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       } else if (Array.isArray(value)) {
         const array = [];
         if (normalizeIncomingArray(array, value, unwrapArray)) {
-          createRenderEffect(() => current = insertExpression(parent, array, current, marker, true));
+          createRenderEffect(
+            () =>
+              (current = insertExpression(
+                parent,
+                array,
+                current,
+                marker,
+                true,
+              )),
+          );
           return () => current;
         }
         if (array.length === 0) {
           const replacement = cleanChildren(parent, current, marker);
-          if (multi) return current = replacement;
+          if (multi) return (current = replacement);
         } else {
           if (Array.isArray(current)) {
             if (current.length === 0) {
@@ -1016,15 +1142,24 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           } else if (current == null || current === "") {
             appendNodes(parent, array);
           } else {
-            reconcileArrays(parent, multi && current || [getFirstChild(parent)], array);
+            reconcileArrays(
+              parent,
+              (multi && current) || [getFirstChild(parent)],
+              array,
+            );
           }
         }
         current = array;
       } else {
         if (Array.isArray(current)) {
-          if (multi) return current = cleanChildren(parent, current, marker, value);
+          if (multi)
+            return (current = cleanChildren(parent, current, marker, value));
           cleanChildren(parent, current, null, value);
-        } else if (current == null || current === "" || !getFirstChild(parent)) {
+        } else if (
+          current == null ||
+          current === "" ||
+          !getFirstChild(parent)
+        ) {
           insertNode2(parent, value);
         } else replaceNode(parent, value, getFirstChild(parent));
         current = value;
@@ -1034,8 +1169,9 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     function normalizeIncomingArray(normalized, array, unwrap) {
       let dynamic = false;
       for (let i = 0, len = array.length; i < len; i++) {
-        let item = array[i], t;
-        if (item == null || item === true || item === false) ;
+        let item = array[i],
+          t;
+        if (item == null || item === true || item === false);
         else if (Array.isArray(item)) {
           dynamic = normalizeIncomingArray(normalized, item) || dynamic;
         } else if ((t = typeof item) === "string" || t === "number") {
@@ -1043,7 +1179,11 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         } else if (t === "function") {
           if (unwrap) {
             while (typeof item === "function") item = item();
-            dynamic = normalizeIncomingArray(normalized, Array.isArray(item) ? item : [item]) || dynamic;
+            dynamic =
+              normalizeIncomingArray(
+                normalized,
+                Array.isArray(item) ? item : [item],
+              ) || dynamic;
           } else {
             normalized.push(item);
             dynamic = true;
@@ -1053,7 +1193,13 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       return dynamic;
     }
     function reconcileArrays(parentNode, a, b) {
-      let bLength = b.length, aEnd = a.length, bEnd = bLength, aStart = 0, bStart = 0, after = getNextSibling(a[aEnd - 1]), map = null;
+      let bLength = b.length,
+        aEnd = a.length,
+        bEnd = bLength,
+        aStart = 0,
+        bStart = 0,
+        after = getNextSibling(a[aEnd - 1]),
+        map = null;
       while (aStart < aEnd || bStart < bEnd) {
         if (a[aStart] === b[bStart]) {
           aStart++;
@@ -1065,7 +1211,12 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           bEnd--;
         }
         if (aEnd === aStart) {
-          const node = bEnd < bLength ? bStart ? getNextSibling(b[bStart - 1]) : b[bEnd - bStart] : after;
+          const node =
+            bEnd < bLength
+              ? bStart
+                ? getNextSibling(b[bStart - 1])
+                : b[bEnd - bStart]
+              : after;
           while (bStart < bEnd) insertNode2(parentNode, b[bStart++], node);
         } else if (bEnd === bStart) {
           while (aStart < aEnd) {
@@ -1086,14 +1237,18 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           const index = map.get(a[aStart]);
           if (index != null) {
             if (bStart < index && index < bEnd) {
-              let i = aStart, sequence = 1, t;
+              let i = aStart,
+                sequence = 1,
+                t;
               while (++i < aEnd && i < bEnd) {
-                if ((t = map.get(a[i])) == null || t !== index + sequence) break;
+                if ((t = map.get(a[i])) == null || t !== index + sequence)
+                  break;
                 sequence++;
               }
               if (sequence > index - bStart) {
                 const node = a[aStart];
-                while (bStart < index) insertNode2(parentNode, b[bStart++], node);
+                while (bStart < index)
+                  insertNode2(parentNode, b[bStart++], node);
               } else replaceNode(parentNode, b[bStart++], a[aStart++]);
             } else aStart++;
           } else removeNode(parentNode, a[aStart++]);
@@ -1103,7 +1258,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     function cleanChildren(parent, current, marker, replacement) {
       if (marker === void 0) {
         let removed;
-        while (removed = getFirstChild(parent)) removeNode(parent, removed);
+        while ((removed = getFirstChild(parent))) removeNode(parent, removed);
         replacement && insertNode2(parent, replacement);
         return "";
       }
@@ -1114,7 +1269,10 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           const el = current[i];
           if (node !== el) {
             const isParent = getParentNode(el) === parent;
-            if (!inserted && !i) isParent ? replaceNode(parent, node, el) : insertNode2(parent, node, marker);
+            if (!inserted && !i)
+              isParent
+                ? replaceNode(parent, node, el)
+                : insertNode2(parent, node, marker);
             else isParent && removeNode(parent, el);
           } else inserted = true;
         }
@@ -1122,7 +1280,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       return [node];
     }
     function appendNodes(parent, array, marker) {
-      for (let i = 0, len = array.length; i < len; i++) insertNode2(parent, array[i], marker);
+      for (let i = 0, len = array.length; i < len; i++)
+        insertNode2(parent, array[i], marker);
     }
     function replaceNode(parent, newNode, oldNode) {
       insertNode2(parent, newNode, oldNode);
@@ -1131,7 +1290,14 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     function spreadExpression(node, props, prevProps = {}, skipChildren) {
       props || (props = {});
       if (!skipChildren) {
-        createRenderEffect(() => prevProps.children = insertExpression(node, props.children, prevProps.children));
+        createRenderEffect(
+          () =>
+            (prevProps.children = insertExpression(
+              node,
+              props.children,
+              prevProps.children,
+            )),
+        );
       }
       createRenderEffect(() => props.ref && props.ref(node));
       createRenderEffect(() => {
@@ -1157,7 +1323,9 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       insert: insert2,
       spread(node, accessor, skipChildren) {
         if (typeof accessor === "function") {
-          createRenderEffect((current) => spreadExpression(node, accessor(), current, skipChildren));
+          createRenderEffect((current) =>
+            spreadExpression(node, accessor(), current, skipChildren),
+          );
         } else spreadExpression(node, accessor, void 0, skipChildren);
       },
       createElement: createElement2,
@@ -1173,7 +1341,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       createComponent: createComponent$1,
       use(fn, element, arg) {
         return untrack(() => fn(element, arg));
-      }
+      },
     };
   }
   function createRenderer(options) {
@@ -1188,15 +1356,18 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   let nextSlot = 2;
   const listenersBySlot = [];
   const nodesBySlot = [];
-  const finalizationRegistry = typeof FinalizationRegistry !== "undefined" ? new FinalizationRegistry((id) => {
-    const slot = id & 1048575;
-    const expectedGen = id >>> 20;
-    if (GENERATIONS[slot] !== expectedGen) return;
-    nodesBySlot[slot] = void 0;
-    listenersBySlot[slot] = void 0;
-    writer.dropNode(id);
-    freeId(id);
-  }) : null;
+  const finalizationRegistry =
+    typeof FinalizationRegistry !== "undefined"
+      ? new FinalizationRegistry((id) => {
+          const slot = id & 1048575;
+          const expectedGen = id >>> 20;
+          if (GENERATIONS[slot] !== expectedGen) return;
+          nodesBySlot[slot] = void 0;
+          listenersBySlot[slot] = void 0;
+          writer.dropNode(id);
+          freeId(id);
+        })
+      : null;
   const sweepSet = /* @__PURE__ */ new Set();
   function runSweep() {
     if (sweepSet.size === 0) return;
@@ -1205,7 +1376,9 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       const destroy = (n) => {
         const slot = n.id & 1048575;
         if (nodesBySlot[slot] === void 0) return;
-        finalizationRegistry == null ? void 0 : finalizationRegistry.unregister(n);
+        finalizationRegistry == null
+          ? void 0
+          : finalizationRegistry.unregister(n);
         nodesBySlot[slot] = void 0;
         listenersBySlot[slot] = void 0;
         writer.dropNode(n.id);
@@ -1229,11 +1402,11 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       GENERATIONS[slot] = 0;
     }
     const gen = GENERATIONS[slot];
-    return (gen << 20 | slot) >>> 0;
+    return ((gen << 20) | slot) >>> 0;
   }
   function freeId(id) {
     const slot = id & 1048575;
-    GENERATIONS[slot] = GENERATIONS[slot] + 1 & 4095;
+    GENERATIONS[slot] = (GENERATIONS[slot] + 1) & 4095;
     FREE_LIST.push(slot);
   }
   function makeHandle(tag) {
@@ -1245,7 +1418,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       firstChild: null,
       lastChild: null,
       prev: null,
-      next: null
+      next: null,
     };
     if (typeof WeakRef !== "undefined") {
       nodesBySlot[id & 1048575] = new WeakRef(h);
@@ -1369,7 +1542,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     },
     getNextSibling(node) {
       return node.next ?? void 0;
-    }
+    },
   });
   const render = renderer.render;
   const createElement = renderer.createElement;
@@ -1411,7 +1584,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       firstChild: null,
       lastChild: null,
       prev: null,
-      next: null
+      next: null,
     };
     registerRoot(root);
     return render(code, root);
@@ -1421,12 +1594,16 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     if (payloadStr) {
       try {
         data = JSON.parse(payloadStr);
-      } catch {
-      }
+      } catch {}
     } else {
       const ed = globalThis.__blitz_event_data;
       if (ed) {
-        if (eventCode === EVENT_CODE.pointerup || eventCode === EVENT_CODE.pointerdown || eventCode === EVENT_CODE.pointermove || eventCode === EVENT_CODE.click) {
+        if (
+          eventCode === EVENT_CODE.pointerup ||
+          eventCode === EVENT_CODE.pointerdown ||
+          eventCode === EVENT_CODE.pointermove ||
+          eventCode === EVENT_CODE.click
+        ) {
           data.clientX = ed[0];
           data.clientY = ed[1];
           data.button = ed[2];
@@ -1449,14 +1626,13 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       stopPropagation() {
         stopped = true;
       },
-      preventDefault() {
-      },
+      preventDefault() {},
       get defaultPrevented() {
         return false;
       },
       get propagationStopped() {
         return stopped;
-      }
+      },
     };
     bubble(solidId, eventCode, ev);
     if (eventCode === EVENT_CODE.pointerup) {
@@ -1485,8 +1661,12 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       }
       if (ev.propagationStopped) return;
       const weakHandle = nodesBySlot[slot];
-      const handle = weakHandle instanceof WeakRef ? weakHandle.deref() : weakHandle;
-      cur = ((_a = handle == null ? void 0 : handle.parent) == null ? void 0 : _a.id) ?? null;
+      const handle =
+        weakHandle instanceof WeakRef ? weakHandle.deref() : weakHandle;
+      cur =
+        ((_a = handle == null ? void 0 : handle.parent) == null
+          ? void 0
+          : _a.id) ?? null;
     }
   }
   function eventName(code) {
@@ -1495,9 +1675,18 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     }
     return "unknown";
   }
-  var commonjsGlobal = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : {};
-  (function(global2) {
-    var checkIfIteratorIsSupported = function() {
+  var commonjsGlobal =
+    typeof globalThis !== "undefined"
+      ? globalThis
+      : typeof window !== "undefined"
+        ? window
+        : typeof global !== "undefined"
+          ? global
+          : typeof self !== "undefined"
+            ? self
+            : {};
+  (function (global2) {
+    var checkIfIteratorIsSupported = function () {
       try {
         return !!Symbol.iterator;
       } catch (error) {
@@ -1505,48 +1694,57 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       }
     };
     var iteratorSupported = checkIfIteratorIsSupported();
-    var createIterator = function(items) {
+    var createIterator = function (items) {
       var iterator = {
-        next: function() {
+        next: function () {
           var value = items.shift();
           return { done: value === void 0, value };
-        }
+        },
       };
       if (iteratorSupported) {
-        iterator[Symbol.iterator] = function() {
+        iterator[Symbol.iterator] = function () {
           return iterator;
         };
       }
       return iterator;
     };
-    var serializeParam = function(value) {
+    var serializeParam = function (value) {
       return encodeURIComponent(value).replace(/%20/g, "+");
     };
-    var deserializeParam = function(value) {
+    var deserializeParam = function (value) {
       return decodeURIComponent(String(value).replace(/\+/g, " "));
     };
-    var polyfillURLSearchParams = function() {
-      var URLSearchParams2 = function(searchString) {
+    var polyfillURLSearchParams = function () {
+      var URLSearchParams2 = function (searchString) {
         Object.defineProperty(this, "_entries", { writable: true, value: {} });
         var typeofSearchString = typeof searchString;
-        if (typeofSearchString === "undefined") ;
+        if (typeofSearchString === "undefined");
         else if (typeofSearchString === "string") {
           if (searchString !== "") {
             this._fromString(searchString);
           }
         } else if (searchString instanceof URLSearchParams2) {
           var _this = this;
-          searchString.forEach(function(value, name) {
+          searchString.forEach(function (value, name) {
             _this.append(name, value);
           });
         } else if (searchString !== null && typeofSearchString === "object") {
-          if (Object.prototype.toString.call(searchString) === "[object Array]") {
+          if (
+            Object.prototype.toString.call(searchString) === "[object Array]"
+          ) {
             for (var i = 0; i < searchString.length; i++) {
               var entry = searchString[i];
-              if (Object.prototype.toString.call(entry) === "[object Array]" || entry.length !== 2) {
+              if (
+                Object.prototype.toString.call(entry) === "[object Array]" ||
+                entry.length !== 2
+              ) {
                 this.append(entry[0], entry[1]);
               } else {
-                throw new TypeError("Expected [string, any] as entry at index " + i + " of URLSearchParams's input");
+                throw new TypeError(
+                  "Expected [string, any] as entry at index " +
+                    i +
+                    " of URLSearchParams's input",
+                );
               }
             }
           } else {
@@ -1561,29 +1759,29 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         }
       };
       var proto2 = URLSearchParams2.prototype;
-      proto2.append = function(name, value) {
+      proto2.append = function (name, value) {
         if (name in this._entries) {
           this._entries[name].push(String(value));
         } else {
           this._entries[name] = [String(value)];
         }
       };
-      proto2.delete = function(name) {
+      proto2.delete = function (name) {
         delete this._entries[name];
       };
-      proto2.get = function(name) {
+      proto2.get = function (name) {
         return name in this._entries ? this._entries[name][0] : null;
       };
-      proto2.getAll = function(name) {
+      proto2.getAll = function (name) {
         return name in this._entries ? this._entries[name].slice(0) : [];
       };
-      proto2.has = function(name) {
+      proto2.has = function (name) {
         return name in this._entries;
       };
-      proto2.set = function(name, value) {
+      proto2.set = function (name, value) {
         this._entries[name] = [String(value)];
       };
-      proto2.forEach = function(callback, thisArg) {
+      proto2.forEach = function (callback, thisArg) {
         var entries;
         for (var name in this._entries) {
           if (this._entries.hasOwnProperty(name)) {
@@ -1594,23 +1792,23 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           }
         }
       };
-      proto2.keys = function() {
+      proto2.keys = function () {
         var items = [];
-        this.forEach(function(value, name) {
+        this.forEach(function (value, name) {
           items.push(name);
         });
         return createIterator(items);
       };
-      proto2.values = function() {
+      proto2.values = function () {
         var items = [];
-        this.forEach(function(value) {
+        this.forEach(function (value) {
           items.push(value);
         });
         return createIterator(items);
       };
-      proto2.entries = function() {
+      proto2.entries = function () {
         var items = [];
-        this.forEach(function(value, name) {
+        this.forEach(function (value, name) {
           items.push([name, value]);
         });
         return createIterator(items);
@@ -1618,24 +1816,28 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       if (iteratorSupported) {
         proto2[Symbol.iterator] = proto2.entries;
       }
-      proto2.toString = function() {
+      proto2.toString = function () {
         var searchArray = [];
-        this.forEach(function(value, name) {
+        this.forEach(function (value, name) {
           searchArray.push(serializeParam(name) + "=" + serializeParam(value));
         });
         return searchArray.join("&");
       };
       Object.defineProperty(proto2, "size", {
-        get: function() {
+        get: function () {
           return this._entries ? Object.keys(this._entries).length : 0;
-        }
+        },
       });
       global2.URLSearchParams = URLSearchParams2;
     };
-    var checkIfURLSearchParamsSupported = function() {
+    var checkIfURLSearchParamsSupported = function () {
       try {
         var URLSearchParams2 = global2.URLSearchParams;
-        return new URLSearchParams2("?a=1").toString() === "a=1" && typeof URLSearchParams2.prototype.set === "function" && typeof URLSearchParams2.prototype.entries === "function";
+        return (
+          new URLSearchParams2("?a=1").toString() === "a=1" &&
+          typeof URLSearchParams2.prototype.set === "function" &&
+          typeof URLSearchParams2.prototype.entries === "function"
+        );
       } catch (e) {
         return false;
       }
@@ -1645,16 +1847,16 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     }
     var proto = global2.URLSearchParams.prototype;
     if (typeof proto.sort !== "function") {
-      proto.sort = function() {
+      proto.sort = function () {
         var _this = this;
         var items = [];
-        this.forEach(function(value, name) {
+        this.forEach(function (value, name) {
           items.push([name, value]);
           if (!_this._entries) {
             _this.delete(name);
           }
         });
-        items.sort(function(a, b) {
+        items.sort(function (a, b) {
           if (a[0] < b[0]) {
             return -1;
           } else if (a[0] > b[0]) {
@@ -1676,12 +1878,12 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         enumerable: false,
         configurable: false,
         writable: false,
-        value: function(searchString) {
+        value: function (searchString) {
           if (this._entries) {
             this._entries = {};
           } else {
             var keys2 = [];
-            this.forEach(function(value, name) {
+            this.forEach(function (value, name) {
               keys2.push(name);
             });
             for (var i = 0; i < keys2.length; i++) {
@@ -1695,17 +1897,25 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
             attribute = attributes[i].split("=");
             this.append(
               deserializeParam(attribute[0]),
-              attribute.length > 1 ? deserializeParam(attribute.slice(1).join("=")) : ""
+              attribute.length > 1
+                ? deserializeParam(attribute.slice(1).join("="))
+                : "",
             );
           }
-        }
+        },
       });
     }
   })(
-    typeof commonjsGlobal !== "undefined" ? commonjsGlobal : typeof window !== "undefined" ? window : typeof self !== "undefined" ? self : commonjsGlobal
+    typeof commonjsGlobal !== "undefined"
+      ? commonjsGlobal
+      : typeof window !== "undefined"
+        ? window
+        : typeof self !== "undefined"
+          ? self
+          : commonjsGlobal,
   );
-  (function(global2) {
-    var checkIfURLIsSupported = function() {
+  (function (global2) {
+    var checkIfURLIsSupported = function () {
       try {
         var u = new global2.URL("b", "http://a");
         u.pathname = "c d";
@@ -1714,13 +1924,17 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         return false;
       }
     };
-    var polyfillURL = function() {
+    var polyfillURL = function () {
       var _URL = global2.URL;
-      var URL2 = function(url, base) {
+      var URL2 = function (url, base) {
         if (typeof url !== "string") url = String(url);
         if (base && typeof base !== "string") base = String(base);
-        var doc = document, baseElement;
-        if (base && (global2.location === void 0 || base !== global2.location.href)) {
+        var doc = document,
+          baseElement;
+        if (
+          base &&
+          (global2.location === void 0 || base !== global2.location.href)
+        ) {
           var isIE11 = !!window.MSInputMethodContext && !!document.documentMode;
           if (isIE11) {
             base = base.toLowerCase();
@@ -1730,9 +1944,12 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           baseElement.href = base;
           doc.head.appendChild(baseElement);
           try {
-            if (baseElement.href.indexOf(base) !== 0) throw new Error(baseElement.href);
+            if (baseElement.href.indexOf(base) !== 0)
+              throw new Error(baseElement.href);
           } catch (err) {
-            throw new Error("URL unable to set base " + base + " due to " + err);
+            throw new Error(
+              "URL unable to set base " + base + " due to " + err,
+            );
           }
         }
         var anchorElement = doc.createElement("a");
@@ -1744,19 +1961,23 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         var inputElement = doc.createElement("input");
         inputElement.type = "url";
         inputElement.value = url;
-        if (anchorElement.protocol === ":" || !/:/.test(anchorElement.href) || !inputElement.checkValidity() && !base) {
+        if (
+          anchorElement.protocol === ":" ||
+          !/:/.test(anchorElement.href) ||
+          (!inputElement.checkValidity() && !base)
+        ) {
           throw new TypeError("Invalid URL");
         }
         Object.defineProperty(this, "_anchorElement", {
-          value: anchorElement
+          value: anchorElement,
         });
         var searchParams = new global2.URLSearchParams(this.search);
         var enableSearchUpdate = true;
         var enableSearchParamsUpdate = true;
         var _this = this;
-        ["append", "delete", "set"].forEach(function(methodName) {
+        ["append", "delete", "set"].forEach(function (methodName) {
           var method = searchParams[methodName];
-          searchParams[methodName] = function() {
+          searchParams[methodName] = function () {
             method.apply(searchParams, arguments);
             if (enableSearchUpdate) {
               enableSearchParamsUpdate = false;
@@ -1767,14 +1988,14 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         });
         Object.defineProperty(this, "searchParams", {
           value: searchParams,
-          enumerable: true
+          enumerable: true,
         });
         var search = void 0;
         Object.defineProperty(this, "_updateSearchParams", {
           enumerable: false,
           configurable: false,
           writable: false,
-          value: function() {
+          value: function () {
             if (this.search !== search) {
               search = this.search;
               if (enableSearchParamsUpdate) {
@@ -1783,93 +2004,102 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
                 enableSearchUpdate = true;
               }
             }
-          }
+          },
         });
       };
       var proto = URL2.prototype;
-      var linkURLWithAnchorAttribute = function(attributeName) {
+      var linkURLWithAnchorAttribute = function (attributeName) {
         Object.defineProperty(proto, attributeName, {
-          get: function() {
+          get: function () {
             return this._anchorElement[attributeName];
           },
-          set: function(value) {
+          set: function (value) {
             this._anchorElement[attributeName] = value;
           },
-          enumerable: true
+          enumerable: true,
         });
       };
-      ["hash", "host", "hostname", "port", "protocol"].forEach(function(attributeName) {
-        linkURLWithAnchorAttribute(attributeName);
-      });
+      ["hash", "host", "hostname", "port", "protocol"].forEach(
+        function (attributeName) {
+          linkURLWithAnchorAttribute(attributeName);
+        },
+      );
       Object.defineProperty(proto, "search", {
-        get: function() {
+        get: function () {
           return this._anchorElement["search"];
         },
-        set: function(value) {
+        set: function (value) {
           this._anchorElement["search"] = value;
           this._updateSearchParams();
         },
-        enumerable: true
+        enumerable: true,
       });
       Object.defineProperties(proto, {
-        "toString": {
-          get: function() {
+        toString: {
+          get: function () {
             var _this = this;
-            return function() {
+            return function () {
               return _this.href;
             };
-          }
+          },
         },
-        "href": {
-          get: function() {
+        href: {
+          get: function () {
             return this._anchorElement.href.replace(/\?$/, "");
           },
-          set: function(value) {
+          set: function (value) {
             this._anchorElement.href = value;
             this._updateSearchParams();
           },
-          enumerable: true
+          enumerable: true,
         },
-        "pathname": {
-          get: function() {
+        pathname: {
+          get: function () {
             return this._anchorElement.pathname.replace(/(^\/?)/, "/");
           },
-          set: function(value) {
+          set: function (value) {
             this._anchorElement.pathname = value;
           },
-          enumerable: true
+          enumerable: true,
         },
-        "origin": {
-          get: function() {
-            var expectedPort = { "http:": 80, "https:": 443, "ftp:": 21 }[this._anchorElement.protocol];
-            var addPortToOrigin = this._anchorElement.port != expectedPort && this._anchorElement.port !== "";
-            return this._anchorElement.protocol + "//" + this._anchorElement.hostname + (addPortToOrigin ? ":" + this._anchorElement.port : "");
+        origin: {
+          get: function () {
+            var expectedPort = { "http:": 80, "https:": 443, "ftp:": 21 }[
+              this._anchorElement.protocol
+            ];
+            var addPortToOrigin =
+              this._anchorElement.port != expectedPort &&
+              this._anchorElement.port !== "";
+            return (
+              this._anchorElement.protocol +
+              "//" +
+              this._anchorElement.hostname +
+              (addPortToOrigin ? ":" + this._anchorElement.port : "")
+            );
           },
-          enumerable: true
+          enumerable: true,
         },
-        "password": {
+        password: {
           // TODO
-          get: function() {
+          get: function () {
             return "";
           },
-          set: function(value) {
-          },
-          enumerable: true
+          set: function (value) {},
+          enumerable: true,
         },
-        "username": {
+        username: {
           // TODO
-          get: function() {
+          get: function () {
             return "";
           },
-          set: function(value) {
-          },
-          enumerable: true
-        }
+          set: function (value) {},
+          enumerable: true,
+        },
       });
-      URL2.createObjectURL = function(blob) {
+      URL2.createObjectURL = function (blob) {
         return _URL.createObjectURL.apply(_URL, arguments);
       };
-      URL2.revokeObjectURL = function(url) {
+      URL2.revokeObjectURL = function (url) {
         return _URL.revokeObjectURL.apply(_URL, arguments);
       };
       global2.URL = URL2;
@@ -1878,22 +2108,33 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       polyfillURL();
     }
     if (global2.location !== void 0 && !("origin" in global2.location)) {
-      var getOrigin = function() {
-        return global2.location.protocol + "//" + global2.location.hostname + (global2.location.port ? ":" + global2.location.port : "");
+      var getOrigin = function () {
+        return (
+          global2.location.protocol +
+          "//" +
+          global2.location.hostname +
+          (global2.location.port ? ":" + global2.location.port : "")
+        );
       };
       try {
         Object.defineProperty(global2.location, "origin", {
           get: getOrigin,
-          enumerable: true
+          enumerable: true,
         });
       } catch (e) {
-        setInterval(function() {
+        setInterval(function () {
           global2.location.origin = getOrigin();
         }, 100);
       }
     }
   })(
-    typeof commonjsGlobal !== "undefined" ? commonjsGlobal : typeof window !== "undefined" ? window : typeof self !== "undefined" ? self : commonjsGlobal
+    typeof commonjsGlobal !== "undefined"
+      ? commonjsGlobal
+      : typeof window !== "undefined"
+        ? window
+        : typeof self !== "undefined"
+          ? self
+          : commonjsGlobal,
   );
   const VOID = -1;
   const PRIMITIVE = 0;
@@ -1924,8 +2165,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       return out;
     };
     const unpair = (index) => {
-      if ($.has(index))
-        return $.get(index);
+      if ($.has(index)) return $.get(index);
       const [type, value] = _[index];
       switch (type) {
         case PRIMITIVE:
@@ -1933,8 +2173,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           return as(value, index);
         case ARRAY: {
           const arr = as([], index);
-          for (const index2 of value)
-            arr.push(unpair(index2));
+          for (const index2 of value) arr.push(unpair(index2));
           return arr;
         }
         case OBJECT: {
@@ -1957,15 +2196,16 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         }
         case SET: {
           const set = as(/* @__PURE__ */ new Set(), index);
-          for (const index2 of value)
-            set.add(unpair(index2));
+          for (const index2 of value) set.add(unpair(index2));
           return set;
         }
         case ERROR: {
           const { name, message } = value;
           return as(
-            typeof env[name] === "function" ? guard(name, message) : new Error(message),
-            index
+            typeof env[name] === "function"
+              ? guard(name, message)
+              : new Error(message),
+            index,
           );
         }
         case BIGINT:
@@ -1983,14 +2223,14 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     };
     return unpair;
   };
-  const deserialize = (serialized) => deserializer(/* @__PURE__ */ new Map(), serialized)(0);
+  const deserialize = (serialized) =>
+    deserializer(/* @__PURE__ */ new Map(), serialized)(0);
   const EMPTY = "";
   const { toString } = {};
   const { keys } = Object;
   const typeOf = (value) => {
     const type = typeof value;
-    if (type !== "object" || !value)
-      return [PRIMITIVE, type];
+    if (type !== "object" || !value) return [PRIMITIVE, type];
     const asString = toString.call(value).slice(8, -1);
     switch (asString) {
       case "Array":
@@ -2008,13 +2248,12 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       case "DataView":
         return [ARRAY, asString];
     }
-    if (asString.includes("Array"))
-      return [ARRAY, asString];
-    if (value instanceof Error)
-      return [ERROR, value.name || "Error"];
+    if (asString.includes("Array")) return [ARRAY, asString];
+    if (value instanceof Error) return [ERROR, value.name || "Error"];
     return [OBJECT, asString];
   };
-  const shouldSkip = ([TYPE, type]) => TYPE === PRIMITIVE && (type === "function" || type === "symbol");
+  const shouldSkip = ([TYPE, type]) =>
+    TYPE === PRIMITIVE && (type === "function" || type === "symbol");
   const serializer = (strict, json, $, _) => {
     const as = (out, value) => {
       const index = _.push(out) - 1;
@@ -2022,8 +2261,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       return index;
     };
     const pair = (value) => {
-      if ($.has(value))
-        return $.get(value);
+      if ($.has(value)) return $.get(value);
       let [TYPE, type] = typeOf(value);
       switch (TYPE) {
         case PRIMITIVE: {
@@ -2035,8 +2273,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
               break;
             case "function":
             case "symbol":
-              if (strict)
-                throw new TypeError("unable to serialize " + type);
+              if (strict) throw new TypeError("unable to serialize " + type);
               entry = null;
               break;
             case "undefined":
@@ -2056,8 +2293,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           }
           const arr = [];
           const index = as([TYPE, arr], value);
-          for (const entry of value)
-            arr.push(pair(entry));
+          for (const entry of value) arr.push(pair(entry));
           return index;
         }
         case OBJECT: {
@@ -2071,8 +2307,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
                 return as([type, value.valueOf()], value);
             }
           }
-          if (json && "toJSON" in value)
-            return pair(value.toJSON());
+          if (json && "toJSON" in value) return pair(value.toJSON());
           const entries = [];
           const index = as([TYPE, entries], value);
           for (const key of keys(value)) {
@@ -2082,7 +2317,10 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           return index;
         }
         case DATE:
-          return as([TYPE, isNaN(value.getTime()) ? EMPTY : value.toISOString()], value);
+          return as(
+            [TYPE, isNaN(value.getTime()) ? EMPTY : value.toISOString()],
+            value,
+          );
         case REGEXP: {
           const { source, flags } = value;
           return as([TYPE, { source, flags }], value);
@@ -2091,7 +2329,10 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           const entries = [];
           const index = as([TYPE, entries], value);
           for (const [key, entry] of value) {
-            if (strict || !(shouldSkip(typeOf(key)) || shouldSkip(typeOf(entry))))
+            if (
+              strict ||
+              !(shouldSkip(typeOf(key)) || shouldSkip(typeOf(entry)))
+            )
               entries.push([pair(key), pair(entry)]);
           }
           return index;
@@ -2100,8 +2341,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           const entries = [];
           const index = as([TYPE, entries], value);
           for (const entry of value) {
-            if (strict || !shouldSkip(typeOf(entry)))
-              entries.push(pair(entry));
+            if (strict || !shouldSkip(typeOf(entry))) entries.push(pair(entry));
           }
           return index;
         }
@@ -2113,13 +2353,23 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   };
   const serialize = (value, { json, lossy } = {}) => {
     const _ = [];
-    return serializer(!(json || lossy), !!json, /* @__PURE__ */ new Map(), _)(value), _;
+    return (
+      serializer(!(json || lossy), !!json, /* @__PURE__ */ new Map(), _)(value),
+      _
+    );
   };
-  const structuredCloneImpl = typeof structuredClone === "function" ? (
-    /* c8 ignore start */
-    (any, options) => options && ("json" in options || "lossy" in options) ? deserialize(serialize(any, options)) : structuredClone(any)
-  ) : (any, options) => deserialize(serialize(any, options));
-  if (typeof TextEncoder === "undefined" && typeof __host_utf8_encode !== "undefined") {
+  const structuredCloneImpl =
+    typeof structuredClone === "function"
+      ? /* c8 ignore start */
+        (any, options) =>
+          options && ("json" in options || "lossy" in options)
+            ? deserialize(serialize(any, options))
+            : structuredClone(any)
+      : (any, options) => deserialize(serialize(any, options));
+  if (
+    typeof TextEncoder === "undefined" &&
+    typeof __host_utf8_encode !== "undefined"
+  ) {
     class TextEncoderPolyfill {
       encode(s) {
         return __host_utf8_encode(s);
@@ -2127,7 +2377,10 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     }
     globalThis.TextEncoder = TextEncoderPolyfill;
   }
-  if (typeof TextDecoder === "undefined" && typeof __host_utf8_decode !== "undefined") {
+  if (
+    typeof TextDecoder === "undefined" &&
+    typeof __host_utf8_decode !== "undefined"
+  ) {
     class TextDecoderPolyfill {
       constructor(label, options) {
         __publicField(this, "fatal");
@@ -2137,7 +2390,10 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         const s = __host_utf8_decode(bytes);
         if (this.fatal) {
           const re = __host_utf8_encode(s);
-          if (re.length !== bytes.length || !re.every((b, i) => b === bytes[i])) {
+          if (
+            re.length !== bytes.length ||
+            !re.every((b, i) => b === bytes[i])
+          ) {
             throw new TypeError("The encoded data was not valid UTF-8");
           }
         }
@@ -2272,13 +2528,15 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     if (!set || set.size === 0) return;
     const entry = {
       target: { id: solidId },
-      contentRect: { width, height }
+      contentRect: { width, height },
     };
     for (const cb of set) {
       try {
         cb([entry]);
       } catch (e) {
-        __host_log(`ResizeObserver callback error: ${(e == null ? void 0 : e.stack) ?? e}`);
+        __host_log(
+          `ResizeObserver callback error: ${(e == null ? void 0 : e.stack) ?? e}`,
+        );
       }
     }
   };
@@ -2291,13 +2549,12 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     }
     let ignore = false;
     function confirm(to, options) {
-      if (ignore)
-        return !(ignore = false);
+      if (ignore) return !(ignore = false);
       const e = {
         to,
         options,
         defaultPrevented: false,
-        preventDefault: () => e.defaultPrevented = true
+        preventDefault: () => (e.defaultPrevented = true),
       };
       for (const l of listeners)
         l.listener({
@@ -2306,18 +2563,21 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           retry: (force) => {
             force && (ignore = true);
             l.navigate(to, { ...options, resolve: false });
-          }
+          },
         });
       return !e.defaultPrevented;
     }
     return {
       subscribe,
-      confirm
+      confirm,
     };
   }
   function saveCurrentDepth() {
     if (!window.history.state || window.history.state._depth == null) {
-      window.history.replaceState({ ...window.history.state, _depth: window.history.length - 1 }, "");
+      window.history.replaceState(
+        { ...window.history.state, _depth: window.history.length - 1 },
+        "",
+      );
     }
     window.history.state._depth;
   }
@@ -2329,7 +2589,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   const mockBase = "http://sr";
   function normalizePath(path, omitSlash = false) {
     const s = path.replace(trimPathRegex, "$1");
-    return s ? omitSlash || /^[?#]/.test(s) ? s : "/" + s : "";
+    return s ? (omitSlash || /^[?#]/.test(s) ? s : "/" + s) : "";
   }
   function resolvePath(base, path, from) {
     if (hasSchemeRegex.test(path)) {
@@ -2360,12 +2620,9 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const params = {};
     url.searchParams.forEach((value, key) => {
       if (key in params) {
-        if (Array.isArray(params[key]))
-          params[key].push(value);
-        else
-          params[key] = [params[key], value];
-      } else
-        params[key] = value;
+        if (Array.isArray(params[key])) params[key].push(value);
+        else params[key] = [params[key], value];
+      } else params[key] = value;
     });
     return params;
   }
@@ -2376,18 +2633,21 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     return (location) => {
       const locSegments = location.split("/").filter(Boolean);
       const lenDiff = locSegments.length - len;
-      if (lenDiff < 0 || lenDiff > 0 && splat === void 0 && !partial) {
+      if (lenDiff < 0 || (lenDiff > 0 && splat === void 0 && !partial)) {
         return null;
       }
       const match = {
         path: len ? "" : "/",
-        params: {}
+        params: {},
       };
-      const matchFilter = (s) => matchFilters === void 0 ? void 0 : matchFilters[s];
+      const matchFilter = (s) =>
+        matchFilters === void 0 ? void 0 : matchFilters[s];
       for (let i = 0; i < len; i++) {
         const segment = segments[i];
         const dynamic = segment[0] === ":";
-        const locSegment = dynamic ? locSegments[i] : locSegments[i].toLowerCase();
+        const locSegment = dynamic
+          ? locSegments[i]
+          : locSegments[i].toLowerCase();
         const key = dynamic ? segment.slice(1) : segment.toLowerCase();
         if (dynamic && matchSegment(locSegment, matchFilter(key))) {
           match.params[key] = locSegment;
@@ -2425,73 +2685,99 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   function scoreRoute(route) {
     const [pattern, splat] = route.pattern.split("/*", 2);
     const segments = pattern.split("/").filter(Boolean);
-    return segments.reduce((score, segment) => score + (segment.startsWith(":") ? 2 : 3), segments.length - (splat === void 0 ? 0 : 1));
+    return segments.reduce(
+      (score, segment) => score + (segment.startsWith(":") ? 2 : 3),
+      segments.length - (splat === void 0 ? 0 : 1),
+    );
   }
   function createMemoObject(fn) {
     const map = /* @__PURE__ */ new Map();
     const owner = getOwner();
-    return new Proxy({}, {
-      get(_, property) {
-        if (!map.has(property)) {
-          runWithOwner(owner, () => map.set(property, createMemo(() => fn()[property])));
-        }
-        return map.get(property)();
+    return new Proxy(
+      {},
+      {
+        get(_, property) {
+          if (!map.has(property)) {
+            runWithOwner(owner, () =>
+              map.set(
+                property,
+                createMemo(() => fn()[property]),
+              ),
+            );
+          }
+          return map.get(property)();
+        },
+        getOwnPropertyDescriptor() {
+          return {
+            enumerable: true,
+            configurable: true,
+          };
+        },
+        ownKeys() {
+          return Reflect.ownKeys(fn());
+        },
+        has(_, property) {
+          return property in fn();
+        },
       },
-      getOwnPropertyDescriptor() {
-        return {
-          enumerable: true,
-          configurable: true
-        };
-      },
-      ownKeys() {
-        return Reflect.ownKeys(fn());
-      },
-      has(_, property) {
-        return property in fn();
-      }
-    });
+    );
   }
   function expandOptionals(pattern) {
     let match = /(\/?\:[^\/]+)\?/.exec(pattern);
-    if (!match)
-      return [pattern];
+    if (!match) return [pattern];
     let prefix = pattern.slice(0, match.index);
     let suffix = pattern.slice(match.index + match[0].length);
-    const prefixes = [prefix, prefix += match[1]];
-    while (match = /^(\/\:[^\/]+)\?/.exec(suffix)) {
-      prefixes.push(prefix += match[1]);
+    const prefixes = [prefix, (prefix += match[1])];
+    while ((match = /^(\/\:[^\/]+)\?/.exec(suffix))) {
+      prefixes.push((prefix += match[1]));
       suffix = suffix.slice(match[0].length);
     }
-    return expandOptionals(suffix).reduce((results, expansion) => [...results, ...prefixes.map((p) => p + expansion)], []);
+    return expandOptionals(suffix).reduce(
+      (results, expansion) => [
+        ...results,
+        ...prefixes.map((p) => p + expansion),
+      ],
+      [],
+    );
   }
   const MAX_REDIRECTS = 100;
   const RouterContextObj = createContext();
   const RouteContextObj = createContext();
-  const useRouter = () => invariant(useContext(RouterContextObj), "<A> and 'use' router primitives can be only used inside a Route.");
+  const useRouter = () =>
+    invariant(
+      useContext(RouterContextObj),
+      "<A> and 'use' router primitives can be only used inside a Route.",
+    );
   const useNavigate = () => useRouter().navigatorFactory();
   const useLocation = () => useRouter().location;
   const useParams = () => useRouter().params;
   function createRoutes(routeDef, base = "") {
     const { component, preload, load, children: children2, info } = routeDef;
-    const isLeaf = !children2 || Array.isArray(children2) && !children2.length;
+    const isLeaf =
+      !children2 || (Array.isArray(children2) && !children2.length);
     const shared = {
       key: routeDef,
       component,
       preload: preload || load,
-      info
+      info,
     };
     return asArray(routeDef.path).reduce((acc, originalPath) => {
       for (const expandedPath of expandOptionals(originalPath)) {
         const path = joinPaths(base, expandedPath);
         let pattern = isLeaf ? path : path.split("/*", 1)[0];
-        pattern = pattern.split("/").map((s) => {
-          return s.startsWith(":") || s.startsWith("*") ? s : encodeURIComponent(s);
-        }).join("/");
+        pattern = pattern
+          .split("/")
+          .map((s) => {
+            return s.startsWith(":") || s.startsWith("*")
+              ? s
+              : encodeURIComponent(s);
+          })
+          .join("/");
         acc.push({
           ...shared,
           originalPath,
           pattern,
-          matcher: createMatcher(pattern, !isLeaf, routeDef.matchFilters)
+          matcher: createMatcher(pattern, !isLeaf, routeDef.matchFilters),
         });
       }
       return acc;
@@ -2511,11 +2797,11 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           }
           matches.unshift({
             ...match,
-            route
+            route,
           });
         }
         return matches;
-      }
+      },
     };
   }
   function asArray(value) {
@@ -2526,12 +2812,12 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     for (let i = 0, len = routeDefs.length; i < len; i++) {
       const def = routeDefs[i];
       if (def && typeof def === "object") {
-        if (!def.hasOwnProperty("path"))
-          def.path = "";
+        if (!def.hasOwnProperty("path")) def.path = "";
         const routes = createRoutes(def, base);
         for (const route of routes) {
           stack.push(route);
-          const isEmptyArray = Array.isArray(def.children) && def.children.length === 0;
+          const isEmptyArray =
+            Array.isArray(def.children) && def.children.length === 0;
           if (def.children && !isEmptyArray) {
             createBranches(def.children, route.pattern, stack, branches);
           } else {
@@ -2555,17 +2841,21 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   }
   function createLocation(path, state, queryWrapper) {
     const origin = new URL(mockBase);
-    const url = createMemo((prev) => {
-      const path_ = path();
-      try {
-        return new URL(path_, origin);
-      } catch (err) {
-        console.error(`Invalid path ${path_}`);
-        return prev;
-      }
-    }, origin, {
-      equals: (a, b) => a.href === b.href
-    });
+    const url = createMemo(
+      (prev) => {
+        const path_ = path();
+        try {
+          return new URL(path_, origin);
+        } catch (err) {
+          console.error(`Invalid path ${path_}`);
+          return prev;
+        }
+      },
+      origin,
+      {
+        equals: (a, b) => a.href === b.href,
+      },
+    );
     const pathname = createMemo(() => url().pathname);
     const search = createMemo(() => url().search, true);
     const hash = createMemo(() => url().hash);
@@ -2587,17 +2877,24 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       get key() {
         return key();
       },
-      query: queryWrapper ? queryWrapper(queryFn) : createMemoObject(queryFn)
+      query: queryWrapper ? queryWrapper(queryFn) : createMemoObject(queryFn),
     };
   }
   let intent;
   function getIntent() {
     return intent;
   }
-  function setInPreloadFn(value) {
-  }
-  function createRouterContext(integration, branches, getContext, options = {}) {
-    const { signal: [source, setSource], utils = {} } = integration;
+  function setInPreloadFn(value) {}
+  function createRouterContext(
+    integration,
+    branches,
+    getContext,
+    options = {},
+  ) {
+    const {
+      signal: [source, setSource],
+      utils = {},
+    } = integration;
     const parsePath = utils.parsePath || ((p) => p);
     const renderPath = utils.renderPath || ((p) => p);
     const beforeLeave = utils.beforeLeave || createBeforeLeave();
@@ -2612,23 +2909,19 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const transition = (newIntent, newTarget) => {
       if (newTarget.value === reference() && newTarget.state === state())
         return;
-      if (lastTransitionTarget === void 0)
-        setIsRouting(true);
+      if (lastTransitionTarget === void 0) setIsRouting(true);
       intent = newIntent;
       lastTransitionTarget = newTarget;
       startTransition(() => {
-        if (lastTransitionTarget !== newTarget)
-          return;
+        if (lastTransitionTarget !== newTarget) return;
         setReference(lastTransitionTarget.value);
         setState(lastTransitionTarget.state);
         submissions[1]((subs) => subs.filter((s) => s.pending));
       }).finally(() => {
-        if (lastTransitionTarget !== newTarget)
-          return;
+        if (lastTransitionTarget !== newTarget) return;
         batch(() => {
           intent = void 0;
-          if (newIntent === "navigate")
-            navigateEnd(lastTransitionTarget);
+          if (newIntent === "navigate") navigateEnd(lastTransitionTarget);
           setIsRouting(false);
           lastTransitionTarget = void 0;
         });
@@ -2641,7 +2934,10 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const submissions = createSignal([]);
     const matches = createMemo(() => {
       if (typeof options.transformUrl === "function") {
-        return getRouteMatches(branches(), options.transformUrl(location.pathname));
+        return getRouteMatches(
+          branches(),
+          options.transformUrl(location.pathname),
+        );
       }
       return getRouteMatches(branches(), location.pathname);
     });
@@ -2653,16 +2949,20 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       }
       return params2;
     };
-    const params = utils.paramsWrapper ? utils.paramsWrapper(buildParams, branches) : createMemoObject(buildParams);
+    const params = utils.paramsWrapper
+      ? utils.paramsWrapper(buildParams, branches)
+      : createMemoObject(buildParams);
     const baseRoute = {
       pattern: basePath,
       path: () => basePath,
       outlet: () => null,
       resolvePath(to) {
         return resolvePath(basePath, to);
-      }
+      },
     };
-    createRenderEffect(on(source, (source2) => transition("native", source2), { defer: true }));
+    createRenderEffect(
+      on(source, (source2) => transition("native", source2), { defer: true }),
+    );
     return {
       base: baseRoute,
       location,
@@ -2674,8 +2974,9 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       matches,
       beforeLeave,
       preloadRoute,
-      singleFlight: options.singleFlight === void 0 ? true : options.singleFlight,
-      submissions
+      singleFlight:
+        options.singleFlight === void 0 ? true : options.singleFlight,
+      submissions,
     };
     function navigateFromRoute(route, to, options2) {
       untrack(() => {
@@ -2684,18 +2985,27 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           } else if (utils.go) {
             utils.go(to);
           } else {
-            console.warn("Router integration does not support relative routing");
+            console.warn(
+              "Router integration does not support relative routing",
+            );
           }
           return;
         }
         const queryOnly = !to || to[0] === "?";
-        const { replace, resolve, scroll, state: nextState } = {
+        const {
+          replace,
+          resolve,
+          scroll,
+          state: nextState,
+        } = {
           replace: false,
           resolve: !queryOnly,
           scroll: true,
-          ...options2
+          ...options2,
         };
-        const resolvedTo = resolve ? route.resolvePath(to) : resolvePath(queryOnly && location.pathname || "", to);
+        const resolvedTo = resolve
+          ? route.resolvePath(to)
+          : resolvePath((queryOnly && location.pathname) || "", to);
         if (resolvedTo === void 0) {
           throw new Error(`Path '${to}' is not a routable path`);
         } else if (referrers.length >= MAX_REDIRECTS) {
@@ -2703,12 +3013,12 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         }
         const current = reference();
         if (resolvedTo !== current || nextState !== state()) {
-          if (isServer) ;
+          if (isServer);
           else if (beforeLeave.confirm(resolvedTo, options2)) {
             referrers.push({ value: current, replace, scroll, state: state() });
             transition("navigate", {
               value: resolvedTo,
-              state: nextState
+              state: nextState,
             });
           }
         }
@@ -2724,7 +3034,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         setSource({
           ...next,
           replace: first.replace,
-          scroll: first.scroll
+          scroll: first.scroll,
         });
         referrers.length = 0;
       }
@@ -2737,18 +3047,22 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         const { route, params: params2 } = matches2[match];
         route.component && route.component.preload && route.component.preload();
         const { preload } = route;
-        preloadData && preload && runWithOwner(getContext(), () => preload({
-          params: params2,
-          location: {
-            pathname: url.pathname,
-            search: url.search,
-            hash: url.hash,
-            query: extractSearchParams(url),
-            state: null,
-            key: ""
-          },
-          intent: "preload"
-        }));
+        preloadData &&
+          preload &&
+          runWithOwner(getContext(), () =>
+            preload({
+              params: params2,
+              location: {
+                pathname: url.pathname,
+                search: url.search,
+                hash: url.hash,
+                query: extractSearchParams(url),
+                state: null,
+                key: "",
+              },
+              intent: "preload",
+            }),
+          );
       }
       intent = prevIntent;
     }
@@ -2758,36 +3072,41 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const { pattern, component, preload } = match().route;
     const path = createMemo(() => match().path);
     component && component.preload && component.preload();
-    const data = preload ? preload({ params, location, intent: intent || "initial" }) : void 0;
+    const data = preload
+      ? preload({ params, location, intent: intent || "initial" })
+      : void 0;
     const route = {
       parent,
       pattern,
       path,
-      outlet: () => component ? createComponent$1(component, {
-        params,
-        location,
-        data,
-        get children() {
-          return outlet();
-        }
-      }) : outlet(),
+      outlet: () =>
+        component
+          ? createComponent$1(component, {
+              params,
+              location,
+              data,
+              get children() {
+                return outlet();
+              },
+            })
+          : outlet(),
       resolvePath(to) {
         return resolvePath(base.path(), to, path());
-      }
+      },
     };
     return route;
   }
   const createRouterComponent = (router) => (props) => {
-    const {
-      base
-    } = props;
+    const { base } = props;
     const routeDefs = children(() => props.children);
-    const branches = createMemo(() => createBranches(routeDefs(), props.base || ""));
+    const branches = createMemo(() =>
+      createBranches(routeDefs(), props.base || ""),
+    );
     let context;
     const routerState = createRouterContext(router, branches, () => context, {
       base,
       singleFlight: props.singleFlight,
-      transformUrl: props.transformUrl
+      transformUrl: props.transformUrl,
     });
     router.create && router.create(routerState);
     return createComponent(RouterContextObj.Provider, {
@@ -2802,29 +3121,36 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
             return props.rootPreload || props.rootLoad;
           },
           get children() {
-            return [memo(() => (context = getOwner()) && null), createComponent(Routes, {
-              routerState,
-              get branches() {
-                return branches();
-              }
-            })];
-          }
+            return [
+              memo(() => (context = getOwner()) && null),
+              createComponent(Routes, {
+                routerState,
+                get branches() {
+                  return branches();
+                },
+              }),
+            ];
+          },
         });
-      }
+      },
     });
   };
   function Root(props) {
     const location = props.routerState.location;
     const params = props.routerState.params;
-    const data = createMemo(() => props.preload && untrack(() => {
-      setInPreloadFn(true);
-      props.preload({
-        params,
-        location,
-        intent: getIntent() || "initial"
-      });
-      setInPreloadFn(false);
-    }));
+    const data = createMemo(
+      () =>
+        props.preload &&
+        untrack(() => {
+          setInPreloadFn(true);
+          props.preload({
+            params,
+            location,
+            intent: getIntent() || "initial",
+          });
+          setInPreloadFn(false);
+        }),
+    );
     return createComponent(Show, {
       get when() {
         return props.root;
@@ -2833,72 +3159,86 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       get fallback() {
         return props.children;
       },
-      children: (Root2) => createComponent(Root2, {
-        params,
-        location,
-        get data() {
-          return data();
-        },
-        get children() {
-          return props.children;
-        }
-      })
+      children: (Root2) =>
+        createComponent(Root2, {
+          params,
+          location,
+          get data() {
+            return data();
+          },
+          get children() {
+            return props.children;
+          },
+        }),
     });
   }
   function Routes(props) {
     const disposers = [];
     let root;
-    const routeStates = createMemo(on(props.routerState.matches, (nextMatches, prevMatches, prev) => {
-      let equal = prevMatches && nextMatches.length === prevMatches.length;
-      const next = [];
-      for (let i = 0, len = nextMatches.length; i < len; i++) {
-        const prevMatch = prevMatches && prevMatches[i];
-        const nextMatch = nextMatches[i];
-        if (prev && prevMatch && nextMatch.route.key === prevMatch.route.key) {
-          next[i] = prev[i];
-        } else {
-          equal = false;
-          if (disposers[i]) {
-            disposers[i]();
-          }
-          createRoot((dispose2) => {
-            disposers[i] = dispose2;
-            next[i] = createRouteContext(props.routerState, next[i - 1] || props.routerState.base, createOutlet(() => routeStates()[i + 1]), () => {
-              const routeMatches = props.routerState.matches();
-              return routeMatches[i] ?? routeMatches[0];
+    const routeStates = createMemo(
+      on(props.routerState.matches, (nextMatches, prevMatches, prev) => {
+        let equal = prevMatches && nextMatches.length === prevMatches.length;
+        const next = [];
+        for (let i = 0, len = nextMatches.length; i < len; i++) {
+          const prevMatch = prevMatches && prevMatches[i];
+          const nextMatch = nextMatches[i];
+          if (
+            prev &&
+            prevMatch &&
+            nextMatch.route.key === prevMatch.route.key
+          ) {
+            next[i] = prev[i];
+          } else {
+            equal = false;
+            if (disposers[i]) {
+              disposers[i]();
+            }
+            createRoot((dispose2) => {
+              disposers[i] = dispose2;
+              next[i] = createRouteContext(
+                props.routerState,
+                next[i - 1] || props.routerState.base,
+                createOutlet(() => routeStates()[i + 1]),
+                () => {
+                  const routeMatches = props.routerState.matches();
+                  return routeMatches[i] ?? routeMatches[0];
+                },
+              );
             });
-          });
+          }
         }
-      }
-      disposers.splice(nextMatches.length).forEach((dispose2) => dispose2());
-      if (prev && equal) {
-        return prev;
-      }
-      root = next[0];
-      return next;
-    }));
+        disposers.splice(nextMatches.length).forEach((dispose2) => dispose2());
+        if (prev && equal) {
+          return prev;
+        }
+        root = next[0];
+        return next;
+      }),
+    );
     return createOutlet(() => routeStates() && root)();
   }
   const createOutlet = (child) => {
-    return () => createComponent(Show, {
-      get when() {
-        return child();
-      },
-      keyed: true,
-      children: (child2) => createComponent(RouteContextObj.Provider, {
-        value: child2,
-        get children() {
-          return child2.outlet();
-        }
-      })
-    });
+    return () =>
+      createComponent(Show, {
+        get when() {
+          return child();
+        },
+        keyed: true,
+        children: (child2) =>
+          createComponent(RouteContextObj.Provider, {
+            value: child2,
+            get children() {
+              return child2.outlet();
+            },
+          }),
+      });
   };
   const Route = (props) => {
     const childRoutes = children(() => props.children);
     return mergeProps$1(props, {
       get children() {
         return childRoutes();
-      }
+      },
     });
   };
   function intercept([value, setValue], get, set) {
@@ -2906,22 +3246,29 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   }
   function createRouter(config) {
     let ignore = false;
-    const wrap = (value) => typeof value === "string" ? { value } : value;
-    const signal = intercept(createSignal(wrap(config.get()), {
-      equals: (a, b) => a.value === b.value && a.state === b.state
-    }), void 0, (next) => {
-      !ignore && config.set(next);
-      return next;
-    });
-    config.init && onCleanup(config.init((value = config.get()) => {
-      ignore = true;
-      signal[1](wrap(value));
-      ignore = false;
-    }));
+    const wrap = (value) => (typeof value === "string" ? { value } : value);
+    const signal = intercept(
+      createSignal(wrap(config.get()), {
+        equals: (a, b) => a.value === b.value && a.state === b.state,
+      }),
+      void 0,
+      (next) => {
+        !ignore && config.set(next);
+        return next;
+      },
+    );
+    config.init &&
+      onCleanup(
+        config.init((value = config.get()) => {
+          ignore = true;
+          signal[1](wrap(value));
+          ignore = false;
+        }),
+      );
     return createRouterComponent({
       signal,
       create: config.create,
-      utils: config.utils
+      utils: config.utils,
     });
   }
   function scrollToHash(hash, fallbackTop) {
@@ -2933,7 +3280,12 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     }
   }
   const actions = /* @__PURE__ */ new Map();
-  function setupNativeEvents({ preload = true, explicitLinks = false, actionBase = "/_server", transformUrl } = {}) {
+  function setupNativeEvents({
+    preload = true,
+    explicitLinks = false,
+    actionBase = "/_server",
+    transformUrl,
+  } = {}) {
     return (router) => {
       const basePath = router.base.path();
       const navigateFromRoute = router.navigatorFactory(router.base);
@@ -2943,28 +3295,41 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         return el.namespaceURI === "http://www.w3.org/2000/svg";
       }
       function handleAnchor(evt) {
-        if (evt.defaultPrevented || evt.button !== 0 || evt.metaKey || evt.altKey || evt.ctrlKey || evt.shiftKey)
+        if (
+          evt.defaultPrevented ||
+          evt.button !== 0 ||
+          evt.metaKey ||
+          evt.altKey ||
+          evt.ctrlKey ||
+          evt.shiftKey
+        )
           return;
-        const a = evt.composedPath().find((el) => el instanceof Node && el.nodeName.toUpperCase() === "A");
-        if (!a || explicitLinks && !a.hasAttribute("link"))
-          return;
+        const a = evt
+          .composedPath()
+          .find(
+            (el) => el instanceof Node && el.nodeName.toUpperCase() === "A",
+          );
+        if (!a || (explicitLinks && !a.hasAttribute("link"))) return;
         const svg = isSvg(a);
         const href = svg ? a.href.baseVal : a.href;
         const target = svg ? a.target.baseVal : a.target;
-        if (target || !href && !a.hasAttribute("state"))
-          return;
+        if (target || (!href && !a.hasAttribute("state"))) return;
         const rel = (a.getAttribute("rel") || "").split(/\s+/);
-        if (a.hasAttribute("download") || rel && rel.includes("external"))
+        if (a.hasAttribute("download") || (rel && rel.includes("external")))
           return;
         const url = svg ? new URL(href, document.baseURI) : new URL(href);
-        if (url.origin !== window.location.origin || basePath && url.pathname && !url.pathname.toLowerCase().startsWith(basePath.toLowerCase()))
+        if (
+          url.origin !== window.location.origin ||
+          (basePath &&
+            url.pathname &&
+            !url.pathname.toLowerCase().startsWith(basePath.toLowerCase()))
+        )
           return;
         return [a, url];
       }
       function handleAnchorClick(evt) {
         const res = handleAnchor(evt);
-        if (!res)
-          return;
+        if (!res) return;
         const [a, url] = res;
         const to = router.parsePath(url.pathname + url.search + url.hash);
         const state = a.getAttribute("state");
@@ -2973,13 +3338,12 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           resolve: false,
           replace: a.hasAttribute("replace"),
           scroll: !a.hasAttribute("noscroll"),
-          state: state ? JSON.parse(state) : void 0
+          state: state ? JSON.parse(state) : void 0,
         });
       }
       function handleAnchorPreload(evt) {
         const res = handleAnchor(evt);
-        if (!res)
-          return;
+        if (!res) return;
         const [a, url] = res;
         transformUrl && (url.pathname = transformUrl(url.pathname));
         router.preloadRoute(url, a.getAttribute("preload") !== "false");
@@ -2987,11 +3351,9 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       function handleAnchorMove(evt) {
         clearTimeout(preloadTimeout);
         const res = handleAnchor(evt);
-        if (!res)
-          return lastElement = null;
+        if (!res) return (lastElement = null);
         const [a, url] = res;
-        if (lastElement === a)
-          return;
+        if (lastElement === a) return;
         transformUrl && (url.pathname = transformUrl(url.pathname));
         preloadTimeout = setTimeout(() => {
           router.preloadRoute(url, a.getAttribute("preload") !== "false");
@@ -2999,16 +3361,16 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         }, 20);
       }
       function handleFormSubmit(evt) {
-        if (evt.defaultPrevented)
-          return;
-        let actionRef = evt.submitter && evt.submitter.hasAttribute("formaction") ? evt.submitter.getAttribute("formaction") : evt.target.getAttribute("action");
-        if (!actionRef)
-          return;
+        if (evt.defaultPrevented) return;
+        let actionRef =
+          evt.submitter && evt.submitter.hasAttribute("formaction")
+            ? evt.submitter.getAttribute("formaction")
+            : evt.target.getAttribute("action");
+        if (!actionRef) return;
         if (!actionRef.startsWith("https://action/")) {
           const url = new URL(actionRef, mockBase);
           actionRef = router.parsePath(url.pathname + url.search);
-          if (!actionRef.startsWith(actionBase))
-            return;
+          if (!actionRef.startsWith(actionBase)) return;
         }
         if (evt.target.method.toUpperCase() !== "POST")
           throw new Error("Only POST forms are supported for Actions");
@@ -3016,14 +3378,25 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         if (handler) {
           evt.preventDefault();
           const data = new FormData(evt.target, evt.submitter);
-          handler.call({ r: router, f: evt.target }, evt.target.enctype === "multipart/form-data" ? data : new URLSearchParams(data));
+          handler.call(
+            { r: router, f: evt.target },
+            evt.target.enctype === "multipart/form-data"
+              ? data
+              : new URLSearchParams(data),
+          );
         }
       }
       document.addEventListener("click", handleAnchorClick);
       if (preload) {
-        document.addEventListener("mousemove", handleAnchorMove, { passive: true });
-        document.addEventListener("focusin", handleAnchorPreload, { passive: true });
-        document.addEventListener("touchstart", handleAnchorPreload, { passive: true });
+        document.addEventListener("mousemove", handleAnchorMove, {
+          passive: true,
+        });
+        document.addEventListener("focusin", handleAnchorPreload, {
+          passive: true,
+        });
+        document.addEventListener("touchstart", handleAnchorPreload, {
+          passive: true,
+        });
       }
       document.addEventListener("submit", handleFormSubmit);
       onCleanup(() => {
@@ -3075,7 +3448,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           const index2 = listeners.indexOf(listener);
           listeners.splice(index2, 1);
         };
-      }
+      },
     };
   }
   function MemoryRouter(props) {
@@ -3084,18 +3457,22 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       get: memoryHistory.get,
       set: memoryHistory.set,
       init: memoryHistory.listen,
-      create: setupNativeEvents({ preload: props.preload, explicitLinks: props.explicitLinks, actionBase: props.actionBase }),
+      create: setupNativeEvents({
+        preload: props.preload,
+        explicitLinks: props.explicitLinks,
+        actionBase: props.actionBase,
+      }),
       utils: {
-        go: memoryHistory.go
-      }
+        go: memoryHistory.go,
+      },
     })(props);
   }
   /**
-  * @license lucide-solid v1.24.0 - ISC
-  *
-  * This source code is licensed under the ISC license.
-  * See the LICENSE file in the root directory of this source tree.
-  */
+   * @license lucide-solid v1.24.0 - ISC
+   *
+   * This source code is licensed under the ISC license.
+   * See the LICENSE file in the root directory of this source tree.
+   */
   var defaultAttributes = {
     xmlns: "http://www.w3.org/2000/svg",
     width: 24,
@@ -3105,7 +3482,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     stroke: "currentColor",
     "stroke-width": 2,
     "stroke-linecap": "round",
-    "stroke-linejoin": "round"
+    "stroke-linejoin": "round",
   };
   var defaultAttributes_default = defaultAttributes;
   var LucideContext = createContext({
@@ -3113,7 +3490,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     color: "currentColor",
     strokeWidth: 2,
     absoluteStrokeWidth: false,
-    class: ""
+    class: "",
   });
   var hasA11yProp = (props) => {
     for (const prop in props) {
@@ -3123,93 +3500,214 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     }
     return false;
   };
-  var mergeClasses = (...classes) => classes.filter((className, index, array) => {
-    return Boolean(className) && className.trim() !== "" && array.indexOf(className) === index;
-  }).join(" ").trim();
-  var toCamelCase = (string) => string.replace(/^([A-Z])|[\s-_]+(\w)/g, (match, p1, p2) => p2 ? p2.toUpperCase() : p1.toLowerCase());
-  var toKebabCase = (string) => string.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+  var mergeClasses = (...classes) =>
+    classes
+      .filter((className, index, array) => {
+        return (
+          Boolean(className) &&
+          className.trim() !== "" &&
+          array.indexOf(className) === index
+        );
+      })
+      .join(" ")
+      .trim();
+  var toCamelCase = (string) =>
+    string.replace(/^([A-Z])|[\s-_]+(\w)/g, (match, p1, p2) =>
+      p2 ? p2.toUpperCase() : p1.toLowerCase(),
+    );
+  var toKebabCase = (string) =>
+    string.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
   var toPascalCase = (string) => {
     const camelCase = toCamelCase(string);
     return camelCase.charAt(0).toUpperCase() + camelCase.slice(1);
   };
   var Icon = (props) => {
-    const [localProps, rest] = splitProps(props, ["color", "size", "strokeWidth", "children", "class", "name", "iconNode", "absoluteStrokeWidth"]);
+    const [localProps, rest] = splitProps(props, [
+      "color",
+      "size",
+      "strokeWidth",
+      "children",
+      "class",
+      "name",
+      "iconNode",
+      "absoluteStrokeWidth",
+    ]);
     const globalProps = useContext(LucideContext);
     return (() => {
       var _el$ = createElement("svg");
-      spread(_el$, mergeProps(defaultAttributes_default, {
-        get width() {
-          return localProps.size ?? globalProps.size ?? defaultAttributes_default.width;
-        },
-        get height() {
-          return localProps.size ?? globalProps.size ?? defaultAttributes_default.height;
-        },
-        get stroke() {
-          return localProps.color ?? globalProps.color ?? defaultAttributes_default.stroke;
-        },
-        get ["stroke-width"]() {
-          return memo(() => (localProps.absoluteStrokeWidth ?? globalProps.absoluteStrokeWidth) === true)() ? Number(localProps.strokeWidth ?? globalProps.strokeWidth ?? defaultAttributes_default["stroke-width"]) * 24 / Number(localProps.size ?? globalProps.size) : Number(localProps.strokeWidth ?? globalProps.strokeWidth ?? defaultAttributes_default["stroke-width"]);
-        },
-        get ["class"]() {
-          return mergeClasses("lucide", "lucide-icon", globalProps.class, ...localProps.name != null ? [`lucide-${toKebabCase(toPascalCase(localProps.name))}`, `lucide-${toKebabCase(localProps.name)}`] : [], localProps.class);
-        },
-        get ["aria-hidden"]() {
-          return !localProps.children && !hasA11yProp(rest) ? "true" : void 0;
-        }
-      }, rest), true);
-      insert(_el$, createComponent(For, {
-        get each() {
-          return localProps.iconNode;
-        },
-        children: ([elementName, attrs]) => {
-          return createComponent(Dynamic, mergeProps({
-            component: elementName
-          }, attrs));
-        }
-      }));
+      spread(
+        _el$,
+        mergeProps(
+          defaultAttributes_default,
+          {
+            get width() {
+              return (
+                localProps.size ??
+                globalProps.size ??
+                defaultAttributes_default.width
+              );
+            },
+            get height() {
+              return (
+                localProps.size ??
+                globalProps.size ??
+                defaultAttributes_default.height
+              );
+            },
+            get stroke() {
+              return (
+                localProps.color ??
+                globalProps.color ??
+                defaultAttributes_default.stroke
+              );
+            },
+            get ["stroke-width"]() {
+              return memo(
+                () =>
+                  (localProps.absoluteStrokeWidth ??
+                    globalProps.absoluteStrokeWidth) === true,
+              )()
+                ? (Number(
+                    localProps.strokeWidth ??
+                      globalProps.strokeWidth ??
+                      defaultAttributes_default["stroke-width"],
+                  ) *
+                    24) /
+                    Number(localProps.size ?? globalProps.size)
+                : Number(
+                    localProps.strokeWidth ??
+                      globalProps.strokeWidth ??
+                      defaultAttributes_default["stroke-width"],
+                  );
+            },
+            get ["class"]() {
+              return mergeClasses(
+                "lucide",
+                "lucide-icon",
+                globalProps.class,
+                ...(localProps.name != null
+                  ? [
+                      `lucide-${toKebabCase(toPascalCase(localProps.name))}`,
+                      `lucide-${toKebabCase(localProps.name)}`,
+                    ]
+                  : []),
+                localProps.class,
+              );
+            },
+            get ["aria-hidden"]() {
+              return !localProps.children && !hasA11yProp(rest)
+                ? "true"
+                : void 0;
+            },
+          },
+          rest,
+        ),
+        true,
+      );
+      insert(
+        _el$,
+        createComponent(For, {
+          get each() {
+            return localProps.iconNode;
+          },
+          children: ([elementName, attrs]) => {
+            return createComponent(
+              Dynamic,
+              mergeProps(
+                {
+                  component: elementName,
+                },
+                attrs,
+              ),
+            );
+          },
+        }),
+      );
       return _el$;
     })();
   };
   var Icon_default = Icon;
-  var iconNode$4 = [["path", {
-    d: "M15 18h-5",
-    key: "95g1m2"
-  }], ["path", {
-    d: "M18 14h-8",
-    key: "sponae"
-  }], ["path", {
-    d: "M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2",
-    key: "39pd36"
-  }], ["rect", {
-    width: "8",
-    height: "4",
-    x: "10",
-    y: "6",
-    rx: "1",
-    key: "aywv1n"
-  }]];
-  var Newspaper = (props) => createComponent(Icon_default, mergeProps(props, {
-    iconNode: iconNode$4,
-    name: "newspaper"
-  }));
+  var iconNode$4 = [
+    [
+      "path",
+      {
+        d: "M15 18h-5",
+        key: "95g1m2",
+      },
+    ],
+    [
+      "path",
+      {
+        d: "M18 14h-8",
+        key: "sponae",
+      },
+    ],
+    [
+      "path",
+      {
+        d: "M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2",
+        key: "39pd36",
+      },
+    ],
+    [
+      "rect",
+      {
+        width: "8",
+        height: "4",
+        x: "10",
+        y: "6",
+        rx: "1",
+        key: "aywv1n",
+      },
+    ],
+  ];
+  var Newspaper = (props) =>
+    createComponent(
+      Icon_default,
+      mergeProps(props, {
+        iconNode: iconNode$4,
+        name: "newspaper",
+      }),
+    );
   var newspaper_default = Newspaper;
-  var iconNode$3 = [["path", {
-    d: "M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8",
-    key: "v9h5vc"
-  }], ["path", {
-    d: "M21 3v5h-5",
-    key: "1q7to0"
-  }], ["path", {
-    d: "M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16",
-    key: "3uifl3"
-  }], ["path", {
-    d: "M8 16H3v5",
-    key: "1cv678"
-  }]];
-  var RefreshCw = (props) => createComponent(Icon_default, mergeProps(props, {
-    iconNode: iconNode$3,
-    name: "refresh-cw"
-  }));
+  var iconNode$3 = [
+    [
+      "path",
+      {
+        d: "M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8",
+        key: "v9h5vc",
+      },
+    ],
+    [
+      "path",
+      {
+        d: "M21 3v5h-5",
+        key: "1q7to0",
+      },
+    ],
+    [
+      "path",
+      {
+        d: "M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16",
+        key: "3uifl3",
+      },
+    ],
+    [
+      "path",
+      {
+        d: "M8 16H3v5",
+        key: "1cv678",
+      },
+    ],
+  ];
+  var RefreshCw = (props) =>
+    createComponent(
+      Icon_default,
+      mergeProps(props, {
+        iconNode: iconNode$3,
+        name: "refresh-cw",
+      }),
+    );
   var refresh_cw_default = RefreshCw;
   const storiesSignal = createSignal([]);
   const loadingSignal = createSignal(true);
@@ -3228,7 +3726,13 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     setLoadError(null);
     try {
       const result = JSON.parse(await fetchTopStories());
-      setStories(result.filter((story) => (story == null ? void 0 : story.id) && (story == null ? void 0 : story.title)));
+      setStories(
+        result.filter(
+          (story) =>
+            (story == null ? void 0 : story.id) &&
+            (story == null ? void 0 : story.title),
+        ),
+      );
     } catch (cause) {
       setLoadError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -3245,7 +3749,10 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   }
   function relativeTime(timestamp) {
     if (!timestamp) return "recently";
-    const minutes = Math.max(1, Math.floor((Date.now() / 1e3 - timestamp) / 60));
+    const minutes = Math.max(
+      1,
+      Math.floor((Date.now() / 1e3 - timestamp) / 60),
+    );
     if (minutes < 60) return `${minutes}m ago`;
     const hours = Math.floor(minutes / 60);
     if (hours < 24) return `${hours}h ago`;
@@ -3259,19 +3766,46 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       if (stories().length === 0) void loadStories();
     });
     return (() => {
-      var _el$ = createElement("div"), _el$2 = createElement("aside"), _el$3 = createElement("div"), _el$4 = createElement("div"), _el$6 = createElement("span"), _el$8 = createElement("nav"), _el$9 = createElement("div"), _el$0 = createElement("span"), _el$10 = createElement("span"), _el$11 = createElement("div"), _el$12 = createElement("div"), _el$13 = createElement("span"), _el$14 = createElement("div"), _el$15 = createElement("span"), _el$16 = createTextNode(`Blitz Desktop`), _el$17 = createElement("main");
+      var _el$ = createElement("div"),
+        _el$2 = createElement("aside"),
+        _el$3 = createElement("div"),
+        _el$4 = createElement("div"),
+        _el$6 = createElement("span"),
+        _el$8 = createElement("nav"),
+        _el$9 = createElement("div"),
+        _el$0 = createElement("span"),
+        _el$10 = createElement("span"),
+        _el$11 = createElement("div"),
+        _el$12 = createElement("div"),
+        _el$13 = createElement("span"),
+        _el$14 = createElement("div"),
+        _el$15 = createElement("span"),
+        _el$16 = createTextNode(`Blitz Desktop`),
+        _el$17 = createElement("main");
       insertNode(_el$, _el$2);
       insertNode(_el$, _el$17);
-      setProp(_el$, "class", "w-full h-screen overflow-hidden flex bg-[#0c0c0e] text-[#d4d4d8] font-sans select-none antialiased");
+      setProp(
+        _el$,
+        "class",
+        "w-full h-screen overflow-hidden flex bg-[#0c0c0e] text-[#d4d4d8] font-sans select-none antialiased",
+      );
       insertNode(_el$2, _el$3);
       insertNode(_el$2, _el$8);
       insertNode(_el$2, _el$11);
-      setProp(_el$2, "class", "w-64 flex-none flex flex-col bg-[#16161a] border-r border-[#27272a] relative z-10");
+      setProp(
+        _el$2,
+        "class",
+        "w-64 flex-none flex flex-col bg-[#16161a] border-r border-[#27272a] relative z-10",
+      );
       insertNode(_el$3, _el$4);
       insertNode(_el$3, _el$6);
       setProp(_el$3, "class", "h-20 px-6 flex items-center gap-3");
       insertNode(_el$4, createTextNode(`Y`));
-      setProp(_el$4, "class", "w-8 h-8 rounded-lg flex items-center justify-center bg-[#ff6600] text-white font-serif text-lg font-bold");
+      setProp(
+        _el$4,
+        "class",
+        "w-8 h-8 rounded-lg flex items-center justify-center bg-[#ff6600] text-white font-serif text-lg font-bold",
+      );
       insertNode(_el$6, createTextNode(`Hacker News`));
       setProp(_el$6, "class", "text-base font-bold tracking-tight text-white");
       insertNode(_el$8, _el$9);
@@ -3280,216 +3814,406 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       insertNode(_el$9, _el$0);
       insertNode(_el$9, _el$10);
       setProp(_el$9, "onClick", () => navigate("/"));
-      insert(_el$9, createComponent(newspaper_default, {
-        size: 18,
-        get ["class"]() {
-          return isFeed() ? "text-[#ff7b00]" : "opacity-80";
-        }
-      }), _el$0);
+      insert(
+        _el$9,
+        createComponent(newspaper_default, {
+          size: 18,
+          get ["class"]() {
+            return isFeed() ? "text-[#ff7b00]" : "opacity-80";
+          },
+        }),
+        _el$0,
+      );
       insertNode(_el$0, createTextNode(`Top stories`));
       insert(_el$10, () => stories().length || "");
       insertNode(_el$11, _el$12);
       insertNode(_el$11, _el$14);
       setProp(_el$11, "class", "p-5 mt-auto");
       insertNode(_el$12, _el$13);
-      setProp(_el$12, "class", "w-full h-10 px-4 flex items-center justify-center gap-2 border border-[#3f3f46] rounded-lg bg-[#1c1c22] hover:bg-[#25252d] text-[#d4d4d8] text-xs font-medium cursor-pointer transition-all active:scale-95");
+      setProp(
+        _el$12,
+        "class",
+        "w-full h-10 px-4 flex items-center justify-center gap-2 border border-[#3f3f46] rounded-lg bg-[#1c1c22] hover:bg-[#25252d] text-[#d4d4d8] text-xs font-medium cursor-pointer transition-all active:scale-95",
+      );
       setProp(_el$12, "onClick", () => {
         if (!loading()) void loadStories();
       });
-      insert(_el$12, createComponent(refresh_cw_default, {
-        size: 14,
-        get ["class"]() {
-          return loading() ? "animate-spin text-[#ff7b00]" : "";
-        }
-      }), _el$13);
-      insert(_el$13, () => loading() ? "Updating Feed..." : "Refresh Feed");
+      insert(
+        _el$12,
+        createComponent(refresh_cw_default, {
+          size: 14,
+          get ["class"]() {
+            return loading() ? "animate-spin text-[#ff7b00]" : "";
+          },
+        }),
+        _el$13,
+      );
+      insert(_el$13, () => (loading() ? "Updating Feed..." : "Refresh Feed"));
       insertNode(_el$14, _el$15);
       insertNode(_el$14, _el$16);
-      setProp(_el$14, "class", "mt-5 flex items-center justify-center gap-2 text-[10px] text-[#52525b] uppercase tracking-widest font-semibold");
+      setProp(
+        _el$14,
+        "class",
+        "mt-5 flex items-center justify-center gap-2 text-[10px] text-[#52525b] uppercase tracking-widest font-semibold",
+      );
       setProp(_el$15, "class", "w-1.5 h-1.5 rounded-full bg-[#10b981]");
-      setProp(_el$17, "class", "flex-1 min-w-0 min-h-0 overflow-hidden bg-[#0c0c0e]");
+      setProp(
+        _el$17,
+        "class",
+        "flex-1 min-w-0 min-h-0 overflow-hidden bg-[#0c0c0e]",
+      );
       insert(_el$17, () => props.children);
-      effect((_p$) => {
-        var _v$ = `w-full h-11 px-3 flex items-center gap-3 border-0 rounded-lg text-left text-sm font-medium cursor-pointer transition-all duration-200 ${isFeed() ? "bg-[#27272a] text-white" : "bg-transparent text-[#a1a1aa] hover:bg-[#1f1f23] hover:text-[#d4d4d8]"}`, _v$2 = `ml-auto text-xs px-2 py-0.5 rounded-full ${isFeed() ? "bg-black text-[#d4d4d8]" : "bg-transparent text-[#52525b]"}`, _v$3 = loading() ? "opacity: 0.5; pointer-events: none;" : "";
-        _v$ !== _p$.e && (_p$.e = setProp(_el$9, "class", _v$, _p$.e));
-        _v$2 !== _p$.t && (_p$.t = setProp(_el$10, "class", _v$2, _p$.t));
-        _v$3 !== _p$.a && (_p$.a = setProp(_el$12, "style", _v$3, _p$.a));
-        return _p$;
-      }, {
-        e: void 0,
-        t: void 0,
-        a: void 0
-      });
+      effect(
+        (_p$) => {
+          var _v$ = `w-full h-11 px-3 flex items-center gap-3 border-0 rounded-lg text-left text-sm font-medium cursor-pointer transition-all duration-200 ${isFeed() ? "bg-[#27272a] text-white" : "bg-transparent text-[#a1a1aa] hover:bg-[#1f1f23] hover:text-[#d4d4d8]"}`,
+            _v$2 = `ml-auto text-xs px-2 py-0.5 rounded-full ${isFeed() ? "bg-black text-[#d4d4d8]" : "bg-transparent text-[#52525b]"}`,
+            _v$3 = loading() ? "opacity: 0.5; pointer-events: none;" : "";
+          _v$ !== _p$.e && (_p$.e = setProp(_el$9, "class", _v$, _p$.e));
+          _v$2 !== _p$.t && (_p$.t = setProp(_el$10, "class", _v$2, _p$.t));
+          _v$3 !== _p$.a && (_p$.a = setProp(_el$12, "style", _v$3, _p$.a));
+          return _p$;
+        },
+        {
+          e: void 0,
+          t: void 0,
+          a: void 0,
+        },
+      );
       return _el$;
     })();
   }
-  var iconNode$2 = [["path", {
-    d: "m12 19-7-7 7-7",
-    key: "1l729n"
-  }], ["path", {
-    d: "M19 12H5",
-    key: "x3x0zl"
-  }]];
-  var ArrowLeft = (props) => createComponent(Icon_default, mergeProps(props, {
-    iconNode: iconNode$2,
-    name: "arrow-left"
-  }));
+  var iconNode$2 = [
+    [
+      "path",
+      {
+        d: "m12 19-7-7 7-7",
+        key: "1l729n",
+      },
+    ],
+    [
+      "path",
+      {
+        d: "M19 12H5",
+        key: "x3x0zl",
+      },
+    ],
+  ];
+  var ArrowLeft = (props) =>
+    createComponent(
+      Icon_default,
+      mergeProps(props, {
+        iconNode: iconNode$2,
+        name: "arrow-left",
+      }),
+    );
   var arrow_left_default = ArrowLeft;
-  var iconNode$1 = [["path", {
-    d: "M15 3h6v6",
-    key: "1q9fwt"
-  }], ["path", {
-    d: "M10 14 21 3",
-    key: "gplh6r"
-  }], ["path", {
-    d: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6",
-    key: "a6xqqp"
-  }]];
-  var ExternalLink = (props) => createComponent(Icon_default, mergeProps(props, {
-    iconNode: iconNode$1,
-    name: "external-link"
-  }));
+  var iconNode$1 = [
+    [
+      "path",
+      {
+        d: "M15 3h6v6",
+        key: "1q9fwt",
+      },
+    ],
+    [
+      "path",
+      {
+        d: "M10 14 21 3",
+        key: "gplh6r",
+      },
+    ],
+    [
+      "path",
+      {
+        d: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6",
+        key: "a6xqqp",
+      },
+    ],
+  ];
+  var ExternalLink = (props) =>
+    createComponent(
+      Icon_default,
+      mergeProps(props, {
+        iconNode: iconNode$1,
+        name: "external-link",
+      }),
+    );
   var external_link_default = ExternalLink;
   function StoryDetail() {
     const params = useParams();
     const navigate = useNavigate();
-    const story = createMemo(() => stories().find((item) => item.id === Number(params.id)));
+    const story = createMemo(() =>
+      stories().find((item) => item.id === Number(params.id)),
+    );
     return (() => {
-      var _el$ = createElement("section"), _el$2 = createElement("div"), _el$3 = createElement("div"), _el$4 = createTextNode(`Back to feed`), _el$5 = createElement("span");
+      var _el$ = createElement("section"),
+        _el$2 = createElement("div"),
+        _el$3 = createElement("div"),
+        _el$4 = createTextNode(`Back to feed`),
+        _el$5 = createElement("span");
       insertNode(_el$, _el$2);
       setProp(_el$, "class", "h-full min-h-0 flex flex-col relative z-10");
       insertNode(_el$2, _el$3);
       insertNode(_el$2, _el$5);
-      setProp(_el$2, "class", "h-16 flex-none px-6 flex items-center border-b border-[#27272a] bg-[#0c0c0e]");
+      setProp(
+        _el$2,
+        "class",
+        "h-16 flex-none px-6 flex items-center border-b border-[#27272a] bg-[#0c0c0e]",
+      );
       insertNode(_el$3, _el$4);
-      setProp(_el$3, "class", "h-8 px-3 flex items-center gap-2 border border-[#3f3f46] rounded-lg bg-[#18181b] hover:bg-[#27272a] text-[#d4d4d8] text-xs font-medium cursor-pointer transition-all active:scale-95");
+      setProp(
+        _el$3,
+        "class",
+        "h-8 px-3 flex items-center gap-2 border border-[#3f3f46] rounded-lg bg-[#18181b] hover:bg-[#27272a] text-[#d4d4d8] text-xs font-medium cursor-pointer transition-all active:scale-95",
+      );
       setProp(_el$3, "onClick", () => navigate(-1));
-      insert(_el$3, createComponent(arrow_left_default, {
-        size: 14
-      }), _el$4);
+      insert(
+        _el$3,
+        createComponent(arrow_left_default, {
+          size: 14,
+        }),
+        _el$4,
+      );
       insertNode(_el$5, createTextNode(`Story details`));
       setProp(_el$5, "class", "ml-4 text-xs font-medium text-[#71717a]");
-      insert(_el$, createComponent(Show, {
-        get when() {
-          return story();
-        },
-        get fallback() {
-          return createComponent(MissingStory, {});
-        },
-        children: (current) => (() => {
-          var _el$7 = createElement("article"), _el$8 = createElement("div"), _el$9 = createElement("p"), _el$0 = createElement("h1"), _el$1 = createElement("div"), _el$10 = createElement("span"), _el$11 = createElement("span"), _el$12 = createElement("strong"), _el$13 = createTextNode(` points`), _el$14 = createElement("span"), _el$16 = createElement("span"), _el$17 = createTextNode(`by `), _el$18 = createElement("strong"), _el$19 = createElement("span"), _el$21 = createElement("span"), _el$22 = createElement("div"), _el$25 = createElement("a"), _el$26 = createTextNode(` comments on HN`), _el$27 = createElement("div"), _el$28 = createElement("span"), _el$29 = createTextNode(`Data bridged instantly from Rust`);
-          insertNode(_el$7, _el$8);
-          setProp(_el$7, "class", "flex-1 min-h-0 overflow-y-auto px-10 py-10");
-          insertNode(_el$8, _el$9);
-          insertNode(_el$8, _el$0);
-          insertNode(_el$8, _el$1);
-          insertNode(_el$8, _el$22);
-          insertNode(_el$8, _el$27);
-          setProp(_el$8, "class", "max-w-3xl mx-auto");
-          setProp(_el$9, "class", "m-0 mb-3 text-[#ff7b00] text-xs font-bold uppercase tracking-wider");
-          insert(_el$9, () => storyHost(current().url));
-          setProp(_el$0, "class", "m-0 text-[#f4f4f5] text-3xl font-bold leading-tight tracking-tight");
-          insert(_el$0, () => current().title);
-          insertNode(_el$1, _el$10);
-          insertNode(_el$1, _el$14);
-          insertNode(_el$1, _el$16);
-          insertNode(_el$1, _el$19);
-          insertNode(_el$1, _el$21);
-          setProp(_el$1, "class", "mt-6 flex lt-md:flex-col lt-md:items-start gap-4 text-[#71717a] text-sm font-medium");
-          insertNode(_el$10, _el$11);
-          insertNode(_el$10, _el$12);
-          insertNode(_el$10, _el$13);
-          setProp(_el$10, "class", "flex items-center gap-1.5");
-          setProp(_el$11, "class", "w-1.5 h-1.5 rounded-full bg-[#ff7b00]");
-          setProp(_el$12, "class", "text-[#d4d4d8] font-semibold");
-          insert(_el$12, () => current().score);
-          insertNode(_el$14, createTextNode(`•`));
-          setProp(_el$14, "class", "lt-md:hidden text-[#3f3f46]");
-          insertNode(_el$16, _el$17);
-          insertNode(_el$16, _el$18);
-          setProp(_el$18, "class", "text-[#d4d4d8] font-semibold");
-          insert(_el$18, () => current().by);
-          insertNode(_el$19, createTextNode(`•`));
-          setProp(_el$19, "class", "lt-md:hidden text-[#3f3f46]");
-          insert(_el$21, () => relativeTime(current().time));
-          insertNode(_el$22, _el$25);
-          setProp(_el$22, "class", "mt-10 flex lt-md:flex-col lt-md:items-start gap-3");
-          insert(_el$22, createComponent(Show, {
-            get when() {
-              return current().url;
-            },
-            get children() {
-              var _el$23 = createElement("a"), _el$24 = createTextNode(`Read article `);
-              insertNode(_el$23, _el$24);
-              setProp(_el$23, "class", "px-5 py-2.5 flex items-center justify-center gap-2 rounded-xl bg-[#ff6600] hover:bg-[#ff7b00] text-white text-sm font-semibold no-underline transition-all active:scale-95");
-              insert(_el$23, createComponent(external_link_default, {
-                size: 14
-              }), null);
-              effect((_$p) => setProp(_el$23, "href", current().url, _$p));
-              return _el$23;
-            }
-          }), _el$25);
-          insertNode(_el$25, _el$26);
-          setProp(_el$25, "class", "px-5 py-2.5 flex items-center justify-center gap-2 border border-[#3f3f46] rounded-xl bg-[#18181b] hover:bg-[#27272a] text-[#d4d4d8] text-sm font-semibold no-underline transition-all active:scale-95");
-          insert(_el$25, () => current().descendants ?? 0, _el$26);
-          insertNode(_el$27, _el$28);
-          insertNode(_el$27, _el$29);
-          setProp(_el$27, "class", "mt-14 pt-6 flex items-center gap-2.5 border-t border-[#27272a] text-[#52525b] text-xs font-medium");
-          setProp(_el$28, "class", "w-2 h-2 rounded-full bg-[#10b981]");
-          effect((_$p) => setProp(_el$25, "href", `https://news.ycombinator.com/item?id=${current().id}`, _$p));
-          return _el$7;
-        })()
-      }), null);
+      insert(
+        _el$,
+        createComponent(Show, {
+          get when() {
+            return story();
+          },
+          get fallback() {
+            return createComponent(MissingStory, {});
+          },
+          children: (current) =>
+            (() => {
+              var _el$7 = createElement("article"),
+                _el$8 = createElement("div"),
+                _el$9 = createElement("p"),
+                _el$0 = createElement("h1"),
+                _el$1 = createElement("div"),
+                _el$10 = createElement("span"),
+                _el$11 = createElement("span"),
+                _el$12 = createElement("strong"),
+                _el$13 = createTextNode(` points`),
+                _el$14 = createElement("span"),
+                _el$16 = createElement("span"),
+                _el$17 = createTextNode(`by `),
+                _el$18 = createElement("strong"),
+                _el$19 = createElement("span"),
+                _el$21 = createElement("span"),
+                _el$22 = createElement("div"),
+                _el$25 = createElement("a"),
+                _el$26 = createTextNode(` comments on HN`),
+                _el$27 = createElement("div"),
+                _el$28 = createElement("span"),
+                _el$29 = createTextNode(`Data bridged instantly from Rust`);
+              insertNode(_el$7, _el$8);
+              setProp(
+                _el$7,
+                "class",
+                "flex-1 min-h-0 overflow-y-auto px-10 py-10",
+              );
+              insertNode(_el$8, _el$9);
+              insertNode(_el$8, _el$0);
+              insertNode(_el$8, _el$1);
+              insertNode(_el$8, _el$22);
+              insertNode(_el$8, _el$27);
+              setProp(_el$8, "class", "max-w-3xl mx-auto");
+              setProp(
+                _el$9,
+                "class",
+                "m-0 mb-3 text-[#ff7b00] text-xs font-bold uppercase tracking-wider",
+              );
+              insert(_el$9, () => storyHost(current().url));
+              setProp(
+                _el$0,
+                "class",
+                "m-0 text-[#f4f4f5] text-3xl font-bold leading-tight tracking-tight",
+              );
+              insert(_el$0, () => current().title);
+              insertNode(_el$1, _el$10);
+              insertNode(_el$1, _el$14);
+              insertNode(_el$1, _el$16);
+              insertNode(_el$1, _el$19);
+              insertNode(_el$1, _el$21);
+              setProp(
+                _el$1,
+                "class",
+                "mt-6 flex lt-md:flex-col lt-md:items-start gap-4 text-[#71717a] text-sm font-medium",
+              );
+              insertNode(_el$10, _el$11);
+              insertNode(_el$10, _el$12);
+              insertNode(_el$10, _el$13);
+              setProp(_el$10, "class", "flex items-center gap-1.5");
+              setProp(_el$11, "class", "w-1.5 h-1.5 rounded-full bg-[#ff7b00]");
+              setProp(_el$12, "class", "text-[#d4d4d8] font-semibold");
+              insert(_el$12, () => current().score);
+              insertNode(_el$14, createTextNode(`•`));
+              setProp(_el$14, "class", "lt-md:hidden text-[#3f3f46]");
+              insertNode(_el$16, _el$17);
+              insertNode(_el$16, _el$18);
+              setProp(_el$18, "class", "text-[#d4d4d8] font-semibold");
+              insert(_el$18, () => current().by);
+              insertNode(_el$19, createTextNode(`•`));
+              setProp(_el$19, "class", "lt-md:hidden text-[#3f3f46]");
+              insert(_el$21, () => relativeTime(current().time));
+              insertNode(_el$22, _el$25);
+              setProp(
+                _el$22,
+                "class",
+                "mt-10 flex lt-md:flex-col lt-md:items-start gap-3",
+              );
+              insert(
+                _el$22,
+                createComponent(Show, {
+                  get when() {
+                    return current().url;
+                  },
+                  get children() {
+                    var _el$23 = createElement("a"),
+                      _el$24 = createTextNode(`Read article `);
+                    insertNode(_el$23, _el$24);
+                    setProp(
+                      _el$23,
+                      "class",
+                      "px-5 py-2.5 flex items-center justify-center gap-2 rounded-xl bg-[#ff6600] hover:bg-[#ff7b00] text-white text-sm font-semibold no-underline transition-all active:scale-95",
+                    );
+                    insert(
+                      _el$23,
+                      createComponent(external_link_default, {
+                        size: 14,
+                      }),
+                      null,
+                    );
+                    effect((_$p) =>
+                      setProp(_el$23, "href", current().url, _$p),
+                    );
+                    return _el$23;
+                  },
+                }),
+                _el$25,
+              );
+              insertNode(_el$25, _el$26);
+              setProp(
+                _el$25,
+                "class",
+                "px-5 py-2.5 flex items-center justify-center gap-2 border border-[#3f3f46] rounded-xl bg-[#18181b] hover:bg-[#27272a] text-[#d4d4d8] text-sm font-semibold no-underline transition-all active:scale-95",
+              );
+              insert(_el$25, () => current().descendants ?? 0, _el$26);
+              insertNode(_el$27, _el$28);
+              insertNode(_el$27, _el$29);
+              setProp(
+                _el$27,
+                "class",
+                "mt-14 pt-6 flex items-center gap-2.5 border-t border-[#27272a] text-[#52525b] text-xs font-medium",
+              );
+              setProp(_el$28, "class", "w-2 h-2 rounded-full bg-[#10b981]");
+              effect((_$p) =>
+                setProp(
+                  _el$25,
+                  "href",
+                  `https://news.ycombinator.com/item?id=${current().id}`,
+                  _$p,
+                ),
+              );
+              return _el$7;
+            })(),
+        }),
+        null,
+      );
       return _el$;
     })();
   }
   function MissingStory() {
     return (() => {
-      var _el$30 = createElement("div"), _el$31 = createElement("strong"), _el$33 = createElement("span");
+      var _el$30 = createElement("div"),
+        _el$31 = createElement("strong"),
+        _el$33 = createElement("span");
       insertNode(_el$30, _el$31);
       insertNode(_el$30, _el$33);
-      setProp(_el$30, "class", "min-h-85 p-10 flex flex-col items-center justify-center gap-2 text-[#71717a] text-center");
+      setProp(
+        _el$30,
+        "class",
+        "min-h-85 p-10 flex flex-col items-center justify-center gap-2 text-[#71717a] text-center",
+      );
       insertNode(_el$31, createTextNode(`Story not found`));
       setProp(_el$31, "class", "text-[#d4d4d8] text-lg");
-      insertNode(_el$33, createTextNode(`Return to the feed and select another story.`));
+      insertNode(
+        _el$33,
+        createTextNode(`Return to the feed and select another story.`),
+      );
       setProp(_el$33, "class", "text-sm");
       return _el$30;
     })();
   }
-  var iconNode = [["path", {
-    d: "m21 21-4.34-4.34",
-    key: "14j7rj"
-  }], ["circle", {
-    cx: "11",
-    cy: "11",
-    r: "8",
-    key: "4ej97u"
-  }]];
-  var Search = (props) => createComponent(Icon_default, mergeProps(props, {
-    iconNode,
-    name: "search"
-  }));
+  var iconNode = [
+    [
+      "path",
+      {
+        d: "m21 21-4.34-4.34",
+        key: "14j7rj",
+      },
+    ],
+    [
+      "circle",
+      {
+        cx: "11",
+        cy: "11",
+        r: "8",
+        key: "4ej97u",
+      },
+    ],
+  ];
+  var Search = (props) =>
+    createComponent(
+      Icon_default,
+      mergeProps(props, {
+        iconNode,
+        name: "search",
+      }),
+    );
   var search_default = Search;
   function LoadingList() {
     return (() => {
       var _el$ = createElement("div");
       setProp(_el$, "class", "w-full");
-      insert(_el$, createComponent(For, {
-        each: [1, 2, 3, 4, 5, 6],
-        children: (item) => (() => {
-          var _el$2 = createElement("div"), _el$3 = createElement("span"), _el$4 = createElement("div"), _el$5 = createElement("i"), _el$6 = createElement("i");
-          insertNode(_el$2, _el$3);
-          insertNode(_el$2, _el$4);
-          setProp(_el$2, "class", "h-19.5 px-5.5 py-3.25 grid grid-cols-[38px_1fr] items-center gap-3 border-b border-[#edf0f1] text-[#c1c7cc] font-mono text-xs");
-          insert(_el$3, () => String(item).padStart(2, "0"));
-          insertNode(_el$4, _el$5);
-          insertNode(_el$4, _el$6);
-          setProp(_el$4, "class", "flex flex-col gap-2");
-          setProp(_el$5, "class", "block w-70% h-2.25 rounded-sm bg-[#e8ebed]");
-          setProp(_el$6, "class", "block w-38% h-1.75 rounded-sm bg-[#e8ebed]");
-          return _el$2;
-        })()
-      }));
+      insert(
+        _el$,
+        createComponent(For, {
+          each: [1, 2, 3, 4, 5, 6],
+          children: (item) =>
+            (() => {
+              var _el$2 = createElement("div"),
+                _el$3 = createElement("span"),
+                _el$4 = createElement("div"),
+                _el$5 = createElement("i"),
+                _el$6 = createElement("i");
+              insertNode(_el$2, _el$3);
+              insertNode(_el$2, _el$4);
+              setProp(
+                _el$2,
+                "class",
+                "h-19.5 px-5.5 py-3.25 grid grid-cols-[38px_1fr] items-center gap-3 border-b border-[#edf0f1] text-[#c1c7cc] font-mono text-xs",
+              );
+              insert(_el$3, () => String(item).padStart(2, "0"));
+              insertNode(_el$4, _el$5);
+              insertNode(_el$4, _el$6);
+              setProp(_el$4, "class", "flex flex-col gap-2");
+              setProp(
+                _el$5,
+                "class",
+                "block w-70% h-2.25 rounded-sm bg-[#e8ebed]",
+              );
+              setProp(
+                _el$6,
+                "class",
+                "block w-38% h-1.75 rounded-sm bg-[#e8ebed]",
+              );
+              return _el$2;
+            })(),
+        }),
+      );
       return _el$;
     })();
   }
@@ -3498,126 +4222,256 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const visibleStories = createMemo(() => {
       const needle = query().trim().toLowerCase();
       if (!needle) return stories();
-      return stories().filter((story) => story.title.toLowerCase().includes(needle) || story.by.toLowerCase().includes(needle) || storyHost(story.url).includes(needle));
+      return stories().filter(
+        (story) =>
+          story.title.toLowerCase().includes(needle) ||
+          story.by.toLowerCase().includes(needle) ||
+          storyHost(story.url).includes(needle),
+      );
     });
     return (() => {
-      var _el$ = createElement("section"), _el$2 = createElement("div"), _el$3 = createElement("div"), _el$4 = createElement("h1"), _el$6 = createElement("p"), _el$8 = createElement("label"), _el$9 = createElement("input"), _el$0 = createElement("div"), _el$10 = createElement("footer"), _el$11 = createElement("span"), _el$12 = createTextNode(` stories matched`), _el$13 = createElement("span");
+      var _el$ = createElement("section"),
+        _el$2 = createElement("div"),
+        _el$3 = createElement("div"),
+        _el$4 = createElement("h1"),
+        _el$6 = createElement("p"),
+        _el$8 = createElement("label"),
+        _el$9 = createElement("input"),
+        _el$0 = createElement("div"),
+        _el$10 = createElement("footer"),
+        _el$11 = createElement("span"),
+        _el$12 = createTextNode(` stories matched`),
+        _el$13 = createElement("span");
       insertNode(_el$, _el$2);
       insertNode(_el$, _el$0);
       insertNode(_el$, _el$10);
       setProp(_el$, "class", "h-full min-h-0 flex flex-col relative z-10");
       insertNode(_el$2, _el$3);
       insertNode(_el$2, _el$8);
-      setProp(_el$2, "class", "h-20 flex-none px-8 flex items-center gap-6 border-b border-[#27272a] bg-[#0c0c0e]");
+      setProp(
+        _el$2,
+        "class",
+        "h-20 flex-none px-8 flex items-center gap-6 border-b border-[#27272a] bg-[#0c0c0e]",
+      );
       insertNode(_el$3, _el$4);
       insertNode(_el$3, _el$6);
       setProp(_el$3, "class", "min-w-0 flex-1");
       insertNode(_el$4, createTextNode(`Top stories`));
-      setProp(_el$4, "class", "m-0 text-[#f4f4f5] text-xl font-bold tracking-tight");
+      setProp(
+        _el$4,
+        "class",
+        "m-0 text-[#f4f4f5] text-xl font-bold tracking-tight",
+      );
       insertNode(_el$6, createTextNode(`Ranked by the Hacker News community`));
       setProp(_el$6, "class", "m-0 mt-1 text-[#71717a] text-xs font-medium");
       insertNode(_el$8, _el$9);
-      setProp(_el$8, "class", "w-72 h-9 px-3.5 flex items-center gap-2.5 border border-[#3f3f46] rounded-lg bg-[#18181b] text-[#a1a1aa] focus-within:border-[#ff7b00] transition-all");
-      insert(_el$8, createComponent(search_default, {
-        size: 15
-      }), _el$9);
-      setProp(_el$9, "class", "w-full min-w-0 border-0 outline-none bg-transparent text-[#e4e4e7] text-sm placeholder-[#71717a]");
+      setProp(
+        _el$8,
+        "class",
+        "w-72 h-9 px-3.5 flex items-center gap-2.5 border border-[#3f3f46] rounded-lg bg-[#18181b] text-[#a1a1aa] focus-within:border-[#ff7b00] transition-all",
+      );
+      insert(
+        _el$8,
+        createComponent(search_default, {
+          size: 15,
+        }),
+        _el$9,
+      );
+      setProp(
+        _el$9,
+        "class",
+        "w-full min-w-0 border-0 outline-none bg-transparent text-[#e4e4e7] text-sm placeholder-[#71717a]",
+      );
       setProp(_el$9, "type", "text");
       setProp(_el$9, "placeholder", "Search stories...");
       setProp(_el$9, "aria-label", "Filter stories");
       setProp(_el$9, "onInput", (event) => setQuery(event.currentTarget.value));
-      setProp(_el$0, "class", "flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4");
-      insert(_el$0, createComponent(Show, {
-        get when() {
-          return !loading() || stories().length > 0;
-        },
-        get fallback() {
-          return createComponent(LoadingList, {});
-        },
-        get children() {
-          return createComponent(Show, {
-            get when() {
-              return !loadError();
-            },
-            get fallback() {
-              return createComponent(LoadError, {});
-            },
-            get children() {
-              return createComponent(Show, {
-                get when() {
-                  return visibleStories().length > 0;
-                },
-                get fallback() {
-                  return createComponent(EmptyState, {});
-                },
-                get children() {
-                  var _el$1 = createElement("ol");
-                  setProp(_el$1, "class", "m-0 p-0 list-none flex flex-col gap-1.5");
-                  insert(_el$1, createComponent(For, {
-                    get each() {
-                      return visibleStories();
-                    },
-                    children: (story, index) => (() => {
-                      var _el$15 = createElement("li"), _el$16 = createElement("span"), _el$17 = createElement("div"), _el$18 = createElement("div"), _el$19 = createElement("strong"), _el$20 = createElement("span"), _el$21 = createElement("div"), _el$22 = createElement("span"), _el$23 = createElement("span"), _el$24 = createTextNode(` pts`), _el$25 = createElement("span"), _el$27 = createElement("span"), _el$28 = createTextNode(`by `), _el$29 = createElement("span"), _el$30 = createElement("span"), _el$32 = createElement("span"), _el$33 = createElement("div"), _el$34 = createElement("div"), _el$35 = createElement("strong"), _el$36 = createElement("span");
-                      insertNode(_el$15, _el$16);
-                      insertNode(_el$15, _el$17);
-                      insertNode(_el$15, _el$33);
-                      setProp(_el$15, "class", "group px-4 py-3.5 flex items-center gap-4 rounded-xl border border-transparent hover:border-[#27272a] hover:bg-[#18181b] active:scale-[0.99] transition-all cursor-pointer");
-                      setProp(_el$15, "onClick", () => navigate(`/story/${story.id}`));
-                      setProp(_el$16, "class", "w-6 text-right text-[#52525b] font-mono text-xs font-bold opacity-70 group-hover:opacity-100 group-hover:text-[#ff7b00] transition-colors");
-                      insert(_el$16, () => String(index() + 1).padStart(2, "0"));
-                      insertNode(_el$17, _el$18);
-                      insertNode(_el$17, _el$21);
-                      setProp(_el$17, "class", "flex-1 min-w-0 flex flex-col gap-1.5");
-                      insertNode(_el$18, _el$19);
-                      insertNode(_el$18, _el$20);
-                      setProp(_el$18, "class", "flex items-baseline gap-3");
-                      setProp(_el$19, "class", "text-[#d4d4d8] text-sm font-semibold leading-tight group-hover:text-white transition-colors truncate");
-                      insert(_el$19, () => story.title);
-                      setProp(_el$20, "class", "lt-md:hidden text-[#71717a] text-xs font-medium truncate flex-shrink");
-                      insert(_el$20, () => storyHost(story.url));
-                      insertNode(_el$21, _el$22);
-                      insertNode(_el$21, _el$25);
-                      insertNode(_el$21, _el$27);
-                      insertNode(_el$21, _el$30);
-                      insertNode(_el$21, _el$32);
-                      setProp(_el$21, "class", "flex items-center gap-3 text-[#71717a] text-xs font-medium");
-                      insertNode(_el$22, _el$23);
-                      insertNode(_el$22, _el$24);
-                      setProp(_el$22, "class", "flex items-center gap-1.5 text-[#a1a1aa]");
-                      setProp(_el$23, "class", "w-1.5 h-1.5 rounded-full bg-[#ff7b00]");
-                      insert(_el$22, () => story.score, _el$24);
-                      insertNode(_el$25, createTextNode(`•`));
-                      setProp(_el$25, "class", "text-[#3f3f46]");
-                      insertNode(_el$27, _el$28);
-                      insertNode(_el$27, _el$29);
-                      setProp(_el$29, "class", "text-[#a1a1aa]");
-                      insert(_el$29, () => story.by);
-                      insertNode(_el$30, createTextNode(`•`));
-                      setProp(_el$30, "class", "text-[#3f3f46]");
-                      insert(_el$32, () => relativeTime(story.time));
-                      insertNode(_el$33, _el$34);
-                      setProp(_el$33, "class", "lt-md:hidden flex-none flex flex-col items-end justify-center");
-                      insertNode(_el$34, _el$35);
-                      insertNode(_el$34, _el$36);
-                      setProp(_el$34, "class", "px-2.5 py-1.5 rounded-lg bg-transparent group-hover:bg-[#ff7b00]/10 border border-transparent group-hover:border-[#ff7b00]/20 transition-colors flex items-center gap-1.5");
-                      setProp(_el$35, "class", "text-[#71717a] group-hover:text-[#ff7b00] text-xs transition-colors");
-                      insert(_el$35, () => story.descendants ?? 0);
-                      insertNode(_el$36, createTextNode(`💬`));
-                      setProp(_el$36, "class", "text-[#52525b] group-hover:text-[#ff7b00]/70 text-xs transition-colors");
-                      return _el$15;
-                    })()
-                  }));
-                  return _el$1;
-                }
-              });
-            }
-          });
-        }
-      }));
+      setProp(
+        _el$0,
+        "class",
+        "flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4",
+      );
+      insert(
+        _el$0,
+        createComponent(Show, {
+          get when() {
+            return !loading() || stories().length > 0;
+          },
+          get fallback() {
+            return createComponent(LoadingList, {});
+          },
+          get children() {
+            return createComponent(Show, {
+              get when() {
+                return !loadError();
+              },
+              get fallback() {
+                return createComponent(LoadError, {});
+              },
+              get children() {
+                return createComponent(Show, {
+                  get when() {
+                    return visibleStories().length > 0;
+                  },
+                  get fallback() {
+                    return createComponent(EmptyState, {});
+                  },
+                  get children() {
+                    var _el$1 = createElement("ol");
+                    setProp(
+                      _el$1,
+                      "class",
+                      "m-0 p-0 list-none flex flex-col gap-1.5",
+                    );
+                    insert(
+                      _el$1,
+                      createComponent(For, {
+                        get each() {
+                          return visibleStories();
+                        },
+                        children: (story, index) =>
+                          (() => {
+                            var _el$15 = createElement("li"),
+                              _el$16 = createElement("span"),
+                              _el$17 = createElement("div"),
+                              _el$18 = createElement("div"),
+                              _el$19 = createElement("strong"),
+                              _el$20 = createElement("span"),
+                              _el$21 = createElement("div"),
+                              _el$22 = createElement("span"),
+                              _el$23 = createElement("span"),
+                              _el$24 = createTextNode(` pts`),
+                              _el$25 = createElement("span"),
+                              _el$27 = createElement("span"),
+                              _el$28 = createTextNode(`by `),
+                              _el$29 = createElement("span"),
+                              _el$30 = createElement("span"),
+                              _el$32 = createElement("span"),
+                              _el$33 = createElement("div"),
+                              _el$34 = createElement("div"),
+                              _el$35 = createElement("strong"),
+                              _el$36 = createElement("span");
+                            insertNode(_el$15, _el$16);
+                            insertNode(_el$15, _el$17);
+                            insertNode(_el$15, _el$33);
+                            setProp(
+                              _el$15,
+                              "class",
+                              "group px-4 py-3.5 flex items-center gap-4 rounded-xl border border-transparent hover:border-[#27272a] hover:bg-[#18181b] active:scale-[0.99] transition-all cursor-pointer",
+                            );
+                            setProp(_el$15, "onClick", () =>
+                              navigate(`/story/${story.id}`),
+                            );
+                            setProp(
+                              _el$16,
+                              "class",
+                              "w-6 text-right text-[#52525b] font-mono text-xs font-bold opacity-70 group-hover:opacity-100 group-hover:text-[#ff7b00] transition-colors",
+                            );
+                            insert(_el$16, () =>
+                              String(index() + 1).padStart(2, "0"),
+                            );
+                            insertNode(_el$17, _el$18);
+                            insertNode(_el$17, _el$21);
+                            setProp(
+                              _el$17,
+                              "class",
+                              "flex-1 min-w-0 flex flex-col gap-1.5",
+                            );
+                            insertNode(_el$18, _el$19);
+                            insertNode(_el$18, _el$20);
+                            setProp(
+                              _el$18,
+                              "class",
+                              "flex items-baseline gap-3",
+                            );
+                            setProp(
+                              _el$19,
+                              "class",
+                              "text-[#d4d4d8] text-sm font-semibold leading-tight group-hover:text-white transition-colors truncate",
+                            );
+                            insert(_el$19, () => story.title);
+                            setProp(
+                              _el$20,
+                              "class",
+                              "lt-md:hidden text-[#71717a] text-xs font-medium truncate flex-shrink",
+                            );
+                            insert(_el$20, () => storyHost(story.url));
+                            insertNode(_el$21, _el$22);
+                            insertNode(_el$21, _el$25);
+                            insertNode(_el$21, _el$27);
+                            insertNode(_el$21, _el$30);
+                            insertNode(_el$21, _el$32);
+                            setProp(
+                              _el$21,
+                              "class",
+                              "flex items-center gap-3 text-[#71717a] text-xs font-medium",
+                            );
+                            insertNode(_el$22, _el$23);
+                            insertNode(_el$22, _el$24);
+                            setProp(
+                              _el$22,
+                              "class",
+                              "flex items-center gap-1.5 text-[#a1a1aa]",
+                            );
+                            setProp(
+                              _el$23,
+                              "class",
+                              "w-1.5 h-1.5 rounded-full bg-[#ff7b00]",
+                            );
+                            insert(_el$22, () => story.score, _el$24);
+                            insertNode(_el$25, createTextNode(`•`));
+                            setProp(_el$25, "class", "text-[#3f3f46]");
+                            insertNode(_el$27, _el$28);
+                            insertNode(_el$27, _el$29);
+                            setProp(_el$29, "class", "text-[#a1a1aa]");
+                            insert(_el$29, () => story.by);
+                            insertNode(_el$30, createTextNode(`•`));
+                            setProp(_el$30, "class", "text-[#3f3f46]");
+                            insert(_el$32, () => relativeTime(story.time));
+                            insertNode(_el$33, _el$34);
+                            setProp(
+                              _el$33,
+                              "class",
+                              "lt-md:hidden flex-none flex flex-col items-end justify-center",
+                            );
+                            insertNode(_el$34, _el$35);
+                            insertNode(_el$34, _el$36);
+                            setProp(
+                              _el$34,
+                              "class",
+                              "px-2.5 py-1.5 rounded-lg bg-transparent group-hover:bg-[#ff7b00]/10 border border-transparent group-hover:border-[#ff7b00]/20 transition-colors flex items-center gap-1.5",
+                            );
+                            setProp(
+                              _el$35,
+                              "class",
+                              "text-[#71717a] group-hover:text-[#ff7b00] text-xs transition-colors",
+                            );
+                            insert(_el$35, () => story.descendants ?? 0);
+                            insertNode(_el$36, createTextNode(`💬`));
+                            setProp(
+                              _el$36,
+                              "class",
+                              "text-[#52525b] group-hover:text-[#ff7b00]/70 text-xs transition-colors",
+                            );
+                            return _el$15;
+                          })(),
+                      }),
+                    );
+                    return _el$1;
+                  },
+                });
+              },
+            });
+          },
+        }),
+      );
       insertNode(_el$10, _el$11);
       insertNode(_el$10, _el$13);
-      setProp(_el$10, "class", "h-10 flex-none px-6 flex items-center justify-between border-t border-[#27272a] bg-[#0a0a0c] text-[#52525b] text-xs font-medium");
+      setProp(
+        _el$10,
+        "class",
+        "h-10 flex-none px-6 flex items-center justify-between border-t border-[#27272a] bg-[#0a0a0c] text-[#52525b] text-xs font-medium",
+      );
       insertNode(_el$11, _el$12);
       insert(_el$11, () => visibleStories().length, _el$12);
       insertNode(_el$13, createTextNode(`Live from Hacker News API`));
@@ -3627,44 +4481,69 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   }
   function LoadError() {
     return (() => {
-      var _el$38 = createElement("div"), _el$39 = createElement("strong"), _el$41 = createElement("span"), _el$42 = createElement("div");
+      var _el$38 = createElement("div"),
+        _el$39 = createElement("strong"),
+        _el$41 = createElement("span"),
+        _el$42 = createElement("div");
       insertNode(_el$38, _el$39);
       insertNode(_el$38, _el$41);
       insertNode(_el$38, _el$42);
-      setProp(_el$38, "class", "min-h-85 p-10 flex flex-col items-center justify-center gap-3 text-[#71717a] text-center");
+      setProp(
+        _el$38,
+        "class",
+        "min-h-85 p-10 flex flex-col items-center justify-center gap-3 text-[#71717a] text-center",
+      );
       insertNode(_el$39, createTextNode(`Failed to load stories`));
       setProp(_el$39, "class", "text-[#d4d4d8] text-lg");
       setProp(_el$41, "class", "text-[#f87171] text-sm");
       insert(_el$41, loadError);
       insertNode(_el$42, createTextNode(`Try again`));
-      setProp(_el$42, "class", "mt-4 px-4 py-2 flex items-center gap-2 border border-[#3f3f46] rounded-lg bg-[#18181b] hover:bg-[#27272a] text-white text-sm font-medium cursor-pointer transition-all active:scale-95");
+      setProp(
+        _el$42,
+        "class",
+        "mt-4 px-4 py-2 flex items-center gap-2 border border-[#3f3f46] rounded-lg bg-[#18181b] hover:bg-[#27272a] text-white text-sm font-medium cursor-pointer transition-all active:scale-95",
+      );
       setProp(_el$42, "onClick", () => void loadStories());
       return _el$38;
     })();
   }
   function EmptyState() {
     return (() => {
-      var _el$44 = createElement("div"), _el$45 = createElement("strong"), _el$47 = createElement("span");
+      var _el$44 = createElement("div"),
+        _el$45 = createElement("strong"),
+        _el$47 = createElement("span");
       insertNode(_el$44, _el$45);
       insertNode(_el$44, _el$47);
-      setProp(_el$44, "class", "min-h-85 p-10 flex flex-col items-center justify-center gap-2 text-[#71717a] text-center");
+      setProp(
+        _el$44,
+        "class",
+        "min-h-85 p-10 flex flex-col items-center justify-center gap-2 text-[#71717a] text-center",
+      );
       insertNode(_el$45, createTextNode(`No matching stories`));
       setProp(_el$45, "class", "text-[#d4d4d8] text-lg");
-      insertNode(_el$47, createTextNode(`Try a different title, author, or domain.`));
+      insertNode(
+        _el$47,
+        createTextNode(`Try a different title, author, or domain.`),
+      );
       setProp(_el$47, "class", "text-sm");
       return _el$44;
     })();
   }
-  mount(() => createComponent(MemoryRouter, {
-    root: AppShell,
-    get children() {
-      return [createComponent(Route, {
-        path: "/",
-        component: StoryList
-      }), createComponent(Route, {
-        path: "/story/:id",
-        component: StoryDetail
-      })];
-    }
-  }));
+  mount(() =>
+    createComponent(MemoryRouter, {
+      root: AppShell,
+      get children() {
+        return [
+          createComponent(Route, {
+            path: "/",
+            component: StoryList,
+          }),
+          createComponent(Route, {
+            path: "/story/:id",
+            component: StoryDetail,
+          }),
+        ];
+      },
+    }),
+  );
 })();

@@ -2,7 +2,7 @@
 // packages/vite-runtime/src/client.ts
 var blitzGlobal = globalThis;
 var existingRecords = blitzGlobal.__blitz_hmr_records;
-var records = existingRecords ?? new Map;
+var records = existingRecords ?? new Map();
 if (!existingRecords) {
   blitzGlobal.__blitz_hmr_records = records;
 }
@@ -21,8 +21,7 @@ function createHotContext(ownerPath) {
     disposed: [],
     invalidated: false,
     accept(callback) {
-      if (typeof callback === "function")
-        this.accepted.push(callback);
+      if (typeof callback === "function") this.accepted.push(callback);
     },
     dispose(callback) {
       this.disposed.push(callback);
@@ -35,12 +34,10 @@ function createHotContext(ownerPath) {
     },
     on() {},
     send() {},
-    prune() {}
+    prune() {},
   };
-  if (record.loading)
-    record.next = context;
-  else
-    record.current = context;
+  if (record.loading) record.next = context;
+  else record.current = context;
   return context;
 }
 function updateStyle(id, css) {
@@ -51,30 +48,22 @@ function removeStyle(id) {
 }
 blitzGlobal.__blitz_apply_hmr = async (path, acceptedPath, timestamp) => {
   const record = records.get(path);
-  if (!record?.current)
-    return false;
+  if (!record?.current) return false;
   const previous = record.current;
-  for (const dispose of previous.disposed)
-    dispose(record.data);
+  for (const dispose of previous.disposed) dispose(record.data);
   record.loading = true;
   record.next = null;
   try {
     const separator = acceptedPath.includes("?") ? "&" : "?";
     const module = await import(`${acceptedPath}${separator}t=${timestamp}`);
     const next = nextContext(record);
-    if (!next || next.invalidated)
-      return false;
+    if (!next || next.invalidated) return false;
     record.current = next;
-    for (const accept of previous.accepted)
-      accept(module);
+    for (const accept of previous.accepted) accept(module);
     return !previous.invalidated;
   } finally {
     record.loading = false;
     record.next = null;
   }
 };
-export {
-  updateStyle,
-  removeStyle,
-  createHotContext
-};
+export { updateStyle, removeStyle, createHotContext };
