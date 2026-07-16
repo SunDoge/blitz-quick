@@ -2,7 +2,9 @@
 
 use std::path::{Path, PathBuf};
 
-use blitz_quick::{AppConfig, Applier};
+use blitz_quick::AppConfig;
+#[cfg(feature = "screenshot")]
+use blitz_quick::Applier;
 use blitz_quick_desktop::DesktopApp;
 use clap::Parser;
 
@@ -31,12 +33,11 @@ fn main() -> Result<(), AppError> {
 
     let cli = Cli::parse();
     let assets = load_assets(&cli)?;
+    #[cfg(feature = "screenshot")]
     if let Some(output) = &cli.screenshot {
-        run_screenshot(&cli, &assets, output)?;
-    } else {
-        run_window(&cli, assets)?;
+        return run_screenshot(&cli, &assets, output);
     }
-    Ok(())
+    run_window(&cli, assets)
 }
 
 fn load_assets(cli: &Cli) -> Result<Assets, AppError> {
@@ -128,6 +129,7 @@ fn run_window(cli: &Cli, assets: Assets) -> Result<(), AppError> {
     Ok(())
 }
 
+#[cfg(feature = "screenshot")]
 fn run_screenshot(cli: &Cli, assets: &Assets, output: &Path) -> Result<(), AppError> {
     let mut applier = Applier::new(app_config(cli, assets), |_| Ok(()))?;
     for _ in 0..cli.ticks {
@@ -154,6 +156,7 @@ fn run_screenshot(cli: &Cli, assets: &Assets, output: &Path) -> Result<(), AppEr
     Ok(())
 }
 
+#[cfg(feature = "screenshot")]
 fn render_dom_to_rgba(dom: &mut blitz_dom::BaseDocument, scale: f64, w: u32, h: u32) -> Vec<u8> {
     use anyrender::ImageRenderer as _;
     use anyrender::PaintScene as _;

@@ -93,7 +93,7 @@ For headless and visual tests, `--screenshot` accepts an optional output path.
 The viewport, scale, and tick count are configurable:
 
 ```bash
-cargo run -p blitz-quick-desktop -- \
+cargo run -p blitz-quick-desktop --features screenshot -- \
   --dist-dir ./dist \
   --screenshot ./artifacts/frame.png \
   --width 1024 \

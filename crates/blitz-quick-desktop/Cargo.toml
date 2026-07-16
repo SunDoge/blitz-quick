@@ -3,17 +3,28 @@ name = "blitz-quick-desktop"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = []
+screenshot = [
+  "dep:anyrender",
+  "dep:anyrender_vello_cpu",
+  "dep:blitz-dom",
+  "dep:blitz-paint",
+  "dep:image",
+  "dep:peniko",
+]
+
 [dependencies]
-anyrender = "0.11"
+anyrender = { version = "0.11", optional = true }
 anyrender_vello = "0.12"
-anyrender_vello_cpu = "0.14"
-blitz-dom = { workspace = true }
-blitz-paint = { workspace = true, features = ["scrollbars"] }
+anyrender_vello_cpu = { version = "0.14", optional = true }
+blitz-dom = { workspace = true, optional = true }
+blitz-paint = { workspace = true, features = ["scrollbars"], optional = true }
 blitz-quick = { path = "../blitz-quick" }
 blitz-shell = { workspace = true }
 clap = { version = "4.5", features = ["derive"] }
-image = { version = "0.25", default-features = false, features = ["png"] }
-peniko = "0.6"
+image = { version = "0.25", default-features = false, features = ["png"], optional = true }
+peniko = { version = "0.6", optional = true }
 reqwest = { version = "0.13", default-features = false }
 rquickjs = { version = "0.12.1", features = ["full-async"] }
 rust-embed = "8.12.0"
@@ -28,7 +39,3 @@ tungstenite = {
   features = ["handshake"]
 }
 url = "2.5"
-
-
-[profile.release]
-strip = true
