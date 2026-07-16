@@ -6,9 +6,8 @@
 //! returns the flushed binary frame bytes.
 
 use std::cell::RefCell;
-use std::future::Future;
 use std::rc::Rc;
-use std::task::{Context as TaskContext, Poll};
+use std::task::Context as TaskContext;
 
 use rquickjs::{AsyncContext, AsyncRuntime, Ctx, Function, TypedArray, Value};
 type JsResult<T> = rquickjs::Result<T>;
@@ -40,6 +39,12 @@ pub struct JsRuntime {
     vite: Option<crate::vite::ViteState>,
     ctx: AsyncContext,
     rt: AsyncRuntime,
+    /// Tokio runtime + LocalSet that drives rquickjs async jobs. rquickjs
+    /// runtime is !Send, so we use multi-thread tokio + LocalSet. `with()`
+    /// enters the tokio context and calls `local.block_on` so async host
+    /// functions (reqwest, timers) can `.await` tokio futures.
+    _tokio: tokio::runtime::Runtime,
+    _local: tokio::task::LocalSet,
 }
 
 impl JsRuntime {
@@ -72,6 +77,14 @@ impl JsRuntime {
     }
 
     fn build_inner(rt: AsyncRuntime) -> JsResult<Self> {
+        // Multi-thread tokio runtime for driving async host functions.
+        // rquickjs runtime is !Send so we use a LocalSet for rt.drive().
+        let tokio_rt = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()?;
+        let local = tokio::task::LocalSet::new();
+
         let ctx = futures_lite::future::block_on(AsyncContext::full(&rt))?;
         let out: Rc<RefCell<Vec<u8>>> = Rc::new(RefCell::new(Vec::new()));
         let timer_cmds = Rc::new(RefCell::new(Vec::new()));
@@ -146,6 +159,8 @@ impl JsRuntime {
             last_gc: std::time::Instant::now(),
             #[cfg(feature = "vite")]
             vite: None,
+            _tokio: tokio_rt,
+            _local: local,
         };
         this.register_core_host_fns()?;
         Ok(this)
@@ -192,31 +207,30 @@ impl JsRuntime {
     }
 
     /// Run a synchronous closure while holding the async QuickJS context lock.
-    ///
-    /// Blitz's document callbacks are synchronous, so ordinary JS entry points
-    /// use this adapter. Rust futures spawned by QuickJS are driven separately
-    /// by [`Self::poll_pending_jobs`] with the shell's waker.
+    /// Enters the tokio runtime context so async host functions can access
+    /// `Handle::current()`, and drives the LocalSet so `rt.drive()` makes
+    /// progress while we wait for the context lock.
     pub fn with<F, R>(&self, f: F) -> R
     where
         F: for<'js> FnOnce(Ctx<'js>) -> R + rquickjs::markers::ParallelSend,
         R: rquickjs::markers::ParallelSend,
     {
-        futures_lite::future::block_on(self.ctx.with(f))
+        let _guard = self._tokio.handle().enter();
+        self._local.block_on(&self._tokio, self.ctx.with(f))
     }
 
-    /// Poll QuickJS jobs and Rust futures without blocking the window thread.
-    /// Returns whether any job made progress during this poll.
-    pub fn poll_pending_jobs(&self, task_context: &mut TaskContext<'_>) -> Result<bool, String> {
-        let mut made_progress = false;
-        loop {
-            let future = self.rt.execute_pending_job();
-            let mut future = std::pin::pin!(future);
-            match future.as_mut().poll(task_context) {
-                Poll::Ready(Ok(true)) => made_progress = true,
-                Poll::Ready(Ok(false)) | Poll::Pending => return Ok(made_progress),
-                Poll::Ready(Err(error)) => return Err(error.to_string()),
-            }
-        }
+    /// Drive rquickjs async jobs + drain pending JS jobs. Called from the
+    /// shell's poll loop. Uses `rt.idle()` with a 1ms timeout so async host
+    /// functions (reqwest, timers) make progress without blocking the UI.
+    pub fn poll_pending_jobs(&self, _task_context: &mut TaskContext<'_>) -> Result<bool, String> {
+        let _guard = self._tokio.handle().enter();
+        self._local.block_on(&self._tokio, async {
+            let _ = tokio::time::timeout(
+                std::time::Duration::from_millis(1),
+                self.rt.idle(),
+            ).await;
+        });
+        Ok(true)
     }
 
     #[cfg(feature = "vite")]

@@ -476,6 +476,7 @@ dependencies = [
  "serde",
  "serde_json",
  "snafu",
+ "tokio",
  "tracing",
  "tungstenite",
  "url",
@@ -1582,6 +1583,23 @@ checksum = "6b17e70c989c36bad147b27a58d148c0741c51448aa5653436547323e524d0ab"
 dependencies = [
  "euclid",
  "svg_fmt",
+]
+
+[[package]]
+name = "hackernews"
+version = "0.1.0"
+dependencies = [
+ "blitz-net",
+ "blitz-quick",
+ "blitz-quick-desktop",
+ "blitz-shell",
+ "futures-lite",
+ "reqwest",
+ "serde_json",
+ "snafu",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -3310,6 +3328,7 @@ dependencies = [
  "pin-project-lite",
  "rustls-pki-types",
  "serde",
+ "serde_json",
  "serde_urlencoded",
  "sync_wrapper",
  "tokio",

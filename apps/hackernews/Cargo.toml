@@ -1,0 +1,30 @@
+[package]
+name = "hackernews"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "hackernews"
+path = "src/main.rs"
+
+[dependencies]
+blitz-net = { workspace = true }
+blitz-quick = { workspace = true }
+blitz-quick-desktop = {
+  path = "../../crates/blitz-quick-desktop",
+  default-features = false
+}
+blitz-shell = { workspace = true }
+futures-lite = "2"
+reqwest = { version = "0.13", default-features = false, features = ["json"] }
+serde_json = "1.0"
+snafu = { workspace = true }
+tokio = { version = "1", features = ["rt-multi-thread"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+
+[features]
+default = []
+# Enable Vite dev-server integration (HMR + module loading). Off for
+# release builds — use `cargo run --features vite` during development.
+vite = ["blitz-quick/vite"]

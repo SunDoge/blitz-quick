@@ -1,0 +1,23 @@
+{
+  "name": "hackernews",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@blitz-quick/core": "workspace:*",
+    "@blitz-quick/solid-renderer": "workspace:*",
+    "@solidjs/router": "^0.16.1",
+    "solid-js": "1.9.14",
+    "lucide-solid": "^1.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "unocss": "^66.7.5",
+    "vite": "^5.4.0",
+    "vite-plugin-solid": "2.11.12"
+  }
+}

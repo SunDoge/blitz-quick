@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "types": ["vite/client", "node"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@blitz-quick/solid-renderer": [
+        "../../packages/solid-renderer/src/index.ts"
+      ],
+      "@blitz-quick/core": ["../../packages/core/src/index.ts"],
+      "@blitz-quick/protocol": ["../../packages/protocol/src/index.ts"]
+    }
+  },
+  "include": ["packages", "vite.config.ts"]
+}
