@@ -440,6 +440,19 @@ impl Applier {
             tracing::warn!("style tag not found in document head");
         }
     }
+
+    /// Resolve a blitz node id to the Solid virtual id that owns it. Walks up
+    /// the blitz DOM because blitz may insert anonymous wrapper nodes (e.g.
+    /// anonymous block boxes) that aren't in our id map. Returns None if no
+    /// mapped ancestor exists.
+    fn solid_id_for(&self, mut blitz_id: usize) -> Option<u32> {
+        loop {
+            if let Some(&sid) = self.blitz_to_solid.get(&blitz_id) {
+                return Some(sid);
+            }
+            blitz_id = self.doc.get_node(blitz_id)?.parent?;
+        }
+    }
 }
 
 impl BlitzDocument for Applier {
@@ -652,8 +665,15 @@ impl BlitzDocument for Applier {
     /// along the Solid Handle tree. After dispatch we flush the frame so the
     /// next redraw reflects any signal updates.
     fn handle_ui_event(&mut self, event: UiEvent) {
-        use blitz_traits::events::{DomEvent, DomEventData, EventState};
+        use blitz_traits::events::{DomEvent, EventState};
 
+        // Single event path: let blitz-dom's EventDriver run native default
+        // actions (scroll, focus, drag selection, etc.) and collect every
+        // DOM event it dispatches — including synthesized click/enter/leave
+        // and bubbling. We then translate each emitted DomEvent to the JS
+        // wire format and forward it. There is no separate re-translation of
+        // the raw UiEvent and no second hit-test: EventDriver already resolved
+        // the target and bubble chain.
         let mut emitted_events = Vec::new();
         {
             struct Collector<'a>(&'a mut Vec<DomEvent>);
@@ -671,80 +691,43 @@ impl BlitzDocument for Applier {
 
             let mut driver =
                 blitz_dom::EventDriver::new(&mut self.doc, Collector(&mut emitted_events));
-            driver.handle_ui_event(event.clone());
+            driver.handle_ui_event(event);
         }
 
-        // Forward DOM input events to JS
+        let mut dispatched = false;
         for dom_event in emitted_events {
-            if let DomEventData::Input(e) = dom_event.data {
-                let sid = self
-                    .blitz_to_solid
-                    .get(&dom_event.target)
-                    .copied()
-                    .unwrap_or(Self::ROOT_SOLID_ID);
-                tracing::info!(
-                    "Received Input event: target={} sid={} value={}",
-                    dom_event.target,
-                    sid,
-                    e.value
-                );
-                let payload = serde_json::to_string(&serde_json::json!({
-                    "value": e.value,
-                    "data": e.value,
-                }))
-                .unwrap();
-                let _ = self
-                    .js
-                    .dispatch_event(sid, crate::protocol::event::INPUT, &payload);
-                self.tick_once();
+            // Track focus for key-event targeting. EventDriver already routes
+            // key events to the focused node, but we keep the last PointerDown
+            // target so key events with no DOM-side focus still reach JS.
+            if matches!(
+                dom_event.data,
+                blitz_traits::events::DomEventData::PointerDown(_)
+            ) {
+                self.focused_blitz_id = Some(dom_event.target);
+            }
+
+            let Some(sid) = self.solid_id_for(dom_event.target) else {
+                continue;
+            };
+            let Some((code, num_data, payload)) = crate::events::translate_dom_event(&dom_event)
+            else {
+                // Not modeled on the JS side (legacy mouse*/touch*, macOS
+                // keybindings). Native processing already happened.
+                continue;
+            };
+            let result = if let Some(data) = num_data {
+                self.js.dispatch_shared_numeric_event(sid, code, data)
+            } else {
+                self.js.dispatch_event(sid, code, &payload)
+            };
+            if result.is_ok() {
+                dispatched = true;
             }
         }
 
-        let (code, num_data, payload, hit_xy) = match crate::events::translate_ui_event(&event) {
-            Some(res) => res,
-            None => return,
-        };
-
-        // Find the target Solid id: hit-test (for pointer/wheel) then walk up
-        // the blitz DOM to the nearest node in our id map (blitz may insert
-        // anonymous wrapper nodes that aren't mapped).
-        let target_sid = if let Some((x, y)) = hit_xy {
-            let hit = self.doc.hit(x, y);
-            let hit_bid = hit.as_ref().map(|h| h.node_id);
-            if matches!(event, UiEvent::PointerDown(_)) {
-                self.focused_blitz_id = hit_bid;
-            }
-            let mut cur = hit_bid;
-            let mut found = None;
-            while let Some(bid) = cur {
-                if let Some(&sid) = self.blitz_to_solid.get(&bid) {
-                    found = Some(sid);
-                    break;
-                }
-                cur = self.doc.get_node(bid).and_then(|n| n.parent);
-            }
-            found
-        } else {
-            // Key events have no hit_xy. Dispatch to the last focused element.
-            // If nothing is focused, fallback to root.
-            let mut cur = self.focused_blitz_id;
-            let mut found = None;
-            while let Some(bid) = cur {
-                if let Some(&sid) = self.blitz_to_solid.get(&bid) {
-                    found = Some(sid);
-                    break;
-                }
-                cur = self.doc.get_node(bid).and_then(|n| n.parent);
-            }
-            Some(found.unwrap_or(Self::ROOT_SOLID_ID))
-        };
-
-        if let Some(sid) = target_sid {
-            if let Some(data) = num_data {
-                let _ = self.js.dispatch_shared_numeric_event(sid, code, data);
-            } else {
-                let _ = self.js.dispatch_event(sid, code, &payload);
-            }
+        // One tick after all events for this UiEvent are forwarded, so the JS
+        // side processes the batch and flushes a single frame.
+        if dispatched {
             self.tick_once();
         }
     }

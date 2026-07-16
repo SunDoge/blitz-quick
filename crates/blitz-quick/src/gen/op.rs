@@ -37,6 +37,14 @@ pub mod event {
     pub const FOCUS: u8 = 13;
     pub const BLUR: u8 = 14;
     pub const IMECOMMIT: u8 = 15;
+    pub const POINTERCANCEL: u8 = 16;
+    pub const POINTEROVER: u8 = 17;
+    pub const POINTEROUT: u8 = 18;
+    pub const CONTEXTMENU: u8 = 19;
+    pub const DBLCLICK: u8 = 20;
+    pub const FOCUSIN: u8 = 21;
+    pub const FOCUSOUT: u8 = 22;
+    pub const SCROLL: u8 = 23;
 }
 
 pub mod event_data {

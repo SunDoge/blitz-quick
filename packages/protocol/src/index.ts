@@ -44,6 +44,14 @@ export const EVENT_CODE = {
   focus: 13,
   blur: 14,
   imecommit: 15,
+  pointercancel: 16,
+  pointerover: 17,
+  pointerout: 18,
+  contextmenu: 19,
+  dblclick: 20,
+  focusin: 21,
+  focusout: 22,
+  scroll: 23,
 } as const;
 
 export type EventType = keyof typeof EVENT_CODE;
