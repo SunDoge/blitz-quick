@@ -3337,13 +3337,13 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     setQuery("");
     if (view !== "saved") await loadStories(view);
   }
-  async function loadStories(feed) {
+  async function loadStories(feed, force = false) {
     const selected = feed ?? activeView();
     if (selected === "saved") return;
     setLoading(true);
     setLoadError(null);
     try {
-      const result = JSON.parse(await fetchStories(selected));
+      const result = JSON.parse(await fetchStories(selected, force));
       setStories(result.filter((story) => (story == null ? void 0 : story.id) && (story == null ? void 0 : story.title)));
     } catch (cause) {
       setLoadError(cause instanceof Error ? cause.message : String(cause));
@@ -3500,7 +3500,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         get label() {
           return loading() ? "Refreshing..." : "Refresh";
         },
-        onActivate: () => void loadStories()
+        onActivate: () => void loadStories(void 0, true)
       }), null);
       return _el$;
     })();
@@ -3867,10 +3867,10 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
                         setProp(_el$12, "class", "flex-1 min-w-0");
                         insertNode(_el$13, _el$14);
                         insertNode(_el$13, _el$15);
-                        setProp(_el$13, "class", "flex items-center gap-2");
-                        setProp(_el$14, "class", "text-sm font-medium truncate");
+                        setProp(_el$13, "class", "leading-tight");
+                        setProp(_el$14, "class", "text-sm font-medium mr-2");
                         insert(_el$14, () => story.title);
-                        setProp(_el$15, "class", "text-[var(--color-text-muted)] text-xs truncate");
+                        setProp(_el$15, "class", "text-[var(--color-text-muted)] text-xs whitespace-nowrap");
                         insert(_el$15, () => storyHost(story.url));
                         insertNode(_el$16, _el$17);
                         insertNode(_el$16, _el$19);
@@ -3958,9 +3958,11 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       insert(_el$30, loadError);
       insertNode(_el$31, createTextNode(`Try again`));
       setProp(_el$31, "class", "text-[var(--color-accent)] text-sm cursor-pointer");
-      setProp(_el$31, "onClick", () => void loadStories());
+      setProp(_el$31, "onClick", () => void loadStories(void 0, true));
       setProp(_el$31, "onKeyDown", (event) => {
-        if (event.key === "Enter" || event.key === " ") void loadStories();
+        if (event.key === "Enter" || event.key === " ") {
+          void loadStories(void 0, true);
+        }
       });
       setProp(_el$31, "role", "button");
       setProp(_el$31, "tabIndex", 0);

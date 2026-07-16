@@ -1403,7 +1403,7 @@ dependencies = [
  "blitz-quick",
  "blitz-quick-desktop",
  "blitz-shell",
- "futures-lite",
+ "futures-util",
  "reqwest",
  "serde_json",
  "snafu",

@@ -1,7 +1,7 @@
 import { createSignal } from "solid-js";
 
 declare global {
-  function fetchStories(feed: Feed): Promise<string>;
+  function fetchStories(feed: Feed, force: boolean): Promise<string>;
 }
 
 export type Feed = "top" | "new" | "best";
@@ -53,13 +53,13 @@ export async function selectView(view: View): Promise<void> {
   if (view !== "saved") await loadStories(view);
 }
 
-export async function loadStories(feed?: Feed): Promise<void> {
+export async function loadStories(feed?: Feed, force = false): Promise<void> {
   const selected = feed ?? activeView();
   if (selected === "saved") return;
   setLoading(true);
   setLoadError(null);
   try {
-    const result = JSON.parse(await fetchStories(selected)) as Story[];
+    const result = JSON.parse(await fetchStories(selected, force)) as Story[];
     setStories(result.filter((story) => story?.id && story?.title));
   } catch (cause) {
     setLoadError(cause instanceof Error ? cause.message : String(cause));

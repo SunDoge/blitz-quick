@@ -98,11 +98,11 @@ export function StoryList(): JSX.Element {
                         {index() + 1}
                       </span>
                       <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2">
-                          <strong class="text-sm font-medium truncate">
+                        <div class="leading-tight">
+                          <strong class="text-sm font-medium mr-2">
                             {story.title}
                           </strong>
-                          <span class="text-[var(--color-text-muted)] text-xs truncate">
+                          <span class="text-[var(--color-text-muted)] text-xs whitespace-nowrap">
                             {storyHost(story.url)}
                           </span>
                         </div>
@@ -173,9 +173,11 @@ function LoadError(): JSX.Element {
       {/* biome-ignore lint/a11y/useSemanticElements: Blitz currently mislays out button elements. */}
       <span
         class="text-[var(--color-accent)] text-sm cursor-pointer"
-        onClick={() => void loadStories()}
+        onClick={() => void loadStories(undefined, true)}
         onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") void loadStories();
+          if (event.key === "Enter" || event.key === " ") {
+            void loadStories(undefined, true);
+          }
         }}
         role="button"
         tabIndex={0}

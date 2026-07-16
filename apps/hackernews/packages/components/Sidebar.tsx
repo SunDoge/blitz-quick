@@ -86,7 +86,7 @@ export function Sidebar(): JSX.Element {
           disabled={loading()}
           icon={<RefreshCw size={16} class={loading() ? "animate-spin" : ""} />}
           label={loading() ? "Refreshing..." : "Refresh"}
-          onActivate={() => void loadStories()}
+          onActivate={() => void loadStories(undefined, true)}
         />
       </div>
     </aside>
