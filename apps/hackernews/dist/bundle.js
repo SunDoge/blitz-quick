@@ -3534,7 +3534,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           })() : null;
         })(), null);
         effect((_p$) => {
-          var _v$ = `w-full h-10 px-3 flex items-center gap-3 rounded-md text-sm cursor-pointer ${props.active ? "bg-[var(--color-raised)] text-[var(--color-text)] font-semibold" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover)]"} ${props.disabled ? "opacity-50" : ""}`, _v$2 = `pointer-events-none ${props.active ? "text-[var(--color-accent)]" : "text-[var(--color-text-muted)]"}`;
+          var _v$ = `w-full h-10 px-3 flex items-center gap-3 rounded-md text-sm cursor-pointer bg-black/1 ${props.active ? "bg-[var(--color-raised)] text-[var(--color-text)] font-semibold" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover)]"} ${props.disabled ? "opacity-50" : ""}`, _v$2 = `pointer-events-none ${props.active ? "text-[var(--color-accent)]" : "text-[var(--color-text-muted)]"}`;
           _v$ !== _p$.e && (_p$.e = setProp(_el$11, "class", _v$, _p$.e));
           _v$2 !== _p$.t && (_p$.t = setProp(_el$12, "class", _v$2, _p$.t));
           return _p$;

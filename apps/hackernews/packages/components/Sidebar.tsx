@@ -110,7 +110,7 @@ function SidebarItem(props: SidebarItemProps): JSX.Element {
   return (
     // biome-ignore lint/a11y/useSemanticElements: Blitz currently mislays out flex button elements.
     <div
-      class={`w-full h-10 px-3 flex items-center gap-3 rounded-md text-sm cursor-pointer ${
+      class={`w-full h-10 px-3 flex items-center gap-3 rounded-md text-sm cursor-pointer bg-black/1 ${
         props.active
           ? "bg-[var(--color-raised)] text-[var(--color-text)] font-semibold"
           : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover)]"
