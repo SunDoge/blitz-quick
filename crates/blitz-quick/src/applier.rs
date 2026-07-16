@@ -169,6 +169,10 @@ pub struct Applier {
     /// blitz-net-backed fetch bridge: JS `fetch()` → tokio → completions drained
     /// in poll. Shared (Arc) so worker threads can push completions + wake.
     fetch: std::sync::Arc<crate::fetch::FetchBridge>,
+    /// ResizeObserver bridge: JS registers targets, Applier measures them
+    /// after resolve and the JS runtime drains changes. Shared (Arc) so the
+    /// host fn closures in jsrt can mutate the target map.
+    resize: std::sync::Arc<crate::resize::ResizeBridge>,
     /// The blitz node id that most recently received a PointerDown event.
     focused_blitz_id: Option<usize>,
 }
@@ -266,6 +270,8 @@ impl Applier {
         };
         let fetch = std::sync::Arc::new(crate::fetch::FetchBridge::try_new()?);
         js.register_fetch(fetch.clone())?;
+        let resize = std::sync::Arc::new(crate::resize::ResizeBridge::new());
+        js.register_resize(&resize)?;
 
         // Let the user register their FFI methods
         on_runtime_init(&js)?;
@@ -283,6 +289,7 @@ impl Applier {
             waker: None,
             last_spawned_wake: None,
             fetch,
+            resize,
             focused_blitz_id: None,
         };
         if let Some(vite) = &config.vite {
@@ -481,6 +488,28 @@ impl BlitzDocument for Applier {
                     tracing::error!(?error, "failed to resolve fetch completions");
                 }
             }
+        }
+
+        // Measure ResizeObserver targets against the latest layout and
+        // dispatch any size changes back into JS. Runs every poll so a freshly
+        // observed element reports its initial size on the next frame, and
+        // window/container resizes are picked up as they happen.
+        {
+            let this = &*self;
+            this.resize.measure(
+                |solid_id| this.get(solid_id),
+                |blitz_id| {
+                    this.doc.get_node(blitz_id).map(|n| {
+                        (
+                            n.final_layout.content_box_width(),
+                            n.final_layout.content_box_height(),
+                        )
+                    })
+                },
+            );
+        }
+        if let Err(error) = self.js.drain_resize(&self.resize) {
+            tracing::error!(?error, "failed to drain resize changes");
         }
 
         // Apply Vite HMR messages before the next application tick.

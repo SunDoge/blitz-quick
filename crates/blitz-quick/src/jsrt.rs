@@ -110,30 +110,9 @@ impl JsRuntime {
                 globals.set("__bridge_flush", f)?;
             }
 
-            // Stateless host functions registered via macros
-            globals.set(
-                "__host_log",
-                rquickjs::Function::new(ctx.clone(), crate::host_ffi::host_log)?,
-            )?;
-            globals.set(
-                "__host_log_level",
-                rquickjs::Function::new(ctx.clone(), crate::host_ffi::host_log_level)?,
-            )?;
-            globals.set(
-                "__host_utf8_encode",
-                rquickjs::Function::new(ctx.clone(), crate::host_ffi::host_utf8_encode)?,
-            )?;
-            globals.set(
-                "sysInfo",
-                rquickjs::Function::new(ctx.clone(), crate::host_ffi::sys_info)?,
-            )?;
-
-            let perf = rquickjs::Object::new(ctx.clone())?;
-            perf.set(
-                "now",
-                rquickjs::Function::new(ctx.clone(), crate::host_ffi::performance_now)?,
-            )?;
-            globals.set("performance", perf)?;
+            // Stateless host functions are installed by `register_core_host_fns`
+            // (kept grouped there so this init block only holds the stateful
+            // closures that capture local Rc<RefCell<..>> handles).
 
             // __register_timer(id, delay, repeat)
             {
@@ -165,7 +144,7 @@ impl JsRuntime {
             Ok(())
         }))?;
 
-        Ok(Self {
+        let this = Self {
             rt,
             ctx,
             out,
@@ -176,6 +155,48 @@ impl JsRuntime {
             last_gc: std::time::Instant::now(),
             vite_origin,
             vite_cache,
+        };
+        this.register_core_host_fns()?;
+        Ok(this)
+    }
+
+    /// Install the stateless host functions: logging, UTF-8 codec, `sysInfo`,
+    /// and `performance.now`. None of these capture per-runtime state, so they
+    /// just wrap the `host_ffi` functions. Grouped here (rather than inlined
+    /// in `new_inner`) so all host-fn registration follows the same
+    /// `register_*` shape — see also `register_fetch`, `register_resize`, and
+    /// the timer closures set up during construction.
+    pub fn register_core_host_fns(&self) -> JsResult<()> {
+        self.with(|ctx| -> JsResult<()> {
+            let globals = ctx.globals();
+            globals.set(
+                "__host_log",
+                rquickjs::Function::new(ctx.clone(), crate::host_ffi::host_log)?,
+            )?;
+            globals.set(
+                "__host_log_level",
+                rquickjs::Function::new(ctx.clone(), crate::host_ffi::host_log_level)?,
+            )?;
+            globals.set(
+                "__host_utf8_encode",
+                rquickjs::Function::new(ctx.clone(), crate::host_ffi::host_utf8_encode)?,
+            )?;
+            globals.set(
+                "__host_utf8_decode",
+                rquickjs::Function::new(ctx.clone(), crate::host_ffi::host_utf8_decode)?,
+            )?;
+            globals.set(
+                "sysInfo",
+                rquickjs::Function::new(ctx.clone(), crate::host_ffi::sys_info)?,
+            )?;
+
+            let perf = rquickjs::Object::new(ctx.clone())?;
+            perf.set(
+                "now",
+                rquickjs::Function::new(ctx.clone(), crate::host_ffi::performance_now)?,
+            )?;
+            globals.set("performance", perf)?;
+            Ok(())
         })
     }
 
@@ -299,6 +320,48 @@ impl JsRuntime {
                 },
             )?;
             ctx.globals().set("__fetch_start", f)?;
+            Ok(())
+        })
+    }
+
+    /// Register the `ResizeObserver` host functions (`__resize_observe`,
+    /// `__resize_unobserve`) backed by a [`ResizeBridge`]. The Applier measures
+    /// observed targets after each resolve and the JS runtime drains the
+    /// resulting changes via [`drain_resize`].
+    pub fn register_resize(&self, bridge: &crate::resize::ResizeBridge) -> JsResult<()> {
+        let targets = bridge.targets_handle();
+        self.with(|ctx| -> JsResult<()> {
+            let t = targets.clone();
+            let f = Function::new(ctx.clone(), move |solid_id: u32| -> JsResult<()> {
+                t.lock().unwrap().insert(solid_id, Default::default());
+                Ok(())
+            })?;
+            ctx.globals().set("__resize_observe", f)?;
+
+            let t = targets.clone();
+            let f = Function::new(ctx.clone(), move |solid_id: u32| -> JsResult<()> {
+                t.lock().unwrap().remove(&solid_id);
+                Ok(())
+            })?;
+            ctx.globals().set("__resize_unobserve", f)?;
+            Ok(())
+        })
+    }
+
+    /// Drain pending size changes from the bridge and dispatch each to the JS
+    /// `__resize_dispatch(solid_id, width, height)` global, which the
+    /// `ResizeObserver` polyfill uses to invoke the matching observer callback.
+    pub fn drain_resize(&self, bridge: &crate::resize::ResizeBridge) -> JsResult<()> {
+        let changes = bridge.drain();
+        if changes.is_empty() {
+            return Ok(());
+        }
+        self.with(|ctx| -> JsResult<()> {
+            let globals = ctx.globals();
+            let f: Function = globals.get("__resize_dispatch")?;
+            for c in changes {
+                let _: Value = f.call((c.solid_id, c.width, c.height))?;
+            }
             Ok(())
         })
     }

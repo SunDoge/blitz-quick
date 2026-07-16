@@ -28,6 +28,14 @@ pub fn host_utf8_encode<'js>(ctx: Ctx<'js>, s: String) -> Result<TypedArray<'js,
     TypedArray::new(ctx, s.into_bytes())
 }
 
+#[rquickjs::function(rename = "__host_utf8_decode")]
+pub fn host_utf8_decode<'js>(bytes: TypedArray<'js, u8>) -> Result<String> {
+    let bytes = bytes.as_bytes().ok_or(rquickjs::Error::Allocation)?;
+    // TextDecoder defaults to non-fatal: replace invalid byte sequences with
+    // U+FFFD rather than throwing. from_utf8_lossy matches that.
+    Ok(String::from_utf8_lossy(bytes).into_owned())
+}
+
 #[rquickjs::function(rename = "sysInfo")]
 pub fn sys_info() -> String {
     format!(

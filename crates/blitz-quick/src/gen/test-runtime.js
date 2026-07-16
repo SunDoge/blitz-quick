@@ -18,7 +18,7 @@
     RemoveEventListener: 14,
     SetClassName: 15,
     FrameEnd: 16,
-    DropNode: 17
+    DropNode: 17,
   };
   var EVENT_CODE = {
     click: 1,
@@ -35,7 +35,7 @@
     wheel: 12,
     focus: 13,
     blur: 14,
-    imecommit: 15
+    imecommit: 15,
   };
   var EVENT_DATA_SLOT = {
     clientX: 0,
@@ -44,26 +44,28 @@
     buttons: 3,
     mods: 4,
     deltaX: 5,
-    deltaY: 6
+    deltaY: 6,
   };
   var EVENT_DATA_LEN = Object.keys(EVENT_DATA_SLOT).length;
-  var encoder = typeof TextEncoder !== "undefined" ? new TextEncoder : null;
+  var encoder = typeof TextEncoder !== "undefined" ? new TextEncoder() : null;
   function utf8Encode(s) {
-    if (encoder)
-      return encoder.encode(s);
+    if (encoder) return encoder.encode(s);
     const out = [];
-    for (let i = 0;i < s.length; i++) {
+    for (let i = 0; i < s.length; i++) {
       const c = s.charCodeAt(i);
-      if (c < 128)
-        out.push(c);
-      else if (c < 2048)
-        out.push(192 | c >> 6, 128 | c & 63);
+      if (c < 128) out.push(c);
+      else if (c < 2048) out.push(192 | (c >> 6), 128 | (c & 63));
       else if (c >= 55296 && c <= 56319) {
         const c2 = s.charCodeAt(++i);
         const cp = 65536 + ((c & 1023) << 10) + (c2 & 1023);
-        out.push(240 | cp >> 18, 128 | cp >> 12 & 63, 128 | cp >> 6 & 63, 128 | cp & 63);
+        out.push(
+          240 | (cp >> 18),
+          128 | ((cp >> 12) & 63),
+          128 | ((cp >> 6) & 63),
+          128 | (cp & 63),
+        );
       } else {
-        out.push(224 | c >> 12, 128 | c >> 6 & 63, 128 | c & 63);
+        out.push(224 | (c >> 12), 128 | ((c >> 6) & 63), 128 | (c & 63));
       }
     }
     return out;
@@ -75,11 +77,9 @@
     count = 0;
     seq = 0;
     ensure(n) {
-      if (this.cursor + n <= this.buf.length)
-        return;
+      if (this.cursor + n <= this.buf.length) return;
       let cap = this.buf.length;
-      while (cap < this.cursor + n)
-        cap *= 2;
+      while (cap < this.cursor + n) cap *= 2;
       const next = new Uint8Array(cap);
       next.set(this.buf);
       this.buf = next;
@@ -92,22 +92,24 @@
       this.ensure(2);
       const c = this.cursor;
       this.buf[c] = v & 255;
-      this.buf[c + 1] = v >> 8 & 255;
+      this.buf[c + 1] = (v >> 8) & 255;
       this.cursor += 2;
     }
     u32(v) {
       this.ensure(4);
       const c = this.cursor;
       this.buf[c] = v & 255;
-      this.buf[c + 1] = v >> 8 & 255;
-      this.buf[c + 2] = v >> 16 & 255;
-      this.buf[c + 3] = v >> 24 & 255;
+      this.buf[c + 1] = (v >> 8) & 255;
+      this.buf[c + 2] = (v >> 16) & 255;
+      this.buf[c + 3] = (v >> 24) & 255;
       this.cursor += 4;
     }
     str(s) {
       const bytes = utf8Encode(s);
       if (bytes.length > 65535) {
-        throw new RangeError(`protocol string is ${bytes.length} bytes; maximum is 65535`);
+        throw new RangeError(
+          `protocol string is ${bytes.length} bytes; maximum is 65535`,
+        );
       }
       this.u16(bytes.length);
       this.ensure(bytes.length);
@@ -116,14 +118,18 @@
     }
     emit(op) {
       if (this.count === 65535) {
-        throw new RangeError("protocol frame cannot contain more than 65535 ops");
+        throw new RangeError(
+          "protocol frame cannot contain more than 65535 ops",
+        );
       }
       this.u8(op);
       this.count++;
     }
     createElement(id, tag, attrs = null) {
       if (attrs && attrs.length > 65535) {
-        throw new RangeError("element cannot contain more than 65535 attributes");
+        throw new RangeError(
+          "element cannot contain more than 65535 attributes",
+        );
       }
       this.emit(OP.CreateElement);
       this.u32(id);
@@ -217,16 +223,15 @@
       this.u32(id);
     }
     flush() {
-      if (this.count === 0)
-        return null;
+      if (this.count === 0) return null;
       this.seq++;
       const s = this.seq;
       this.buf[0] = s & 255;
-      this.buf[1] = s >> 8 & 255;
-      this.buf[2] = s >> 16 & 255;
-      this.buf[3] = s >> 24 & 255;
+      this.buf[1] = (s >> 8) & 255;
+      this.buf[2] = (s >> 16) & 255;
+      this.buf[3] = (s >> 24) & 255;
       this.buf[4] = this.count & 255;
-      this.buf[5] = this.count >> 8 & 255;
+      this.buf[5] = (this.count >> 8) & 255;
       const out = this.buf.subarray(0, this.cursor);
       this.cursor = 6;
       this.count = 0;
@@ -245,11 +250,14 @@
     },
     getNextContextId() {
       return getContextId(this.context.count++);
-    }
+    },
   };
   function getContextId(count) {
-    const num = String(count), len = num.length - 1;
-    return sharedConfig.context.id + (len ? String.fromCharCode(96 + len) : "") + num;
+    const num = String(count),
+      len = num.length - 1;
+    return (
+      sharedConfig.context.id + (len ? String.fromCharCode(96 + len) : "") + num
+    );
   }
   function setHydrateContext(context) {
     sharedConfig.context = context;
@@ -258,7 +266,7 @@
     return {
       ...sharedConfig.context,
       id: sharedConfig.getNextContextId(),
-      count: 0
+      count: 0,
     };
   }
   var IS_DEV = true;
@@ -268,7 +276,7 @@
   var $TRACK = Symbol("solid-track");
   var $DEVCOMP = Symbol("solid-dev-component");
   var signalOptions = {
-    equals: equalFn
+    equals: equalFn,
   };
   var ERROR = null;
   var runEffects = runQueue;
@@ -287,22 +295,34 @@
     afterUpdate: null,
     afterCreateOwner: null,
     afterCreateSignal: null,
-    afterRegisterGraph: null
+    afterRegisterGraph: null,
   };
   function createRoot(fn, detachedOwner) {
-    const listener = Listener, owner = Owner, unowned = fn.length === 0, current = detachedOwner === undefined ? owner : detachedOwner, root = unowned ? {
-      owned: null,
-      cleanups: null,
-      context: null,
-      owner: null
-    } : {
-      owned: null,
-      cleanups: null,
-      context: current ? current.context : null,
-      owner: current
-    }, updateFn = unowned ? () => fn(() => {
-      throw new Error("Dispose method must be an explicit argument to createRoot function");
-    }) : () => fn(() => untrack(() => cleanNode(root)));
+    const listener = Listener,
+      owner = Owner,
+      unowned = fn.length === 0,
+      current = detachedOwner === undefined ? owner : detachedOwner,
+      root = unowned
+        ? {
+            owned: null,
+            cleanups: null,
+            context: null,
+            owner: null,
+          }
+        : {
+            owned: null,
+            cleanups: null,
+            context: current ? current.context : null,
+            owner: current,
+          },
+      updateFn = unowned
+        ? () =>
+            fn(() => {
+              throw new Error(
+                "Dispose method must be an explicit argument to createRoot function",
+              );
+            })
+        : () => fn(() => untrack(() => cleanNode(root)));
     DevHooks.afterCreateOwner && DevHooks.afterCreateOwner(root);
     Owner = root;
     Listener = null;
@@ -314,30 +334,29 @@
     }
   }
   function createSignal(value, options) {
-    options = options ? Object.assign({}, signalOptions, options) : signalOptions;
+    options = options
+      ? Object.assign({}, signalOptions, options)
+      : signalOptions;
     const s = {
       value,
       observers: null,
       observerSlots: null,
-      comparator: options.equals || undefined
+      comparator: options.equals || undefined,
     };
     {
-      if (options.name)
-        s.name = options.name;
+      if (options.name) s.name = options.name;
       if (options.internal) {
         s.internal = true;
       } else {
         registerGraph(s);
-        if (DevHooks.afterCreateSignal)
-          DevHooks.afterCreateSignal(s);
+        if (DevHooks.afterCreateSignal) DevHooks.afterCreateSignal(s);
       }
     }
     const setter = (value2) => {
       if (typeof value2 === "function") {
         if (Transition && Transition.running && Transition.sources.has(s))
           value2 = value2(s.tValue);
-        else
-          value2 = value2(s.value);
+        else value2 = value2(s.value);
       }
       return writeSignal(s, value2);
     };
@@ -345,13 +364,13 @@
   }
   function createRenderEffect(fn, value, options) {
     const c = createComputation(fn, value, false, STALE, options);
-    if (Scheduler && Transition && Transition.running)
-      Updates.push(c);
-    else
-      updateComputation(c);
+    if (Scheduler && Transition && Transition.running) Updates.push(c);
+    else updateComputation(c);
   }
   function createMemo(fn, value, options) {
-    options = options ? Object.assign({}, signalOptions, options) : signalOptions;
+    options = options
+      ? Object.assign({}, signalOptions, options)
+      : signalOptions;
     const c = createComputation(fn, value, true, 0, options);
     c.observers = null;
     c.observerSlots = null;
@@ -359,18 +378,15 @@
     if (Scheduler && Transition && Transition.running) {
       c.tState = STALE;
       Updates.push(c);
-    } else
-      updateComputation(c);
+    } else updateComputation(c);
     return readSignal.bind(c);
   }
   function untrack(fn) {
-    if (!ExternalSourceConfig && Listener === null)
-      return fn();
+    if (!ExternalSourceConfig && Listener === null) return fn();
     const listener = Listener;
     Listener = null;
     try {
-      if (ExternalSourceConfig)
-        return ExternalSourceConfig.untrack(fn);
+      if (ExternalSourceConfig) return ExternalSourceConfig.untrack(fn);
       return fn();
     } finally {
       Listener = listener;
@@ -378,11 +394,11 @@
   }
   function onCleanup(fn) {
     if (Owner === null)
-      console.warn("cleanups created outside a `createRoot` or `render` will never be run");
-    else if (Owner.cleanups === null)
-      Owner.cleanups = [fn];
-    else
-      Owner.cleanups.push(fn);
+      console.warn(
+        "cleanups created outside a `createRoot` or `render` will never be run",
+      );
+    else if (Owner.cleanups === null) Owner.cleanups = [fn];
+    else Owner.cleanups.push(fn);
     return fn;
   }
   function startTransition(fn) {
@@ -397,15 +413,17 @@
       Owner = o;
       let t;
       if (Scheduler || SuspenseContext) {
-        t = Transition || (Transition = {
-          sources: new Set,
-          effects: [],
-          promises: new Set,
-          disposed: new Set,
-          queue: new Set,
-          running: true
-        });
-        t.done || (t.done = new Promise((res) => t.resolve = res));
+        t =
+          Transition ||
+          (Transition = {
+            sources: new Set(),
+            effects: [],
+            promises: new Set(),
+            disposed: new Set(),
+            queue: new Set(),
+            running: true,
+          });
+        t.done || (t.done = new Promise((res) => (t.resolve = res)));
         t.running = true;
       }
       runUpdates(fn, false);
@@ -415,12 +433,18 @@
   }
   var [transPending, setTransPending] = /* @__PURE__ */ createSignal(false);
   function devComponent(Comp, props) {
-    const c = createComputation(() => untrack(() => {
-      Object.assign(Comp, {
-        [$DEVCOMP]: true
-      });
-      return Comp(props);
-    }), undefined, true, 0);
+    const c = createComputation(
+      () =>
+        untrack(() => {
+          Object.assign(Comp, {
+            [$DEVCOMP]: true,
+          });
+          return Comp(props);
+        }),
+      undefined,
+      true,
+      0,
+    );
     c.props = props;
     c.observers = null;
     c.observerSlots = null;
@@ -431,14 +455,11 @@
   }
   function registerGraph(value) {
     if (Owner) {
-      if (Owner.sourceMap)
-        Owner.sourceMap.push(value);
-      else
-        Owner.sourceMap = [value];
+      if (Owner.sourceMap) Owner.sourceMap.push(value);
+      else Owner.sourceMap = [value];
       value.graph = Owner;
     }
-    if (DevHooks.afterRegisterGraph)
-      DevHooks.afterRegisterGraph(value);
+    if (DevHooks.afterRegisterGraph) DevHooks.afterRegisterGraph(value);
   }
   var SuspenseContext;
   function readSignal() {
@@ -473,48 +494,41 @@
         }
       }
     }
-    if (runningTransition && Transition.sources.has(this))
-      return this.tValue;
+    if (runningTransition && Transition.sources.has(this)) return this.tValue;
     return this.value;
   }
   function writeSignal(node, value, isComp) {
-    let current = Transition && Transition.running && Transition.sources.has(node) ? node.tValue : node.value;
+    let current =
+      Transition && Transition.running && Transition.sources.has(node)
+        ? node.tValue
+        : node.value;
     if (!node.comparator || !node.comparator(current, value)) {
       if (Transition) {
         const TransitionRunning = Transition.running;
-        if (TransitionRunning || !isComp && Transition.sources.has(node)) {
+        if (TransitionRunning || (!isComp && Transition.sources.has(node))) {
           Transition.sources.add(node);
           node.tValue = value;
         }
-        if (!TransitionRunning)
-          node.value = value;
-      } else
-        node.value = value;
+        if (!TransitionRunning) node.value = value;
+      } else node.value = value;
       if (node.observers && node.observers.length) {
         runUpdates(() => {
-          for (let i = 0;i < node.observers.length; i += 1) {
+          for (let i = 0; i < node.observers.length; i += 1) {
             const o = node.observers[i];
             const TransitionRunning = Transition && Transition.running;
-            if (TransitionRunning && Transition.disposed.has(o))
-              continue;
+            if (TransitionRunning && Transition.disposed.has(o)) continue;
             if (TransitionRunning ? !o.tState : !o.state) {
-              if (o.pure)
-                Updates.push(o);
-              else
-                Effects.push(o);
-              if (o.observers)
-                markDownstream(o);
+              if (o.pure) Updates.push(o);
+              else Effects.push(o);
+              if (o.observers) markDownstream(o);
             }
-            if (!TransitionRunning)
-              o.state = STALE;
-            else
-              o.tState = STALE;
+            if (!TransitionRunning) o.state = STALE;
+            else o.tState = STALE;
           }
           if (Updates.length > 1e6) {
             Updates = [];
-            if (IS_DEV)
-              throw new Error("Potential Infinite Loop Detected.");
-            throw new Error;
+            if (IS_DEV) throw new Error("Potential Infinite Loop Detected.");
+            throw new Error();
           }
         }, false);
       }
@@ -522,11 +536,16 @@
     return value;
   }
   function updateComputation(node) {
-    if (!node.fn)
-      return;
+    if (!node.fn) return;
     cleanNode(node);
     const time = ExecCount;
-    runComputation(node, Transition && Transition.running && Transition.sources.has(node) ? node.tValue : node.value, time);
+    runComputation(
+      node,
+      Transition && Transition.running && Transition.sources.has(node)
+        ? node.tValue
+        : node.value,
+      time,
+    );
     if (Transition && !Transition.running && Transition.sources.has(node)) {
       queueMicrotask(() => {
         runUpdates(() => {
@@ -540,7 +559,8 @@
   }
   function runComputation(node, value, time) {
     let nextValue;
-    const owner = Owner, listener = Listener;
+    const owner = Owner,
+      listener = Listener;
     Listener = Owner = node;
     try {
       nextValue = node.fn(value);
@@ -566,12 +586,10 @@
       if (node.updatedAt != null && "observers" in node) {
         writeSignal(node, nextValue, true);
       } else if (Transition && Transition.running && node.pure) {
-        if (!Transition.sources.has(node))
-          node.value = nextValue;
+        if (!Transition.sources.has(node)) node.value = nextValue;
         Transition.sources.add(node);
         node.tValue = nextValue;
-      } else
-        node.value = nextValue;
+      } else node.value = nextValue;
       node.updatedAt = time;
     }
   }
@@ -587,48 +605,49 @@
       value: init,
       owner: Owner,
       context: Owner ? Owner.context : null,
-      pure
+      pure,
     };
     if (Transition && Transition.running) {
       c.state = 0;
       c.tState = state;
     }
     if (Owner === null)
-      console.warn("computations created outside a `createRoot` or `render` will never be disposed");
+      console.warn(
+        "computations created outside a `createRoot` or `render` will never be disposed",
+      );
     else if (Owner !== UNOWNED) {
       if (Transition && Transition.running && Owner.pure) {
-        if (!Owner.tOwned)
-          Owner.tOwned = [c];
-        else
-          Owner.tOwned.push(c);
+        if (!Owner.tOwned) Owner.tOwned = [c];
+        else Owner.tOwned.push(c);
       } else {
-        if (!Owner.owned)
-          Owner.owned = [c];
-        else
-          Owner.owned.push(c);
+        if (!Owner.owned) Owner.owned = [c];
+        else Owner.owned.push(c);
       }
     }
-    if (options && options.name)
-      c.name = options.name;
+    if (options && options.name) c.name = options.name;
     if (ExternalSourceConfig && c.fn) {
       const sourceFn = c.fn;
       const [track, trigger] = createSignal(undefined, {
-        equals: false
+        equals: false,
       });
       const ordinary = ExternalSourceConfig.factory(sourceFn, trigger);
       onCleanup(() => ordinary.dispose());
       let inTransition;
-      const triggerInTransition = () => startTransition(trigger).then(() => {
-        if (inTransition) {
-          inTransition.dispose();
-          inTransition = undefined;
-        }
-      });
+      const triggerInTransition = () =>
+        startTransition(trigger).then(() => {
+          if (inTransition) {
+            inTransition.dispose();
+            inTransition = undefined;
+          }
+        });
       c.fn = (x) => {
         track();
         if (Transition && Transition.running) {
           if (!inTransition)
-            inTransition = ExternalSourceConfig.factory(sourceFn, triggerInTransition);
+            inTransition = ExternalSourceConfig.factory(
+              sourceFn,
+              triggerInTransition,
+            );
           return inTransition.track(x);
         }
         return ordinary.track(x);
@@ -639,26 +658,26 @@
   }
   function runTop(node) {
     const runningTransition = Transition && Transition.running;
-    if ((runningTransition ? node.tState : node.state) === 0)
-      return;
+    if ((runningTransition ? node.tState : node.state) === 0) return;
     if ((runningTransition ? node.tState : node.state) === PENDING)
       return lookUpstream(node);
     if (node.suspense && untrack(node.suspense.inFallback))
       return node.suspense.effects.push(node);
     const ancestors = [node];
-    while ((node = node.owner) && (!node.updatedAt || node.updatedAt < ExecCount)) {
-      if (runningTransition && Transition.disposed.has(node))
-        return;
-      if (runningTransition ? node.tState : node.state)
-        ancestors.push(node);
+    while (
+      (node = node.owner) &&
+      (!node.updatedAt || node.updatedAt < ExecCount)
+    ) {
+      if (runningTransition && Transition.disposed.has(node)) return;
+      if (runningTransition ? node.tState : node.state) ancestors.push(node);
     }
-    for (let i = ancestors.length - 1;i >= 0; i--) {
+    for (let i = ancestors.length - 1; i >= 0; i--) {
       node = ancestors[i];
       if (runningTransition) {
-        let top = node, prev = ancestors[i + 1];
+        let top = node,
+          prev = ancestors[i + 1];
         while ((top = top.owner) && top !== prev) {
-          if (Transition.disposed.has(top))
-            return;
+          if (Transition.disposed.has(top)) return;
         }
       }
       if ((runningTransition ? node.tState : node.state) === STALE) {
@@ -672,37 +691,29 @@
     }
   }
   function runUpdates(fn, init) {
-    if (Updates)
-      return fn();
+    if (Updates) return fn();
     let wait = false;
-    if (!init)
-      Updates = [];
-    if (Effects)
-      wait = true;
-    else
-      Effects = [];
+    if (!init) Updates = [];
+    if (Effects) wait = true;
+    else Effects = [];
     ExecCount++;
     try {
       const res = fn();
       completeUpdates(wait);
       return res;
     } catch (err) {
-      if (!wait)
-        Effects = null;
+      if (!wait) Effects = null;
       Updates = null;
       handleError(err);
     }
   }
   function completeUpdates(wait) {
     if (Updates) {
-      if (Scheduler && Transition && Transition.running)
-        scheduleQueue(Updates);
-      else
-        runQueue(Updates);
+      if (Scheduler && Transition && Transition.running) scheduleQueue(Updates);
+      else runQueue(Updates);
       Updates = null;
     }
-    if (wait)
-      return;
+    if (wait) return;
     let res;
     if (Transition) {
       if (!Transition.promises.size && !Transition.queue.size) {
@@ -716,16 +727,14 @@
         }
         Transition = null;
         runUpdates(() => {
-          for (const d of disposed)
-            cleanNode(d);
+          for (const d of disposed) cleanNode(d);
           for (const v of sources) {
             v.value = v.tValue;
             if (v.owned) {
-              for (let i = 0, len = v.owned.length;i < len; i++)
+              for (let i = 0, len = v.owned.length; i < len; i++)
                 cleanNode(v.owned[i]);
             }
-            if (v.tOwned)
-              v.owned = v.tOwned;
+            if (v.tOwned) v.owned = v.tOwned;
             delete v.tValue;
             delete v.tOwned;
             v.tState = 0;
@@ -742,19 +751,15 @@
     }
     const e = Effects;
     Effects = null;
-    if (e.length)
-      runUpdates(() => runEffects(e), false);
-    else
-      DevHooks.afterUpdate && DevHooks.afterUpdate();
-    if (res)
-      res();
+    if (e.length) runUpdates(() => runEffects(e), false);
+    else DevHooks.afterUpdate && DevHooks.afterUpdate();
+    if (res) res();
   }
   function runQueue(queue) {
-    for (let i = 0;i < queue.length; i++)
-      runTop(queue[i]);
+    for (let i = 0; i < queue.length; i++) runTop(queue[i]);
   }
   function scheduleQueue(queue) {
-    for (let i = 0;i < queue.length; i++) {
+    for (let i = 0; i < queue.length; i++) {
       const item = queue[i];
       const tasks = Transition.queue;
       if (!tasks.has(item)) {
@@ -772,35 +777,31 @@
   }
   function lookUpstream(node, ignore) {
     const runningTransition = Transition && Transition.running;
-    if (runningTransition)
-      node.tState = 0;
-    else
-      node.state = 0;
-    for (let i = 0;i < node.sources.length; i += 1) {
+    if (runningTransition) node.tState = 0;
+    else node.state = 0;
+    for (let i = 0; i < node.sources.length; i += 1) {
       const source = node.sources[i];
       if (source.sources) {
         const state = runningTransition ? source.tState : source.state;
         if (state === STALE) {
-          if (source !== ignore && (!source.updatedAt || source.updatedAt < ExecCount))
+          if (
+            source !== ignore &&
+            (!source.updatedAt || source.updatedAt < ExecCount)
+          )
             runTop(source);
-        } else if (state === PENDING)
-          lookUpstream(source, ignore);
+        } else if (state === PENDING) lookUpstream(source, ignore);
       }
     }
   }
   function markDownstream(node) {
     const runningTransition = Transition && Transition.running;
-    for (let i = 0;i < node.observers.length; i += 1) {
+    for (let i = 0; i < node.observers.length; i += 1) {
       const o = node.observers[i];
       if (runningTransition ? !o.tState : !o.state) {
-        if (runningTransition)
-          o.tState = PENDING;
-        else
-          o.state = PENDING;
-        if (o.pure)
-          Updates.push(o);
-        else
-          Effects.push(o);
+        if (runningTransition) o.tState = PENDING;
+        else o.state = PENDING;
+        if (o.pure) Updates.push(o);
+        else Effects.push(o);
         o.observers && markDownstream(o);
       }
     }
@@ -809,9 +810,12 @@
     let i;
     if (node.sources) {
       while (node.sources.length) {
-        const source = node.sources.pop(), index = node.sourceSlots.pop(), obs = source.observers;
+        const source = node.sources.pop(),
+          index = node.sourceSlots.pop(),
+          obs = source.observers;
         if (obs && obs.length) {
-          const n = obs.pop(), s = source.observerSlots.pop();
+          const n = obs.pop(),
+            s = source.observerSlots.pop();
           if (index < obs.length) {
             n.sourceSlots[s] = index;
             obs[index] = n;
@@ -821,26 +825,21 @@
       }
     }
     if (node.tOwned) {
-      for (i = node.tOwned.length - 1;i >= 0; i--)
-        cleanNode(node.tOwned[i]);
+      for (i = node.tOwned.length - 1; i >= 0; i--) cleanNode(node.tOwned[i]);
       delete node.tOwned;
     }
     if (Transition && Transition.running && node.pure) {
       reset(node, true);
     } else if (node.owned) {
-      for (i = node.owned.length - 1;i >= 0; i--)
-        cleanNode(node.owned[i]);
+      for (i = node.owned.length - 1; i >= 0; i--) cleanNode(node.owned[i]);
       node.owned = null;
     }
     if (node.cleanups) {
-      for (i = node.cleanups.length - 1;i >= 0; i--)
-        node.cleanups[i]();
+      for (i = node.cleanups.length - 1; i >= 0; i--) node.cleanups[i]();
       node.cleanups = null;
     }
-    if (Transition && Transition.running)
-      node.tState = 0;
-    else
-      node.state = 0;
+    if (Transition && Transition.running) node.tState = 0;
+    else node.state = 0;
     delete node.sourceMap;
   }
   function reset(node, top) {
@@ -849,39 +848,34 @@
       Transition.disposed.add(node);
     }
     if (node.owned) {
-      for (let i = 0;i < node.owned.length; i++)
-        reset(node.owned[i]);
+      for (let i = 0; i < node.owned.length; i++) reset(node.owned[i]);
     }
   }
   function castError(err) {
-    if (err instanceof Error)
-      return err;
+    if (err instanceof Error) return err;
     return new Error(typeof err === "string" ? err : "Unknown error", {
-      cause: err
+      cause: err,
     });
   }
   function runErrors(err, fns, owner) {
     try {
-      for (const f of fns)
-        f(err);
+      for (const f of fns) f(err);
     } catch (e) {
-      handleError(e, owner && owner.owner || null);
+      handleError(e, (owner && owner.owner) || null);
     }
   }
   function handleError(err, owner = Owner) {
     const fns = ERROR && owner && owner.context && owner.context[ERROR];
     const error = castError(err);
-    if (!fns)
-      throw error;
+    if (!fns) throw error;
     if (Effects)
       Effects.push({
         fn() {
           runErrors(error, fns, owner);
         },
-        state: STALE
+        state: STALE,
       });
-    else
-      runErrors(error, fns, owner);
+    else runErrors(error, fns, owner);
   }
   var FALLBACK = Symbol("fallback");
   var hydrationEnabled = false;
@@ -902,13 +896,11 @@
   }
   var propTraps = {
     get(_, property, receiver) {
-      if (property === $PROXY)
-        return receiver;
+      if (property === $PROXY) return receiver;
       return _.get(property);
     },
     has(_, property) {
-      if (property === $PROXY)
-        return true;
+      if (property === $PROXY) return true;
       return _.has(property);
     },
     set: trueFn,
@@ -921,99 +913,102 @@
           return _.get(property);
         },
         set: trueFn,
-        deleteProperty: trueFn
+        deleteProperty: trueFn,
       };
     },
     ownKeys(_) {
       return _.keys();
-    }
+    },
   };
   function resolveSource(s) {
     return !(s = typeof s === "function" ? s() : s) ? {} : s;
   }
   function resolveSources() {
-    for (let i = 0, length = this.length;i < length; ++i) {
+    for (let i = 0, length = this.length; i < length; ++i) {
       const v = this[i]();
-      if (v !== undefined)
-        return v;
+      if (v !== undefined) return v;
     }
   }
   function mergeProps(...sources) {
     let proxy = false;
-    for (let i = 0;i < sources.length; i++) {
+    for (let i = 0; i < sources.length; i++) {
       const s = sources[i];
-      proxy = proxy || !!s && $PROXY in s;
-      sources[i] = typeof s === "function" ? (proxy = true, createMemo(s)) : s;
+      proxy = proxy || (!!s && $PROXY in s);
+      sources[i] =
+        typeof s === "function" ? ((proxy = true), createMemo(s)) : s;
     }
     if (SUPPORTS_PROXY && proxy) {
-      return new Proxy({
-        get(property) {
-          for (let i = sources.length - 1;i >= 0; i--) {
-            const v = resolveSource(sources[i])[property];
-            if (v !== undefined)
-              return v;
-          }
+      return new Proxy(
+        {
+          get(property) {
+            for (let i = sources.length - 1; i >= 0; i--) {
+              const v = resolveSource(sources[i])[property];
+              if (v !== undefined) return v;
+            }
+          },
+          has(property) {
+            for (let i = sources.length - 1; i >= 0; i--) {
+              if (property in resolveSource(sources[i])) return true;
+            }
+            return false;
+          },
+          keys() {
+            const keys = [];
+            for (let i = 0; i < sources.length; i++)
+              keys.push(...Object.keys(resolveSource(sources[i])));
+            return [...new Set(keys)];
+          },
         },
-        has(property) {
-          for (let i = sources.length - 1;i >= 0; i--) {
-            if (property in resolveSource(sources[i]))
-              return true;
-          }
-          return false;
-        },
-        keys() {
-          const keys = [];
-          for (let i = 0;i < sources.length; i++)
-            keys.push(...Object.keys(resolveSource(sources[i])));
-          return [...new Set(keys)];
-        }
-      }, propTraps);
+        propTraps,
+      );
     }
     const sourcesMap = {};
     const defined = Object.create(null);
-    for (let i = sources.length - 1;i >= 0; i--) {
+    for (let i = sources.length - 1; i >= 0; i--) {
       const source = sources[i];
-      if (!source)
-        continue;
+      if (!source) continue;
       const sourceKeys = Object.getOwnPropertyNames(source);
-      for (let i2 = sourceKeys.length - 1;i2 >= 0; i2--) {
+      for (let i2 = sourceKeys.length - 1; i2 >= 0; i2--) {
         const key = sourceKeys[i2];
-        if (key === "__proto__" || key === "constructor")
-          continue;
+        if (key === "__proto__" || key === "constructor") continue;
         const desc = Object.getOwnPropertyDescriptor(source, key);
         if (!defined[key]) {
-          defined[key] = desc.get ? {
-            enumerable: true,
-            configurable: true,
-            get: resolveSources.bind(sourcesMap[key] = [desc.get.bind(source)])
-          } : desc.value !== undefined ? desc : undefined;
+          defined[key] = desc.get
+            ? {
+                enumerable: true,
+                configurable: true,
+                get: resolveSources.bind(
+                  (sourcesMap[key] = [desc.get.bind(source)]),
+                ),
+              }
+            : desc.value !== undefined
+              ? desc
+              : undefined;
         } else {
           const sources2 = sourcesMap[key];
           if (sources2) {
-            if (desc.get)
-              sources2.push(desc.get.bind(source));
-            else if (desc.value !== undefined)
-              sources2.push(() => desc.value);
+            if (desc.get) sources2.push(desc.get.bind(source));
+            else if (desc.value !== undefined) sources2.push(() => desc.value);
           }
         }
       }
     }
     const target = {};
     const definedKeys = Object.keys(defined);
-    for (let i = definedKeys.length - 1;i >= 0; i--) {
-      const key = definedKeys[i], desc = defined[key];
-      if (desc && desc.get)
-        Object.defineProperty(target, key, desc);
-      else
-        target[key] = desc ? desc.value : undefined;
+    for (let i = definedKeys.length - 1; i >= 0; i--) {
+      const key = definedKeys[i],
+        desc = defined[key];
+      if (desc && desc.get) Object.defineProperty(target, key, desc);
+      else target[key] = desc ? desc.value : undefined;
     }
     return target;
   }
   if (globalThis) {
-    if (!globalThis.Solid$$)
-      globalThis.Solid$$ = true;
+    if (!globalThis.Solid$$) globalThis.Solid$$ = true;
     else
-      console.warn("You appear to have multiple instances of Solid. This can lead to unexpected behavior.");
+      console.warn(
+        "You appear to have multiple instances of Solid. This can lead to unexpected behavior.",
+      );
   }
 
   // node_modules/.bun/solid-js@1.9.14/node_modules/solid-js/universal/dist/dev.js
@@ -1028,34 +1023,33 @@
     setProperty,
     getParentNode,
     getFirstChild,
-    getNextSibling
+    getNextSibling,
   }) {
     function insert(parent, accessor, marker, initial) {
-      if (marker !== undefined && !initial)
-        initial = [];
+      if (marker !== undefined && !initial) initial = [];
       if (typeof accessor !== "function")
         return insertExpression(parent, accessor, initial, marker);
-      createRenderEffect((current) => insertExpression(parent, accessor(), current, marker), initial);
+      createRenderEffect(
+        (current) => insertExpression(parent, accessor(), current, marker),
+        initial,
+      );
     }
     function insertExpression(parent, value, current, marker, unwrapArray) {
-      while (typeof current === "function")
-        current = current();
-      if (value === current)
-        return current;
-      const t = typeof value, multi = marker !== undefined;
+      while (typeof current === "function") current = current();
+      if (value === current) return current;
+      const t = typeof value,
+        multi = marker !== undefined;
       if (t === "string" || t === "number") {
-        if (t === "number")
-          value = value.toString();
+        if (t === "number") value = value.toString();
         if (multi) {
           let node = current[0];
           if (node && isTextNode(node)) {
             replaceText(node, value);
-          } else
-            node = createTextNode(value);
+          } else node = createTextNode(value);
           current = cleanChildren(parent, current, marker, node);
         } else {
           if (current !== "" && typeof current === "string") {
-            replaceText(getFirstChild(parent), current = value);
+            replaceText(getFirstChild(parent), (current = value));
           } else {
             cleanChildren(parent, current, marker, createTextNode(value));
             current = value;
@@ -1066,73 +1060,94 @@
       } else if (t === "function") {
         createRenderEffect(() => {
           let v = value();
-          while (typeof v === "function")
-            v = v();
+          while (typeof v === "function") v = v();
           current = insertExpression(parent, v, current, marker);
         });
         return () => current;
       } else if (Array.isArray(value)) {
         const array = [];
         if (normalizeIncomingArray(array, value, unwrapArray)) {
-          createRenderEffect(() => current = insertExpression(parent, array, current, marker, true));
+          createRenderEffect(
+            () =>
+              (current = insertExpression(
+                parent,
+                array,
+                current,
+                marker,
+                true,
+              )),
+          );
           return () => current;
         }
         if (array.length === 0) {
           const replacement = cleanChildren(parent, current, marker);
-          if (multi)
-            return current = replacement;
+          if (multi) return (current = replacement);
         } else {
           if (Array.isArray(current)) {
             if (current.length === 0) {
               appendNodes(parent, array, marker);
-            } else
-              reconcileArrays(parent, current, array);
+            } else reconcileArrays(parent, current, array);
           } else if (current == null || current === "") {
             appendNodes(parent, array);
           } else {
-            reconcileArrays(parent, multi && current || [getFirstChild(parent)], array);
+            reconcileArrays(
+              parent,
+              (multi && current) || [getFirstChild(parent)],
+              array,
+            );
           }
         }
         current = array;
       } else {
         if (Array.isArray(current)) {
           if (multi)
-            return current = cleanChildren(parent, current, marker, value);
+            return (current = cleanChildren(parent, current, marker, value));
           cleanChildren(parent, current, null, value);
-        } else if (current == null || current === "" || !getFirstChild(parent)) {
+        } else if (
+          current == null ||
+          current === "" ||
+          !getFirstChild(parent)
+        ) {
           insertNode(parent, value);
-        } else
-          replaceNode(parent, value, getFirstChild(parent));
+        } else replaceNode(parent, value, getFirstChild(parent));
         current = value;
       }
       return current;
     }
     function normalizeIncomingArray(normalized, array, unwrap) {
       let dynamic = false;
-      for (let i = 0, len = array.length;i < len; i++) {
-        let item = array[i], t;
-        if (item == null || item === true || item === false)
-          ;
+      for (let i = 0, len = array.length; i < len; i++) {
+        let item = array[i],
+          t;
+        if (item == null || item === true || item === false);
         else if (Array.isArray(item)) {
           dynamic = normalizeIncomingArray(normalized, item) || dynamic;
         } else if ((t = typeof item) === "string" || t === "number") {
           normalized.push(createTextNode(item));
         } else if (t === "function") {
           if (unwrap) {
-            while (typeof item === "function")
-              item = item();
-            dynamic = normalizeIncomingArray(normalized, Array.isArray(item) ? item : [item]) || dynamic;
+            while (typeof item === "function") item = item();
+            dynamic =
+              normalizeIncomingArray(
+                normalized,
+                Array.isArray(item) ? item : [item],
+              ) || dynamic;
           } else {
             normalized.push(item);
             dynamic = true;
           }
-        } else
-          normalized.push(item);
+        } else normalized.push(item);
       }
       return dynamic;
     }
     function reconcileArrays(parentNode, a, b) {
-      let bLength = b.length, aEnd = a.length, bEnd = bLength, aStart = 0, bStart = 0, after = getNextSibling(a[aEnd - 1]), map = null;
+      let bLength = b.length,
+        aEnd = a.length,
+        bEnd = bLength,
+        aStart = 0,
+        bStart = 0,
+        after = getNextSibling(a[aEnd - 1]),
+        map = null;
       while (aStart < aEnd || bStart < bEnd) {
         if (a[aStart] === b[bStart]) {
           aStart++;
@@ -1144,13 +1159,16 @@
           bEnd--;
         }
         if (aEnd === aStart) {
-          const node = bEnd < bLength ? bStart ? getNextSibling(b[bStart - 1]) : b[bEnd - bStart] : after;
-          while (bStart < bEnd)
-            insertNode(parentNode, b[bStart++], node);
+          const node =
+            bEnd < bLength
+              ? bStart
+                ? getNextSibling(b[bStart - 1])
+                : b[bEnd - bStart]
+              : after;
+          while (bStart < bEnd) insertNode(parentNode, b[bStart++], node);
         } else if (bEnd === bStart) {
           while (aStart < aEnd) {
-            if (!map || !map.has(a[aStart]))
-              removeNode(parentNode, a[aStart]);
+            if (!map || !map.has(a[aStart])) removeNode(parentNode, a[aStart]);
             aStart++;
           }
         } else if (a[aStart] === b[bEnd - 1] && b[bStart] === a[aEnd - 1]) {
@@ -1160,15 +1178,16 @@
           a[aEnd] = b[bEnd];
         } else {
           if (!map) {
-            map = new Map;
+            map = new Map();
             let i = bStart;
-            while (i < bEnd)
-              map.set(b[i], i++);
+            while (i < bEnd) map.set(b[i], i++);
           }
           const index = map.get(a[aStart]);
           if (index != null) {
             if (bStart < index && index < bEnd) {
-              let i = aStart, sequence = 1, t;
+              let i = aStart,
+                sequence = 1,
+                t;
               while (++i < aEnd && i < bEnd) {
                 if ((t = map.get(a[i])) == null || t !== index + sequence)
                   break;
@@ -1178,43 +1197,38 @@
                 const node = a[aStart];
                 while (bStart < index)
                   insertNode(parentNode, b[bStart++], node);
-              } else
-                replaceNode(parentNode, b[bStart++], a[aStart++]);
-            } else
-              aStart++;
-          } else
-            removeNode(parentNode, a[aStart++]);
+              } else replaceNode(parentNode, b[bStart++], a[aStart++]);
+            } else aStart++;
+          } else removeNode(parentNode, a[aStart++]);
         }
       }
     }
     function cleanChildren(parent, current, marker, replacement) {
       if (marker === undefined) {
         let removed;
-        while (removed = getFirstChild(parent))
-          removeNode(parent, removed);
+        while ((removed = getFirstChild(parent))) removeNode(parent, removed);
         replacement && insertNode(parent, replacement);
         return "";
       }
       const node = replacement || createTextNode("");
       if (current.length) {
         let inserted = false;
-        for (let i = current.length - 1;i >= 0; i--) {
+        for (let i = current.length - 1; i >= 0; i--) {
           const el = current[i];
           if (node !== el) {
             const isParent = getParentNode(el) === parent;
             if (!inserted && !i)
-              isParent ? replaceNode(parent, node, el) : insertNode(parent, node, marker);
-            else
-              isParent && removeNode(parent, el);
-          } else
-            inserted = true;
+              isParent
+                ? replaceNode(parent, node, el)
+                : insertNode(parent, node, marker);
+            else isParent && removeNode(parent, el);
+          } else inserted = true;
         }
-      } else
-        insertNode(parent, node, marker);
+      } else insertNode(parent, node, marker);
       return [node];
     }
     function appendNodes(parent, array, marker) {
-      for (let i = 0, len = array.length;i < len; i++)
+      for (let i = 0, len = array.length; i < len; i++)
         insertNode(parent, array[i], marker);
     }
     function replaceNode(parent, newNode, oldNode) {
@@ -1224,16 +1238,21 @@
     function spreadExpression(node, props, prevProps = {}, skipChildren) {
       props || (props = {});
       if (!skipChildren) {
-        createRenderEffect(() => prevProps.children = insertExpression(node, props.children, prevProps.children));
+        createRenderEffect(
+          () =>
+            (prevProps.children = insertExpression(
+              node,
+              props.children,
+              prevProps.children,
+            )),
+        );
       }
       createRenderEffect(() => props.ref && props.ref(node));
       createRenderEffect(() => {
         for (const prop in props) {
-          if (prop === "children" || prop === "ref")
-            continue;
+          if (prop === "children" || prop === "ref") continue;
           const value = props[prop];
-          if (value === prevProps[prop])
-            continue;
+          if (value === prevProps[prop]) continue;
           setProperty(node, prop, value, prevProps[prop]);
           prevProps[prop] = value;
         }
@@ -1252,9 +1271,10 @@
       insert,
       spread(node, accessor, skipChildren) {
         if (typeof accessor === "function") {
-          createRenderEffect((current) => spreadExpression(node, accessor(), current, skipChildren));
-        } else
-          spreadExpression(node, accessor, undefined, skipChildren);
+          createRenderEffect((current) =>
+            spreadExpression(node, accessor(), current, skipChildren),
+          );
+        } else spreadExpression(node, accessor, undefined, skipChildren);
       },
       createElement,
       createTextNode,
@@ -1269,7 +1289,7 @@
       createComponent,
       use(fn, element, arg) {
         return untrack(() => fn(element, arg));
-      }
+      },
     };
   }
   function createRenderer(options) {
@@ -1284,27 +1304,26 @@
   var nextSlot = 2;
   var listenersBySlot = [];
   var nodesBySlot = [];
-  var finalizationRegistry = typeof FinalizationRegistry !== "undefined" ? new FinalizationRegistry((id) => {
-    const slot = id & 1048575;
-    const expectedGen = id >>> 20;
-    if (GENERATIONS[slot] !== expectedGen)
-      return;
-    nodesBySlot[slot] = undefined;
-    listenersBySlot[slot] = undefined;
-    writer.dropNode(id);
-    freeId(id);
-  }) : null;
-  var sweepSet = new Set;
+  var finalizationRegistry =
+    typeof FinalizationRegistry !== "undefined"
+      ? new FinalizationRegistry((id) => {
+          const slot = id & 1048575;
+          const expectedGen = id >>> 20;
+          if (GENERATIONS[slot] !== expectedGen) return;
+          nodesBySlot[slot] = undefined;
+          listenersBySlot[slot] = undefined;
+          writer.dropNode(id);
+          freeId(id);
+        })
+      : null;
+  var sweepSet = new Set();
   function runSweep() {
-    if (sweepSet.size === 0)
-      return;
+    if (sweepSet.size === 0) return;
     for (const node of sweepSet) {
-      if (node.parent !== null)
-        continue;
+      if (node.parent !== null) continue;
       const destroy = (n) => {
         const slot = n.id & 1048575;
-        if (nodesBySlot[slot] === undefined)
-          return;
+        if (nodesBySlot[slot] === undefined) return;
         finalizationRegistry?.unregister(n);
         nodesBySlot[slot] = undefined;
         listenersBySlot[slot] = undefined;
@@ -1329,11 +1348,11 @@
       GENERATIONS[slot] = 0;
     }
     const gen = GENERATIONS[slot];
-    return (gen << 20 | slot) >>> 0;
+    return ((gen << 20) | slot) >>> 0;
   }
   function freeId(id) {
     const slot = id & 1048575;
-    GENERATIONS[slot] = GENERATIONS[slot] + 1 & 4095;
+    GENERATIONS[slot] = (GENERATIONS[slot] + 1) & 4095;
     FREE_LIST.push(slot);
   }
   function makeHandle(tag) {
@@ -1345,7 +1364,7 @@
       firstChild: null,
       lastChild: null,
       prev: null,
-      next: null
+      next: null,
     };
     if (typeof WeakRef !== "undefined") {
       nodesBySlot[id & 1048575] = new WeakRef(h);
@@ -1360,35 +1379,26 @@
     if (ref == null) {
       child.prev = parent.lastChild;
       child.next = null;
-      if (parent.lastChild)
-        parent.lastChild.next = child;
-      else
-        parent.firstChild = child;
+      if (parent.lastChild) parent.lastChild.next = child;
+      else parent.firstChild = child;
       parent.lastChild = child;
     } else {
       child.prev = ref.prev;
       child.next = ref;
-      if (ref.prev)
-        ref.prev.next = child;
-      else
-        parent.firstChild = child;
+      if (ref.prev) ref.prev.next = child;
+      else parent.firstChild = child;
       ref.prev = child;
     }
   }
   function unlinkChild(parent, child) {
-    if (child.prev)
-      child.prev.next = child.next;
-    else
-      parent.firstChild = child.next;
-    if (child.next)
-      child.next.prev = child.prev;
-    else
-      parent.lastChild = child.prev;
+    if (child.prev) child.prev.next = child.next;
+    else parent.firstChild = child.next;
+    if (child.next) child.next.prev = child.prev;
+    else parent.lastChild = child.prev;
     child.parent = child.prev = child.next = null;
   }
   function applyProperty(writer, node, name, value, prev) {
-    if (value === prev)
-      return;
+    if (value === prev) return;
     if (value == null || value === false) {
       if (name.startsWith("on") && name.length > 2) {
         const t = EVENT_CODE[name.slice(2).toLowerCase()] ?? null;
@@ -1409,11 +1419,8 @@
     if (name === "style" && typeof value === "object" && value !== null) {
       const rec = value;
       const prec = prev && typeof prev === "object" ? prev : {};
-      for (const k in rec)
-        writer.setStyle(node.id, k, String(rec[k]));
-      for (const k in prec)
-        if (!(k in rec))
-          writer.removeStyle(node.id, k);
+      for (const k in rec) writer.setStyle(node.id, k, String(rec[k]));
+      for (const k in prec) if (!(k in rec)) writer.removeStyle(node.id, k);
       return;
     }
     if (name === "textContent") {
@@ -1426,7 +1433,7 @@
       const slot = node.id & 1048575;
       let m = listenersBySlot[slot];
       if (!m) {
-        m = new Map;
+        m = new Map();
         listenersBySlot[slot] = m;
       }
       m.set(t, value);
@@ -1434,7 +1441,7 @@
     }
     writer.setAttribute(node.id, name, String(value));
   }
-  var writer = new Writer;
+  var writer = new Writer();
   var renderer = createRenderer({
     createElement(tag) {
       const h = makeHandle(tag);
@@ -1480,7 +1487,7 @@
     },
     getNextSibling(node) {
       return node.next ?? undefined;
-    }
+    },
   });
   var render = renderer.render;
   var createElement = renderer.createElement;
@@ -1507,7 +1514,7 @@
       firstChild: null,
       lastChild: null,
       prev: null,
-      next: null
+      next: null,
     };
     registerRoot(root);
     return render(code, root);
@@ -1521,7 +1528,12 @@
     } else {
       const ed = globalThis.__blitz_event_data;
       if (ed) {
-        if (eventCode === EVENT_CODE.pointerup || eventCode === EVENT_CODE.pointerdown || eventCode === EVENT_CODE.pointermove || eventCode === EVENT_CODE.click) {
+        if (
+          eventCode === EVENT_CODE.pointerup ||
+          eventCode === EVENT_CODE.pointerdown ||
+          eventCode === EVENT_CODE.pointermove ||
+          eventCode === EVENT_CODE.click
+        ) {
           data.clientX = ed[0];
           data.clientY = ed[1];
           data.button = ed[2];
@@ -1550,7 +1562,7 @@
       },
       get propagationStopped() {
         return stopped;
-      }
+      },
     };
     bubble(solidId, eventCode, ev);
     if (eventCode === EVENT_CODE.pointerup) {
@@ -1576,17 +1588,16 @@
           __host_log(String(e));
         }
       }
-      if (ev.propagationStopped)
-        return;
+      if (ev.propagationStopped) return;
       const weakHandle = nodesBySlot[slot];
-      const handle = weakHandle instanceof WeakRef ? weakHandle.deref() : weakHandle;
+      const handle =
+        weakHandle instanceof WeakRef ? weakHandle.deref() : weakHandle;
       cur = handle?.parent?.id ?? null;
     }
   }
   function eventName(code) {
     for (const [name, c] of Object.entries(EVENT_CODE)) {
-      if (c === code)
-        return name;
+      if (c === code) return name;
     }
     return "unknown";
   }
@@ -1599,14 +1610,14 @@
     href;
     constructor(url, base) {
       let full = url;
-      let baseStr = typeof base === "string" ? base : base ? base.href : undefined;
+      let baseStr =
+        typeof base === "string" ? base : base ? base.href : undefined;
       if (baseStr && !url.startsWith("http"))
         full = baseStr + (url.startsWith("/") ? "" : "/") + url;
       const [pathAndQuery, hash] = full.split("#");
       const [path, search] = pathAndQuery.split("?");
       this.pathname = path.replace(/^https?:\/\/[^\/]+/, "");
-      if (!this.pathname.startsWith("/"))
-        this.pathname = "/" + this.pathname;
+      if (!this.pathname.startsWith("/")) this.pathname = "/" + this.pathname;
       this.search = search ? "?" + search : "";
       this.hash = hash ? "#" + hash : "";
       this.href = full;
@@ -1644,15 +1655,15 @@
       delete this.params[k];
     }
     toString() {
-      return Object.entries(this.params).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
+      return Object.entries(this.params)
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+        .join("&");
     }
     *entries() {
-      for (const k in this.params)
-        yield [k, this.params[k]];
+      for (const k in this.params) yield [k, this.params[k]];
     }
     forEach(cb) {
-      for (const k in this.params)
-        cb(this.params[k], k, this);
+      for (const k in this.params) cb(this.params[k], k, this);
     }
   }
   globalThis.URLSearchParams = DummyURLSearchParams;
@@ -1660,10 +1671,12 @@
     addEventListener: () => {},
     removeEventListener: () => {},
     getElementById: () => null,
-    baseURI: "http://localhost"
+    baseURI: "http://localhost",
   };
-  if (typeof TextEncoder === "undefined" && typeof __host_utf8_encode !== "undefined") {
-
+  if (
+    typeof TextEncoder === "undefined" &&
+    typeof __host_utf8_encode !== "undefined"
+  ) {
     class TextEncoderPolyfill {
       encode(s) {
         return __host_utf8_encode(s);
@@ -1673,70 +1686,69 @@
   }
   function emitConsole(tag, args) {
     const parts = [];
-    for (let i = 0;i < args.length; i++) {
+    for (let i = 0; i < args.length; i++) {
       const a = args[i];
       parts.push(typeof a === "string" ? a : String(a));
     }
     __host_log_level(tag, parts.join(" "));
   }
   globalThis.console = {
-    log: function() {
+    log: function () {
       emitConsole("log", arguments);
     },
-    info: function() {
+    info: function () {
       emitConsole("info", arguments);
     },
-    warn: function() {
+    warn: function () {
       emitConsole("warn", arguments);
     },
-    error: function() {
+    error: function () {
       emitConsole("error", arguments);
     },
-    debug: function() {
+    debug: function () {
       emitConsole("debug", arguments);
-    }
+    },
   };
   globalThis.window = {
     history: {
       state: {},
-      replaceState: function(s) {
+      replaceState: function (s) {
         this.state = s;
       },
-      go: function() {},
-      length: 1
+      go: function () {},
+      length: 1,
     },
     location: {
       origin: "http://localhost",
       pathname: "/",
       search: "",
-      hash: ""
+      hash: "",
     },
-    scrollTo: function() {}
+    scrollTo: function () {},
   };
   var nextFetchId = 1;
-  globalThis.fetch = function(url, init) {
+  globalThis.fetch = function (url, init) {
     const id = nextFetchId++;
     const method = init && init.method ? String(init.method) : "GET";
     const headers = init && init.headers ? JSON.stringify(init.headers) : "{}";
     const body = init && init.body ? String(init.body) : null;
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
       __fetch_start(id, String(url), method, headers, body, resolve, reject);
-    }).then(function(res) {
-      if (res.error)
-        throw new Error(res.error);
+    }).then(function (res) {
+      if (res.error) throw new Error(res.error);
       return {
         status: res.status,
         headers: res.headers,
-        text: function() {
+        text: function () {
           return Promise.resolve(res.body);
         },
-        json: function() {
+        json: function () {
           return Promise.resolve(JSON.parse(res.body));
-        }
+        },
       };
     });
   };
-  var rafQueue = new Map;
+  var rafQueue = new Map();
   var nextRafId = 1;
   function requestAnimationFrameImpl(cb) {
     const id = nextRafId++;
@@ -1759,8 +1771,7 @@
     }
     runSweep();
     const bytes = writer.flush();
-    if (bytes)
-      __bridge_flush(bytes);
+    if (bytes) __bridge_flush(bytes);
     return rafQueue.size > 0;
   }
   function __dispatchEvent(solidId, eventCode, payload) {
@@ -1774,7 +1785,7 @@
   globalThis.__tick = __tick;
   globalThis.__dispatchEvent = __dispatchEvent;
   globalThis.__hasRaf = __hasRaf;
-  var timers = new Map;
+  var timers = new Map();
   var nextTimerId = 1;
   function setTimeoutImpl(cb, delay, ...args) {
     const id = nextTimerId++;
@@ -1794,8 +1805,7 @@
   }
   function __triggerTimer(id) {
     const entry = timers.get(id);
-    if (!entry)
-      return;
+    if (!entry) return;
     try {
       entry.cb(...entry.args);
     } catch (e) {

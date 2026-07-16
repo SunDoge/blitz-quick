@@ -89,8 +89,11 @@ declare global {
   function __register_timer(id: number, delay: number, repeat: boolean): void;
   function __unregister_timer(id: number): void;
   function __host_utf8_encode(s: string): Uint8Array;
+  function __host_utf8_decode(bytes: Uint8Array): string;
   function sysInfo(): string;
   function myCustomFfi(msg: string): string;
+  function __resize_observe(solidId: number): void;
+  function __resize_unobserve(solidId: number): void;
 }
 
 if (
@@ -103,6 +106,99 @@ if (
     }
   }
   (globalThis as any).TextEncoder = TextEncoderPolyfill;
+}
+
+if (
+  typeof TextDecoder === "undefined" &&
+  typeof __host_utf8_decode !== "undefined"
+) {
+  // Minimal TextDecoder: UTF-8 only (the only encoding the host fn supports),
+  // non-fatal by default (invalid bytes become U+FFFD, matching the spec's
+  // default `fatal: false`). The `fatal` option is honored by re-checking.
+  class TextDecoderPolyfill {
+    private fatal: boolean;
+    constructor(label?: string, options?: { fatal?: boolean }) {
+      // Label is ignored — we only speak UTF-8.
+      this.fatal = options?.fatal ?? false;
+    }
+    decode(bytes: Uint8Array): string {
+      const s = __host_utf8_decode(bytes);
+      if (this.fatal) {
+        // Round-trip check: re-encode and compare. U+FFFD from lossy decode
+        // only appears when input was invalid, so a mismatch means the bytes
+        // weren't valid UTF-8.
+        const re = __host_utf8_encode(s);
+        if (re.length !== bytes.length || !re.every((b, i) => b === bytes[i])) {
+          throw new TypeError("The encoded data was not valid UTF-8");
+        }
+      }
+      return s;
+    }
+  }
+  (globalThis as any).TextDecoder = TextDecoderPolyfill;
+}
+
+// structuredClone polyfill — QuickJS doesn't ship it. Covers plain objects,
+// arrays, Date, RegExp, Map, Set, ArrayBuffers and typed arrays. Functions
+// and symbols are not cloneable per the spec and throw.
+if (typeof structuredClone === "undefined") {
+  function structuredClonePolyfill<T>(value: T, _options?: any): T {
+    const seen = new Map<any, any>();
+    const clone = (v: any): any => {
+      if (v === null || typeof v !== "object") return v;
+      if (seen.has(v)) return seen.get(v);
+      if (typeof v === "function" || typeof v === "symbol") {
+        throw new TypeError("structuredClone: function/symbol not cloneable");
+      }
+      if (v instanceof Date) {
+        const c = new Date(v.getTime());
+        seen.set(v, c);
+        return c;
+      }
+      if (v instanceof RegExp) {
+        const c = new RegExp(v.source, v.flags);
+        seen.set(v, c);
+        return c;
+      }
+      if (v instanceof Map) {
+        const c = new Map();
+        seen.set(v, c);
+        for (const [k, val] of v) c.set(clone(k), clone(val));
+        return c;
+      }
+      if (v instanceof Set) {
+        const c = new Set();
+        seen.set(v, c);
+        for (const val of v) c.add(clone(val));
+        return c;
+      }
+      if (v instanceof ArrayBuffer) {
+        const c = v.slice(0);
+        seen.set(v, c);
+        return c;
+      }
+      if (ArrayBuffer.isView(v)) {
+        // Typed array: clone its buffer and wrap in the same view type.
+        const ctor = (v as any).constructor;
+        const buf = clone(v.buffer);
+        const c = new ctor(buf, v.byteOffset, v.length);
+        seen.set(v, c);
+        return c;
+      }
+      if (Array.isArray(v)) {
+        const c: any[] = [];
+        seen.set(v, c);
+        for (const item of v) c.push(clone(item));
+        return c;
+      }
+      const c: Record<string, any> = Object.create(Object.getPrototypeOf(v));
+      seen.set(v, c);
+      for (const k of Object.keys(v)) c[k] = clone(v[k]);
+      return c;
+    };
+    return clone(value) as T;
+  }
+  (globalThis as any).structuredClone = structuredClonePolyfill;
 }
 
 // ---------------------------------------------------------------------------
@@ -283,3 +379,102 @@ function __triggerTimer(id: number): void {
 (globalThis as any).setInterval = setIntervalImpl;
 (globalThis as any).clearInterval = clearTimeoutImpl;
 (globalThis as any).__triggerTimer = __triggerTimer;
+
+// ---------------------------------------------------------------------------
+// ResizeObserver polyfill
+// ---------------------------------------------------------------------------
+//
+// The host (Rust) owns layout, so JS can't measure elements directly. The
+// polyfill registers interest via `__resize_observe(solidId)`; the Applier
+// measures the corresponding blitz node after each resolve and calls back
+// through `__resize_dispatch(solidId, width, height)`, which we fan out to
+// every observer watching that target.
+//
+// `target` is a SolidJS handle (the universal renderer's node) whose `id`
+// field is the Solid virtual id the Applier maps to a blitz node.
+
+interface ResizeObserverEntry {
+  target: { id: number };
+  contentRect: { width: number; height: number };
+}
+
+type ResizeObserverCallback = (entries: ResizeObserverEntry[]) => void;
+
+// solidId -> set of observer callbacks (a target can be observed by multiple
+// ResizeObserver instances, per the spec).
+const resizeObservers = new Map<number, Set<ResizeObserverCallback>>();
+
+class ResizeObserver {
+  private callback: ResizeObserverCallback;
+  private targets = new Set<number>();
+
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+  }
+
+  observe(target: { id: number }): void {
+    const id = target.id;
+    if (this.targets.has(id)) return;
+    this.targets.add(id);
+    let set = resizeObservers.get(id);
+    if (!set) {
+      set = new Set();
+      resizeObservers.set(id, set);
+      __resize_observe(id);
+    }
+    set.add(this.callback);
+  }
+
+  unobserve(target: { id: number }): void {
+    const id = target.id;
+    if (!this.targets.has(id)) return;
+    this.targets.delete(id);
+    const set = resizeObservers.get(id);
+    if (set) {
+      set.delete(this.callback);
+      if (set.size === 0) {
+        resizeObservers.delete(id);
+        __resize_unobserve(id);
+      }
+    }
+  }
+
+  disconnect(): void {
+    for (const id of this.targets) {
+      const set = resizeObservers.get(id);
+      if (set) {
+        set.delete(this.callback);
+        if (set.size === 0) {
+          resizeObservers.delete(id);
+          __resize_unobserve(id);
+        }
+      }
+    }
+    this.targets.clear();
+  }
+}
+
+// Host -> JS: a target's content-box size changed (or was measured for the
+// first time). Batch per-frame is not attempted here; the host already only
+// pushes on change, and observers generally just read a signal.
+(globalThis as any).__resize_dispatch = (
+  solidId: number,
+  width: number,
+  height: number,
+): void => {
+  const set = resizeObservers.get(solidId);
+  if (!set || set.size === 0) return;
+  const entry: ResizeObserverEntry = {
+    target: { id: solidId },
+    contentRect: { width, height },
+  };
+  for (const cb of set) {
+    try {
+      cb([entry]);
+    } catch (e: any) {
+      __host_log(`ResizeObserver callback error: ${e?.stack ?? e}`);
+    }
+  }
+};
+
+(globalThis as any).ResizeObserver = ResizeObserver;
