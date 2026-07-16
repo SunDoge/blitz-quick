@@ -123,17 +123,17 @@ function SidebarItem(props: SidebarItemProps): JSX.Element {
       tabIndex={0}
     >
       <span
-        class={
+        class={`pointer-events-none ${
           props.active
             ? "text-[var(--color-accent)]"
             : "text-[var(--color-text-muted)]"
-        }
+        }`}
       >
         {props.icon}
       </span>
-      <span>{props.label}</span>
+      <span class="pointer-events-none">{props.label}</span>
       {props.count ? (
-        <span class="ml-auto text-[var(--color-text-muted)] text-xs">
+        <span class="pointer-events-none ml-auto text-[var(--color-text-muted)] text-xs">
           {props.count}
         </span>
       ) : null}

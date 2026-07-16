@@ -3522,18 +3522,19 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         setProp(_el$11, "role", "button");
         setProp(_el$11, "tabIndex", 0);
         insert(_el$12, () => props.icon);
+        setProp(_el$13, "class", "pointer-events-none");
         insert(_el$13, () => props.label);
         insert(_el$11, (() => {
           var _c$ = memo(() => !!props.count);
           return () => _c$() ? (() => {
             var _el$14 = createElement("span");
-            setProp(_el$14, "class", "ml-auto text-[var(--color-text-muted)] text-xs");
+            setProp(_el$14, "class", "pointer-events-none ml-auto text-[var(--color-text-muted)] text-xs");
             insert(_el$14, () => props.count);
             return _el$14;
           })() : null;
         })(), null);
         effect((_p$) => {
-          var _v$ = `w-full h-10 px-3 flex items-center gap-3 rounded-md text-sm cursor-pointer ${props.active ? "bg-[var(--color-raised)] text-[var(--color-text)] font-semibold" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover)]"} ${props.disabled ? "opacity-50" : ""}`, _v$2 = props.active ? "text-[var(--color-accent)]" : "text-[var(--color-text-muted)]";
+          var _v$ = `w-full h-10 px-3 flex items-center gap-3 rounded-md text-sm cursor-pointer ${props.active ? "bg-[var(--color-raised)] text-[var(--color-text)] font-semibold" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover)]"} ${props.disabled ? "opacity-50" : ""}`, _v$2 = `pointer-events-none ${props.active ? "text-[var(--color-accent)]" : "text-[var(--color-text-muted)]"}`;
           _v$ !== _p$.e && (_p$.e = setProp(_el$11, "class", _v$, _p$.e));
           _v$2 !== _p$.t && (_p$.t = setProp(_el$12, "class", _v$2, _p$.t));
           return _p$;
