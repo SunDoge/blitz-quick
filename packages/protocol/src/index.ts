@@ -69,9 +69,18 @@ export const EVENT_DATA_SLOT = {
 export const EVENT_DATA_LEN = Object.keys(EVENT_DATA_SLOT).length;
 export type EventDataSlot = keyof typeof EVENT_DATA_SLOT;
 
-const encoder = typeof TextEncoder !== "undefined" ? new TextEncoder() : null;
-
-function utf8Encode(s: string): Uint8Array | number[] {
+// TextEncoder is installed by `@blitz-quick/core` (backed by the host
+// `__host_utf8_encode` fn), but this module evaluates before core does
+// (protocol -> solid-renderer -> core load order). So we resolve it lazily on
+// first use rather than capturing it at module top.
+let encoder: TextEncoder | null | undefined;
+function utf8Encode(s: string): Uint8Array {
+  if (encoder === undefined) {
+    encoder = typeof TextEncoder !== "undefined" ? new TextEncoder() : null;
+  }
+  // Fall back to a manual UTF-8 encoder only if no TextEncoder was ever
+  // installed (e.g. running outside the blitz host). The host path is the
+  // normal one.
   if (encoder) return encoder.encode(s);
   const out: number[] = [];
   for (let i = 0; i < s.length; i++) {
@@ -80,7 +89,7 @@ function utf8Encode(s: string): Uint8Array | number[] {
     else if (c < 0x800) out.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));
     else if (c >= 0xd800 && c <= 0xdbff) {
       const c2 = s.charCodeAt(++i);
-      const cp = 0x10000 + ((c & 0x3ff) << 10) + (c2 & 0x3ff);
+      const cp = 0x10000 + ((c & 0x3ff) << 10) + (c2 & 0x3f);
       out.push(
         0xf0 | (cp >> 18),
         0x80 | ((cp >> 12) & 0x3f),
@@ -91,7 +100,7 @@ function utf8Encode(s: string): Uint8Array | number[] {
       out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
     }
   }
-  return out;
+  return new Uint8Array(out);
 }
 
 /**
