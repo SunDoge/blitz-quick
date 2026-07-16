@@ -25,6 +25,7 @@ pub struct AppConfig {
     width: u32,
     height: u32,
     scale: f64,
+    net_provider: Option<std::sync::Arc<dyn blitz_traits::net::NetProvider>>,
 }
 
 struct ViteSource {
@@ -41,6 +42,7 @@ impl AppConfig {
             width: 800,
             height: 600,
             scale: 1.0,
+            net_provider: None,
         }
     }
 
@@ -55,6 +57,7 @@ impl AppConfig {
             width: 800,
             height: 600,
             scale: 1.0,
+            net_provider: None,
         }
     }
 
@@ -71,6 +74,18 @@ impl AppConfig {
 
     pub fn with_scale(mut self, scale: f64) -> Self {
         self.scale = scale;
+        self
+    }
+
+    /// Inject a network provider for remote resource loading (images,
+    /// stylesheets, fonts via `<img src>`, `<link>`, `@font-face`). Without
+    /// this, blitz-dom uses a dummy provider that loads nothing. The embedding
+    /// app owns the provider — e.g. desktop creates `blitz_net::Provider`.
+    pub fn with_net_provider(
+        mut self,
+        provider: std::sync::Arc<dyn blitz_traits::net::NetProvider>,
+    ) -> Self {
+        self.net_provider = Some(provider);
         self
     }
 
@@ -227,6 +242,7 @@ impl Applier {
                 config.scale as f32,
                 ColorScheme::Light,
             )),
+            net_provider: config.net_provider.clone(),
             ..DocumentConfig::default()
         };
         let mut doc = BaseDocument::new(document_config);

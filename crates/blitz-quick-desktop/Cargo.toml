@@ -19,6 +19,7 @@ anyrender = { version = "0.11", optional = true }
 anyrender_vello = "0.12"
 anyrender_vello_cpu = { version = "0.14", optional = true }
 blitz-dom = { workspace = true, optional = true }
+blitz-net = { workspace = true }
 blitz-paint = { workspace = true, features = ["scrollbars"], optional = true }
 blitz-quick = { path = "../blitz-quick" }
 blitz-shell = { workspace = true }

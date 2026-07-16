@@ -100,10 +100,12 @@ fn app_config(cli: &Cli, assets: &Assets) -> AppConfig {
     } else {
         AppConfig::new(assets.javascript.clone())
     };
+    let net_provider = blitz_net::Provider::shared(None);
     config
         .with_stylesheet(assets.stylesheet.clone())
         .with_viewport(cli.width, cli.height)
         .with_scale(cli.scale)
+        .with_net_provider(net_provider)
 }
 
 fn run_window(cli: &Cli, assets: Assets) -> Result<(), AppError> {
