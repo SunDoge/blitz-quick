@@ -272,7 +272,15 @@ impl Applier {
             root_id
         };
         let js = if let Some(vite) = &config.vite {
-            JsRuntime::new_vite(&vite.server_url)?
+            #[cfg(feature = "vite")]
+            {
+                JsRuntime::new_vite(&vite.server_url)?
+            }
+            #[cfg(not(feature = "vite"))]
+            {
+                let _ = vite;
+                JsRuntime::new()?
+            }
         } else {
             JsRuntime::new()?
         };
@@ -298,7 +306,15 @@ impl Applier {
             focused_blitz_id: None,
         };
         if let Some(vite) = &config.vite {
-            applier.js.boot_vite(&vite.server_url, &vite.entry)?;
+            #[cfg(feature = "vite")]
+            {
+                applier.js.boot_vite(&vite.server_url, &vite.entry)?;
+            }
+            #[cfg(not(feature = "vite"))]
+            {
+                let _ = vite;
+                applier.js.boot(&config.javascript)?;
+            }
         } else {
             applier.js.boot(&config.javascript)?;
         }
@@ -520,18 +536,22 @@ impl BlitzDocument for Applier {
 
         // Apply Vite HMR messages before the next application tick.
         let mut reload_css = None;
+        #[cfg(feature = "vite")]
         let mut hmr_updates = Vec::new();
         let mut full_reload = false;
         if let Some(rx) = &self.reload_rx {
             while let Ok(msg) = rx.try_recv() {
                 match msg {
                     ReloadMsg::Css(content) => reload_css = Some(content),
+                    #[cfg(feature = "vite")]
                     ReloadMsg::HmrUpdate {
                         path,
                         accepted_path,
                         timestamp,
                         source,
                     } => hmr_updates.push((path, accepted_path, timestamp, source)),
+                    #[cfg(not(feature = "vite"))]
+                    ReloadMsg::HmrUpdate { .. } => {}
                     ReloadMsg::FullReload => full_reload = true,
                 }
             }
@@ -541,6 +561,7 @@ impl BlitzDocument for Applier {
             self.reload_css(&content);
             needs_redraw = true;
         }
+        #[cfg(feature = "vite")]
         for (path, accepted_path, timestamp, source) in hmr_updates {
             let started = std::time::Instant::now();
             match self
