@@ -5,11 +5,13 @@ export function LoadingList(): JSX.Element {
     <div class="w-full">
       <For each={[1, 2, 3, 4, 5, 6]}>
         {(item) => (
-          <div class="h-19.5 px-5.5 py-3.25 grid grid-cols-[38px_1fr] items-center gap-3 border-b border-[#edf0f1] text-[#c1c7cc] font-mono text-xs">
-            <span>{String(item).padStart(2, "0")}</span>
-            <div class="flex flex-col gap-2">
-              <i class="block w-70% h-2.25 rounded-sm bg-[#e8ebed]" />
-              <i class="block w-38% h-1.75 rounded-sm bg-[#e8ebed]" />
+          <div class="h-18 px-3 flex items-center gap-4 border-b border-[var(--color-border-soft)]">
+            <span class="w-7 text-right text-[var(--color-text-muted)] font-mono text-xs">
+              {item}
+            </span>
+            <div class="flex-1 flex flex-col gap-2">
+              <i class="block w-70% h-2 rounded-sm bg-[var(--color-skeleton)]" />
+              <i class="block w-38% h-1.5 rounded-sm bg-[var(--color-skeleton)]" />
             </div>
           </div>
         )}

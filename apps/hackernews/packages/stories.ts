@@ -1,8 +1,11 @@
 import { createSignal } from "solid-js";
 
 declare global {
-  function fetchTopStories(): Promise<string>;
+  function fetchStories(feed: Feed): Promise<string>;
 }
+
+export type Feed = "top" | "new" | "best";
+export type View = Feed | "saved";
 
 export interface Story {
   id: number;
@@ -14,31 +17,77 @@ export interface Story {
   time?: number;
 }
 
-const storiesSignal = createSignal<Story[]>([]);
-const loadingSignal = createSignal(true);
-const loadErrorSignal = createSignal<string | null>(null);
-const querySignal = createSignal("");
+const [stories, setStories] = createSignal<Story[]>([]);
+const [savedStories, setSavedStories] = createSignal<Story[]>([]);
+const [visitedIds, setVisitedIds] = createSignal<number[]>([]);
+const [activeView, setActiveView] = createSignal<View>("top");
+const [loading, setLoading] = createSignal(true);
+const [loadError, setLoadError] = createSignal<string | null>(null);
+const [query, setQuery] = createSignal("");
 
-export const stories = storiesSignal[0];
-export const setStories = storiesSignal[1];
-export const loading = loadingSignal[0];
-export const setLoading = loadingSignal[1];
-export const loadError = loadErrorSignal[0];
-export const setLoadError = loadErrorSignal[1];
-export const query = querySignal[0];
-export const setQuery = querySignal[1];
+export {
+  activeView,
+  loadError,
+  loading,
+  query,
+  savedStories,
+  setQuery,
+  stories,
+};
 
-export async function loadStories(): Promise<void> {
+export const viewLabels: Record<View, string> = {
+  top: "Top stories",
+  new: "New stories",
+  best: "Best stories",
+  saved: "Saved stories",
+};
+
+export function visibleSource(): Story[] {
+  return activeView() === "saved" ? savedStories() : stories();
+}
+
+export async function selectView(view: View): Promise<void> {
+  if (activeView() === view) return;
+  setActiveView(view);
+  setQuery("");
+  if (view !== "saved") await loadStories(view);
+}
+
+export async function loadStories(feed?: Feed): Promise<void> {
+  const selected = feed ?? activeView();
+  if (selected === "saved") return;
   setLoading(true);
   setLoadError(null);
   try {
-    const result = JSON.parse(await fetchTopStories()) as Story[];
+    const result = JSON.parse(await fetchStories(selected)) as Story[];
     setStories(result.filter((story) => story?.id && story?.title));
   } catch (cause) {
     setLoadError(cause instanceof Error ? cause.message : String(cause));
   } finally {
     setLoading(false);
   }
+}
+
+export function toggleSaved(story: Story): void {
+  setSavedStories((current) =>
+    current.some((item) => item.id === story.id)
+      ? current.filter((item) => item.id !== story.id)
+      : [...current, story],
+  );
+}
+
+export function isSaved(id: number): boolean {
+  return savedStories().some((story) => story.id === id);
+}
+
+export function markVisited(id: number): void {
+  setVisitedIds((current) =>
+    current.includes(id) ? current : [...current, id],
+  );
+}
+
+export function isVisited(id: number): boolean {
+  return visitedIds().includes(id);
 }
 
 export function storyHost(url: string): string {

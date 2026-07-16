@@ -2,6 +2,7 @@
 node_modules
 # Generated demo distribution artifacts.
 apps/demo/dist/
+apps/hackernews/dist/
 # Screenshot / render artifacts.
 *.png
 

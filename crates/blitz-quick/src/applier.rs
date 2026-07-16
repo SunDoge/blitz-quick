@@ -186,7 +186,6 @@ pub struct Applier {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReloadMsg {
-    Css(String),
     HmrUpdate {
         path: String,
         accepted_path: String,
@@ -539,14 +538,12 @@ impl BlitzDocument for Applier {
         }
 
         // Apply Vite HMR messages before the next application tick.
-        let mut reload_css = None;
         #[cfg(feature = "vite")]
         let mut hmr_updates = Vec::new();
         let mut full_reload = false;
         if let Some(rx) = &self.reload_rx {
             while let Ok(msg) = rx.try_recv() {
                 match msg {
-                    ReloadMsg::Css(content) => reload_css = Some(content),
                     #[cfg(feature = "vite")]
                     ReloadMsg::HmrUpdate {
                         path,
@@ -560,11 +557,6 @@ impl BlitzDocument for Applier {
                 }
             }
         }
-        if let Some(content) = reload_css {
-            tracing::info!("applying Vite stylesheet update");
-            self.reload_css(&content);
-            needs_redraw = true;
-        }
         #[cfg(feature = "vite")]
         for (path, accepted_path, timestamp, source) in hmr_updates {
             let started = std::time::Instant::now();
@@ -573,6 +565,8 @@ impl BlitzDocument for Applier {
                 .apply_hmr_update(&path, &accepted_path, timestamp, source)
             {
                 Ok(true) => {
+                    let stylesheet = self.js.vite_stylesheet();
+                    self.reload_css(&stylesheet);
                     needs_redraw = true;
                     tracing::info!(%path, %accepted_path, elapsed = ?started.elapsed(), "applied Vite HMR update")
                 }
@@ -954,7 +948,7 @@ mod tests {
         applier.poll(Some(std::task::Context::from_waker(&waker)));
 
         reload
-            .send(ReloadMsg::Css("body { color: green; }".to_owned()))
+            .send(ReloadMsg::FullReload)
             .expect("send stylesheet update");
 
         assert_eq!(wake_counter.0.load(std::sync::atomic::Ordering::Relaxed), 1);

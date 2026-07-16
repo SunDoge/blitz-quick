@@ -17,17 +17,23 @@ const DEFAULT_VITE_URL: &str = "http://127.0.0.1:5174";
 
 const HN_API: &str = "https://hacker-news.firebaseio.com/v0";
 
-/// Fetch top 30 HN stories as a JSON string. Runs as an async rquickjs
+/// Fetch 30 HN stories from a supported feed as a JSON string. Runs as an async rquickjs
 /// function — rquickjs spawns the future on its tokio-backed async runtime
 /// (via `rt.drive()`), so reqwest's async works natively and the JS thread
 /// is not blocked.
-async fn fetch_top_stories() -> rquickjs::Result<String> {
+async fn fetch_stories(feed: String) -> rquickjs::Result<String> {
+    let endpoint = match feed.as_str() {
+        "top" => "topstories",
+        "new" => "newstories",
+        "best" => "beststories",
+        _ => return Err(rquickjs::Error::Unknown),
+    };
     let client = reqwest::Client::builder()
         .build()
         .map_err(|_| rquickjs::Error::Unknown)?;
 
     let ids: Vec<u64> = client
-        .get(format!("{HN_API}/topstories.json"))
+        .get(format!("{HN_API}/{endpoint}.json"))
         .send()
         .await
         .map_err(|_| rquickjs::Error::Unknown)?
@@ -88,9 +94,8 @@ fn main() -> Result<(), Whatever> {
     )
     .extension(|js| {
         js.with(|ctx| {
-            let f =
-                rquickjs::Function::new(ctx.clone(), rquickjs::prelude::Async(fetch_top_stories))?;
-            ctx.globals().set("fetchTopStories", f)
+            let f = rquickjs::Function::new(ctx.clone(), rquickjs::prelude::Async(fetch_stories))?;
+            ctx.globals().set("fetchStories", f)
         })
     })
     .build()

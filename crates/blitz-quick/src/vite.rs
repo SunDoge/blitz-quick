@@ -342,14 +342,14 @@ pub fn start_hmr_client(
                         tracing::debug!(%path, %accepted_path, timestamp, "received Vite HMR update");
                         match fetch_module(&client, &server_url, &accepted_path, timestamp) {
                             Ok(source) => {
-                                match fetch_stylesheet(
-                                    &client,
-                                    &server_url,
-                                    "/__uno.css",
-                                    timestamp,
-                                ) {
-                                    Ok(stylesheet) => {
-                                        let _ = reload.send(crate::ReloadMsg::Css(stylesheet));
+                                match fetch_module(&client, &server_url, "/__uno.css", timestamp) {
+                                    Ok(source) => {
+                                        let _ = reload.send(crate::ReloadMsg::HmrUpdate {
+                                            path: "/__uno.css".to_owned(),
+                                            accepted_path: "/__uno.css".to_owned(),
+                                            timestamp,
+                                            source,
+                                        });
                                     }
                                     Err(error) => {
                                         tracing::warn!(?error, "failed to refresh UnoCSS module");
@@ -371,8 +371,13 @@ pub fn start_hmr_client(
                     ViteMessage::CssUpdate {
                         accepted_path,
                         timestamp,
-                    } => match fetch_stylesheet(&client, &server_url, &accepted_path, timestamp) {
-                        Ok(stylesheet) => reload.send(crate::ReloadMsg::Css(stylesheet)),
+                    } => match fetch_module(&client, &server_url, &accepted_path, timestamp) {
+                        Ok(source) => reload.send(crate::ReloadMsg::HmrUpdate {
+                            path: accepted_path.clone(),
+                            accepted_path,
+                            timestamp,
+                            source,
+                        }),
                         Err(error) => {
                             tracing::error!(?error, "failed to fetch Vite stylesheet update");
                             continue;
@@ -411,37 +416,6 @@ fn fetch_module(
     if !content_type.contains("javascript") {
         return Err(ViteError::ContentType {
             expected: "javascript".into(),
-            actual: content_type.into(),
-        });
-    }
-    response.body_mut().read_to_string().context(HttpSnafu)
-}
-
-fn fetch_stylesheet(
-    client: &ureq::Agent,
-    server_url: &url::Url,
-    accepted_path: &str,
-    timestamp: u64,
-) -> std::result::Result<String, ViteError> {
-    let mut stylesheet_url = server_url
-        .join(accepted_path)
-        .map_err(|_| ViteError::InvalidScheme)?;
-    stylesheet_url
-        .query_pairs_mut()
-        .append_pair("direct", "")
-        .append_pair("t", &timestamp.to_string());
-    let mut response = client
-        .get(stylesheet_url.as_str())
-        .call()
-        .context(HttpSnafu)?;
-    let content_type = response
-        .headers()
-        .get("content-type")
-        .and_then(|value| value.to_str().ok())
-        .unwrap_or_default();
-    if !content_type.contains("text/css") {
-        return Err(ViteError::ContentType {
-            expected: "text/css".into(),
             actual: content_type.into(),
         });
     }

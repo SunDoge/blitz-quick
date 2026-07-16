@@ -1,24 +1,34 @@
 import { useNavigate } from "@solidjs/router";
+import Bookmark from "lucide-solid/icons/bookmark";
+import MessageSquare from "lucide-solid/icons/message-square";
 import Search from "lucide-solid/icons/search";
+import X from "lucide-solid/icons/x";
 import { createMemo, For, type JSX, Show } from "solid-js";
 import { LoadingList } from "../components/LoadingList";
 import {
+  activeView,
+  isSaved,
+  isVisited,
   loadError,
   loading,
   loadStories,
+  markVisited,
   query,
   relativeTime,
+  type Story,
   setQuery,
-  stories,
   storyHost,
+  toggleSaved,
+  viewLabels,
+  visibleSource,
 } from "../stories";
 
 export function StoryList(): JSX.Element {
   const navigate = useNavigate();
   const visibleStories = createMemo(() => {
     const needle = query().trim().toLowerCase();
-    if (!needle) return stories();
-    return stories().filter(
+    if (!needle) return visibleSource();
+    return visibleSource().filter(
       (story) =>
         story.title.toLowerCase().includes(needle) ||
         story.by.toLowerCase().includes(needle) ||
@@ -26,80 +36,90 @@ export function StoryList(): JSX.Element {
     );
   });
 
+  const openStory = (story: Story) => {
+    markVisited(story.id);
+    navigate(`/story/${story.id}`);
+  };
+
   return (
-    <section class="h-full min-h-0 flex flex-col relative z-10">
-      <div class="h-20 flex-none px-8 flex items-center gap-6 border-b border-[#27272a] bg-[#0c0c0e]">
+    <section class="h-full min-h-0 flex flex-col">
+      <header class="h-18 flex-none px-7 flex items-center gap-6 border-b border-[var(--color-border)]">
         <div class="min-w-0 flex-1">
-          <h1 class="m-0 text-[#f4f4f5] text-xl font-bold tracking-tight">
-            Top stories
-          </h1>
-          <p class="m-0 mt-1 text-[#71717a] text-xs font-medium">
-            Ranked by the Hacker News community
+          <h1 class="m-0 text-xl font-semibold">{viewLabels[activeView()]}</h1>
+          <p class="m-0 mt-1 text-[var(--color-text-muted)] text-xs">
+            {activeView() === "saved"
+              ? "Stories saved during this session"
+              : "Live from the Hacker News API"}
           </p>
         </div>
-        <label class="w-72 h-9 px-3.5 flex items-center gap-2.5 border border-[#3f3f46] rounded-lg bg-[#18181b] text-[#a1a1aa] focus-within:border-[#ff7b00] transition-all">
+        <label class="w-64 h-9 px-3 flex items-center gap-2 border border-[var(--color-border)] rounded-md text-[var(--color-text-muted)] focus-within:border-[var(--color-accent)]">
           <Search size={15} />
           <input
-            class="w-full min-w-0 border-0 outline-none bg-transparent text-[#e4e4e7] text-sm placeholder-[#71717a]"
+            class="w-full min-w-0 border-0 outline-none bg-transparent text-[var(--color-text)] text-sm"
             type="text"
             value={query()}
-            placeholder="Search stories..."
+            placeholder="Search"
             aria-label="Filter stories"
             onInput={(event) => setQuery(event.currentTarget.value)}
           />
+          <Show when={query()}>
+            <X size={14} class="cursor-pointer" onClick={() => setQuery("")} />
+          </Show>
         </label>
-      </div>
+      </header>
 
-      <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4">
+      <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5 py-3">
         <Show
-          when={!loading() || stories().length > 0}
+          when={!loading() || activeView() === "saved"}
           fallback={<LoadingList />}
         >
           <Show when={!loadError()} fallback={<LoadError />}>
             <Show when={visibleStories().length > 0} fallback={<EmptyState />}>
-              <ol class="m-0 p-0 list-none flex flex-col gap-1.5">
+              <ol class="m-0 p-0 list-none">
                 <For each={visibleStories()}>
                   {(story, index) => (
-                    <li
-                      class="group px-4 py-3.5 flex items-center gap-4 rounded-xl border border-transparent hover:border-[#27272a] hover:bg-[#18181b] active:scale-[0.99] transition-all cursor-pointer"
-                      onClick={() => navigate(`/story/${story.id}`)}
+                    // biome-ignore lint/a11y/useSemanticElements: Blitz currently mislays out flex button elements.
+                    <div
+                      class={`h-18 px-3 flex items-center gap-4 border-b border-[var(--color-border-soft)] cursor-pointer hover:bg-[var(--color-hover)] ${
+                        isVisited(story.id)
+                          ? "text-[var(--color-text-muted)]"
+                          : "text-[var(--color-text)]"
+                      }`}
+                      onClick={() => openStory(story)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          openStory(story);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
                     >
-                      <span class="w-6 text-right text-[#52525b] font-mono text-xs font-bold opacity-70 group-hover:opacity-100 group-hover:text-[#ff7b00] transition-colors">
-                        {String(index() + 1).padStart(2, "0")}
+                      <span class="w-7 text-right text-[var(--color-text-muted)] font-mono text-xs">
+                        {index() + 1}
                       </span>
-                      <div class="flex-1 min-w-0 flex flex-col gap-1.5">
-                        <div class="flex items-baseline gap-3">
-                          <strong class="text-[#d4d4d8] text-sm font-semibold leading-tight group-hover:text-white transition-colors truncate">
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                          <strong class="text-sm font-medium truncate">
                             {story.title}
                           </strong>
-                          <span class="lt-md:hidden text-[#71717a] text-xs font-medium truncate flex-shrink">
+                          <span class="text-[var(--color-text-muted)] text-xs truncate">
                             {storyHost(story.url)}
                           </span>
                         </div>
-                        <div class="flex items-center gap-3 text-[#71717a] text-xs font-medium">
-                          <span class="flex items-center gap-1.5 text-[#a1a1aa]">
-                            <span class="w-1.5 h-1.5 rounded-full bg-[#ff7b00]" />
-                            {story.score} pts
-                          </span>
-                          <span class="text-[#3f3f46]">•</span>
-                          <span>
-                            by <span class="text-[#a1a1aa]">{story.by}</span>
-                          </span>
-                          <span class="text-[#3f3f46]">•</span>
+                        <div class="mt-1.5 flex items-center gap-2 text-[var(--color-text-muted)] text-xs">
+                          <span>{story.score} points</span>
+                          <span>·</span>
+                          <span>{story.by}</span>
+                          <span>·</span>
                           <span>{relativeTime(story.time)}</span>
                         </div>
                       </div>
-                      <div class="lt-md:hidden flex-none flex flex-col items-end justify-center">
-                        <div class="px-2.5 py-1.5 rounded-lg bg-transparent group-hover:bg-[#ff7b00]/10 border border-transparent group-hover:border-[#ff7b00]/20 transition-colors flex items-center gap-1.5">
-                          <strong class="text-[#71717a] group-hover:text-[#ff7b00] text-xs transition-colors">
-                            {story.descendants ?? 0}
-                          </strong>
-                          <span class="text-[#52525b] group-hover:text-[#ff7b00]/70 text-xs transition-colors">
-                            💬
-                          </span>
-                        </div>
-                      </div>
-                    </li>
+                      <span class="flex items-center gap-1 text-[var(--color-text-muted)] text-xs">
+                        <MessageSquare size={13} />
+                        {story.descendants ?? 0}
+                      </span>
+                      <BookmarkAction story={story} />
+                    </div>
                   )}
                 </For>
               </ol>
@@ -108,34 +128,76 @@ export function StoryList(): JSX.Element {
         </Show>
       </div>
 
-      <footer class="h-10 flex-none px-6 flex items-center justify-between border-t border-[#27272a] bg-[#0a0a0c] text-[#52525b] text-xs font-medium">
-        <span>{visibleStories().length} stories matched</span>
-        <span>Live from Hacker News API</span>
+      <footer class="h-9 flex-none px-7 flex items-center border-t border-[var(--color-border)] text-[var(--color-text-muted)] text-xs">
+        {visibleStories().length} stories
       </footer>
     </section>
   );
 }
 
+function BookmarkAction(props: { story: Story }): JSX.Element {
+  const toggle = (event: MouseEvent | KeyboardEvent) => {
+    event.stopPropagation();
+    toggleSaved(props.story);
+  };
+
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: Nested native buttons are not laid out correctly by Blitz yet.
+    <span
+      class={
+        isSaved(props.story.id)
+          ? "text-[var(--color-accent)]"
+          : "text-[var(--color-text-muted)]"
+      }
+      onClick={toggle}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") toggle(event);
+      }}
+      role="button"
+      tabIndex={0}
+      title={isSaved(props.story.id) ? "Remove saved story" : "Save story"}
+    >
+      <Bookmark
+        size={16}
+        fill={isSaved(props.story.id) ? "currentColor" : "none"}
+      />
+    </span>
+  );
+}
+
 function LoadError(): JSX.Element {
   return (
-    <div class="min-h-85 p-10 flex flex-col items-center justify-center gap-3 text-[#71717a] text-center">
-      <strong class="text-[#d4d4d8] text-lg">Failed to load stories</strong>
-      <span class="text-[#f87171] text-sm">{loadError()}</span>
-      <div
-        class="mt-4 px-4 py-2 flex items-center gap-2 border border-[#3f3f46] rounded-lg bg-[#18181b] hover:bg-[#27272a] text-white text-sm font-medium cursor-pointer transition-all active:scale-95"
+    <div class="min-h-80 flex flex-col items-center justify-center gap-3 text-[var(--color-text-muted)] text-center">
+      <strong class="text-[var(--color-text)]">Could not load stories</strong>
+      <span class="text-[var(--color-danger)] text-sm">{loadError()}</span>
+      {/* biome-ignore lint/a11y/useSemanticElements: Blitz currently mislays out button elements. */}
+      <span
+        class="text-[var(--color-accent)] text-sm cursor-pointer"
         onClick={() => void loadStories()}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") void loadStories();
+        }}
+        role="button"
+        tabIndex={0}
       >
         Try again
-      </div>
+      </span>
     </div>
   );
 }
 
 function EmptyState(): JSX.Element {
   return (
-    <div class="min-h-85 p-10 flex flex-col items-center justify-center gap-2 text-[#71717a] text-center">
-      <strong class="text-[#d4d4d8] text-lg">No matching stories</strong>
-      <span class="text-sm">Try a different title, author, or domain.</span>
+    <div class="min-h-80 flex flex-col items-center justify-center gap-2 text-[var(--color-text-muted)] text-center">
+      <Bookmark size={22} />
+      <strong class="text-[var(--color-text)]">
+        {activeView() === "saved" ? "No saved stories" : "No matching stories"}
+      </strong>
+      <span class="text-sm">
+        {activeView() === "saved"
+          ? "Use the bookmark icon to keep a story here."
+          : "Try another search."}
+      </span>
     </div>
   );
 }
