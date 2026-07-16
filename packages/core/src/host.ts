@@ -10,15 +10,6 @@ declare global {
   function __bridge_flush(buf: Uint8Array): void;
   function __host_log(s: string): void;
   function __host_log_level(tag: string, msg: string): void;
-  function __fetch_start(
-    id: number,
-    url: string,
-    method: string,
-    headers: string,
-    body: string | null,
-    resolve: (res: any) => void,
-    reject: (err: any) => void,
-  ): void;
   function requestAnimationFrame(cb: (t: number) => void): number;
   function __register_timer(id: number, delay: number, repeat: boolean): void;
   function __unregister_timer(id: number): void;

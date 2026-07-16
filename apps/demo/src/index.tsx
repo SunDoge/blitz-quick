@@ -3,7 +3,6 @@ import "./reset.css";
 import "virtual:uno.css";
 import { mount } from "@blitz-quick/solid-renderer";
 import { MemoryRouter, Route, useLocation } from "@solidjs/router";
-import Globe from "lucide-solid/icons/globe";
 import Keyboard from "lucide-solid/icons/keyboard";
 import LayoutDashboard from "lucide-solid/icons/layout-dashboard";
 import ScrollText from "lucide-solid/icons/scroll-text";
@@ -13,7 +12,6 @@ import { Sidebar, type Tab } from "./components/Sidebar";
 import { Dashboard } from "./pages/Dashboard";
 import { InputDemo } from "./pages/InputDemo";
 import { Logs } from "./pages/Logs";
-import { Network } from "./pages/Network";
 import { Settings as SettingsPage } from "./pages/Settings";
 
 const [sysData, setSysData] = createSignal("Loading OS Data...");
@@ -28,7 +26,6 @@ const TABS: Tab[] = [
     component: () => <Dashboard sysData={sysData()} />,
   },
   { path: "/input", label: "Inputs", icon: Keyboard, component: InputDemo },
-  { path: "/network", label: "Network", icon: Globe, component: Network },
   { path: "/logs", label: "Logs", icon: ScrollText, component: Logs },
   {
     path: "/settings",

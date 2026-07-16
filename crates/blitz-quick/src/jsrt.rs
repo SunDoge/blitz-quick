@@ -28,17 +28,12 @@ pub enum TimerCmd {
     },
 }
 
-struct FetchPromise {
-    resolve: rquickjs::Persistent<Function<'static>>,
-}
-
 pub struct JsRuntime {
     /// Bytes flushed by the most recent `__bridge_flush` call.
     out: Rc<RefCell<Vec<u8>>>,
     /// True once the app's initial render has been evaluated.
     booted: bool,
     timer_cmds: Rc<RefCell<Vec<TimerCmd>>>,
-    fetch_promises: Rc<RefCell<std::collections::HashMap<u32, FetchPromise>>>,
     shared_event_data: rquickjs::Persistent<Value<'static>>,
     last_gc: std::time::Instant,
     vite_origin: Option<url::Url>,
@@ -81,8 +76,6 @@ impl JsRuntime {
         let ctx = futures_lite::future::block_on(AsyncContext::full(&rt))?;
         let out: Rc<RefCell<Vec<u8>>> = Rc::new(RefCell::new(Vec::new()));
         let timer_cmds = Rc::new(RefCell::new(Vec::new()));
-        let fetch_promises = Rc::new(RefCell::new(std::collections::HashMap::new()));
-
         let shared_event_data = futures_lite::future::block_on(ctx.with(
             |ctx| -> JsResult<rquickjs::Persistent<Value<'static>>> {
                 let globals = ctx.globals();
@@ -150,7 +143,6 @@ impl JsRuntime {
             out,
             booted: false,
             timer_cmds,
-            fetch_promises,
             shared_event_data,
             last_gc: std::time::Instant::now(),
             vite_origin,
@@ -164,7 +156,7 @@ impl JsRuntime {
     /// and `performance.now`. None of these capture per-runtime state, so they
     /// just wrap the `host_ffi` functions. Grouped here (rather than inlined
     /// in `new_inner`) so all host-fn registration follows the same
-    /// `register_*` shape — see also `register_fetch`, `register_resize`, and
+    /// `register_*` shape — see also `register_resize`, and
     /// the timer closures set up during construction.
     pub fn register_core_host_fns(&self) -> JsResult<()> {
         self.with(|ctx| -> JsResult<()> {
@@ -293,34 +285,6 @@ impl JsRuntime {
             let apply: Function = ctx.globals().get("__blitz_apply_hmr")?;
             let promise: rquickjs::Promise = apply.call((path, accepted_path, timestamp))?;
             promise.finish()
-        })
-    }
-
-    pub fn register_fetch(
-        &self,
-        bridge: std::sync::Arc<crate::fetch::FetchBridge>,
-    ) -> JsResult<()> {
-        let fetch_promises = self.fetch_promises.clone();
-        self.with(|ctx| -> JsResult<()> {
-            let f = Function::new(
-                ctx.clone(),
-                move |id: u32,
-                      url: String,
-                      method: String,
-                      headers: String,
-                      body: Option<String>,
-                      resolve: rquickjs::Persistent<Function<'static>>,
-                      _reject: rquickjs::Persistent<Function<'static>>|
-                      -> JsResult<()> {
-                    fetch_promises
-                        .borrow_mut()
-                        .insert(id, FetchPromise { resolve });
-                    bridge.start_fetch(id, url, method, headers, body);
-                    Ok(())
-                },
-            )?;
-            ctx.globals().set("__fetch_start", f)?;
-            Ok(())
         })
     }
 
@@ -497,43 +461,6 @@ impl JsRuntime {
         })
     }
 
-    pub fn resolve_fetches(&self, completions: Vec<crate::fetch::FetchCompletion>) -> JsResult<()> {
-        if completions.is_empty() {
-            return Ok(());
-        }
-        self.with(|ctx| -> JsResult<()> {
-            for c in completions {
-                let pending = self.fetch_promises.borrow_mut().remove(&c.id);
-                let Some(pending) = pending else {
-                    continue;
-                };
-                match c.outcome {
-                    crate::fetch::FetchOutcome::Ok {
-                        status,
-                        url: _,
-                        body,
-                    } => {
-                        let resolve = pending.resolve.restore(&ctx)?;
-                        let res_obj = rquickjs::Object::new(ctx.clone())?;
-                        res_obj.set("status", status)?;
-                        if let Ok(text) = String::from_utf8(body) {
-                            res_obj.set("body", text)?;
-                        }
-                        resolve.call::<_, ()>((res_obj,))?;
-                    }
-                    crate::fetch::FetchOutcome::Err { message } => {
-                        let resolve = pending.resolve.restore(&ctx)?;
-                        let res_obj = rquickjs::Object::new(ctx.clone())?;
-                        res_obj.set("error", message)?;
-                        resolve.call::<_, ()>((res_obj,))?;
-                    }
-                }
-            }
-            while ctx.execute_pending_job() {}
-            Ok(())
-        })
-    }
-
     pub fn take_timer_cmds(&self) -> Vec<TimerCmd> {
         self.timer_cmds.borrow_mut().drain(..).collect()
     }
@@ -635,63 +562,9 @@ mod tests {
     #[test]
     fn boots_and_emits_initial_frame() {
         let mut rt = JsRuntime::new().expect("runtime");
-        let fetch = std::sync::Arc::new(crate::fetch::FetchBridge::new());
-        rt.register_fetch(fetch.clone())
-            .expect("failed to register fetch host fn");
         rt.boot(TEST_RUNTIME).expect("boot");
         // First tick flushes the app's initial render.
         let (frame0, _) = rt.tick().expect("tick0");
         assert!(!frame0.is_empty(), "initial render should emit ops");
-    }
-
-    #[test]
-    fn fetch_resolves_in_js() {
-        use crate::fetch::{FetchBridge, FetchCompletion};
-        use std::sync::Arc;
-
-        let mut rt = JsRuntime::new().expect("runtime");
-        let bridge = Arc::new(FetchBridge::new());
-        bridge.set_waker(std::task::Waker::noop());
-        rt.register_fetch(bridge.clone()).expect("register fetch");
-        rt.boot(TEST_RUNTIME).expect("boot");
-
-        // Kick off a fetch from JS and stash the resolved text in a global.
-        rt.with(|ctx| {
-            ctx.eval::<(), _>(
-                r#"
-                globalThis.__fetched = null;
-                globalThis.__fetchedErr = null;
-                fetch("data:text/plain;base64,aGVsbG8=")
-                  .then(function (r) { return r.text(); })
-                  .then(function (t) { globalThis.__fetched = t; })
-                  .catch(function (e) { globalThis.__fetchedErr = String(e); });
-                "#,
-            )
-            .expect("eval fetch");
-        });
-
-        // Wait for the blitz-net worker to complete, drain, and dispatch into JS.
-        let mut got = None;
-        for _ in 0..200 {
-            let completions: Vec<FetchCompletion> = bridge.drain();
-            if !completions.is_empty() {
-                rt.resolve_fetches(completions)
-                    .expect("resolve fetch completion");
-            }
-            let (text, err) = rt.with(|ctx| {
-                let t: Option<String> = ctx.globals().get("__fetched").ok().flatten();
-                let e: Option<String> = ctx.globals().get("__fetchedErr").ok().flatten();
-                (t, e)
-            });
-            if let Some(e) = err {
-                panic!("fetch rejected in JS: {e}");
-            }
-            if let Some(t) = text {
-                got = Some(t);
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
-        assert_eq!(got.expect("fetch never resolved in JS"), "hello");
     }
 }

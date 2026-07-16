@@ -129,11 +129,6 @@ pub enum ApplierError {
     InvalidConfig { message: &'static str },
     #[snafu(display("QuickJS error: {source}"), context(false))]
     QuickJs { source: rquickjs::Error },
-    #[snafu(
-        display("failed to initialize fetch runtime: {source}"),
-        context(false)
-    )]
-    FetchRuntime { source: std::io::Error },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -166,9 +161,6 @@ pub struct Applier {
     timers: Vec<ActiveTimer>,
     waker: Option<std::task::Waker>,
     last_spawned_wake: Option<std::time::Instant>,
-    /// blitz-net-backed fetch bridge: JS `fetch()` → tokio → completions drained
-    /// in poll. Shared (Arc) so worker threads can push completions + wake.
-    fetch: std::sync::Arc<crate::fetch::FetchBridge>,
     /// ResizeObserver bridge: JS registers targets, Applier measures them
     /// after resolve and the JS runtime drains changes. Shared (Arc) so the
     /// host fn closures in jsrt can mutate the target map.
@@ -268,8 +260,6 @@ impl Applier {
         } else {
             JsRuntime::new()?
         };
-        let fetch = std::sync::Arc::new(crate::fetch::FetchBridge::try_new()?);
-        js.register_fetch(fetch.clone())?;
         let resize = std::sync::Arc::new(crate::resize::ResizeBridge::new());
         js.register_resize(&resize)?;
 
@@ -288,7 +278,6 @@ impl Applier {
             timers: Vec::new(),
             waker: None,
             last_spawned_wake: None,
-            fetch,
             resize,
             focused_blitz_id: None,
         };
@@ -474,7 +463,6 @@ impl BlitzDocument for Applier {
             if let Ok(mut reload_waker) = self.reload_waker.lock() {
                 *reload_waker = Some(ctx.waker().clone());
             }
-            self.fetch.set_waker(ctx.waker());
         }
 
         if let Some(ctx) = task_context.as_mut() {
@@ -490,17 +478,6 @@ impl BlitzDocument for Applier {
             .is_some_and(|deadline| now >= deadline)
         {
             self.last_spawned_wake = None;
-        }
-
-        // Drain completed fetches into JS
-        let completions = self.fetch.drain();
-        if !completions.is_empty() {
-            match self.js.resolve_fetches(completions) {
-                Ok(()) => needs_redraw = true,
-                Err(error) => {
-                    tracing::error!(?error, "failed to resolve fetch completions");
-                }
-            }
         }
 
         // Measure ResizeObserver targets against the latest layout and

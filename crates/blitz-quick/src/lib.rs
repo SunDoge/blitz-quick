@@ -3,7 +3,6 @@
 mod applier;
 mod dom_updater;
 mod events;
-mod fetch;
 mod host_ffi;
 mod jsrt;
 mod protocol;
