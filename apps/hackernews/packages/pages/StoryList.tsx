@@ -99,12 +99,15 @@ export function StoryList(): JSX.Element {
                       </span>
                       <div class="flex-1 min-w-0">
                         <div class="leading-tight">
-                          <strong class="text-sm font-medium mr-2">
+                          <strong class="text-sm font-medium">
                             {story.title}
                           </strong>
-                          <span class="text-[var(--color-text-muted)] text-xs whitespace-nowrap">
-                            {storyHost(story.url)}
-                          </span>
+                          <Show when={story.url}>
+                            <span class="text-[var(--color-text-muted)] text-xs whitespace-nowrap">
+                              {" "}
+                              ({storyHost(story.url)})
+                            </span>
+                          </Show>
                         </div>
                         <div class="mt-1.5 flex items-center gap-2 text-[var(--color-text-muted)] text-xs">
                           <span>{story.score} points</span>

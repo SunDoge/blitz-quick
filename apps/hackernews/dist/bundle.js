@@ -3849,10 +3849,10 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
                     children: (story, index) => (
                       // biome-ignore lint/a11y/useSemanticElements: Blitz currently mislays out flex button elements.
                       (() => {
-                        var _el$10 = createElement("div"), _el$11 = createElement("span"), _el$12 = createElement("div"), _el$13 = createElement("div"), _el$14 = createElement("strong"), _el$15 = createElement("span"), _el$16 = createElement("div"), _el$17 = createElement("span"), _el$18 = createTextNode(` points`), _el$19 = createElement("span"), _el$21 = createElement("span"), _el$22 = createElement("span"), _el$24 = createElement("span"), _el$25 = createElement("span");
+                        var _el$10 = createElement("div"), _el$11 = createElement("span"), _el$12 = createElement("div"), _el$13 = createElement("div"), _el$14 = createElement("strong"), _el$19 = createElement("div"), _el$20 = createElement("span"), _el$21 = createTextNode(` points`), _el$22 = createElement("span"), _el$24 = createElement("span"), _el$25 = createElement("span"), _el$27 = createElement("span"), _el$28 = createElement("span");
                         insertNode(_el$10, _el$11);
                         insertNode(_el$10, _el$12);
-                        insertNode(_el$10, _el$25);
+                        insertNode(_el$10, _el$28);
                         setProp(_el$10, "onClick", () => openStory(story));
                         setProp(_el$10, "onKeyDown", (event) => {
                           if (event.key === "Enter" || event.key === " ") {
@@ -3864,32 +3864,42 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
                         setProp(_el$11, "class", "w-7 text-right text-[var(--color-text-muted)] font-mono text-xs");
                         insert(_el$11, () => index() + 1);
                         insertNode(_el$12, _el$13);
-                        insertNode(_el$12, _el$16);
+                        insertNode(_el$12, _el$19);
                         setProp(_el$12, "class", "flex-1 min-w-0");
                         insertNode(_el$13, _el$14);
-                        insertNode(_el$13, _el$15);
                         setProp(_el$13, "class", "leading-tight");
-                        setProp(_el$14, "class", "text-sm font-medium mr-2");
+                        setProp(_el$14, "class", "text-sm font-medium");
                         insert(_el$14, () => story.title);
-                        setProp(_el$15, "class", "text-[var(--color-text-muted)] text-xs whitespace-nowrap");
-                        insert(_el$15, () => storyHost(story.url));
-                        insertNode(_el$16, _el$17);
-                        insertNode(_el$16, _el$19);
-                        insertNode(_el$16, _el$21);
-                        insertNode(_el$16, _el$22);
-                        insertNode(_el$16, _el$24);
-                        setProp(_el$16, "class", "mt-1.5 flex items-center gap-2 text-[var(--color-text-muted)] text-xs");
-                        insertNode(_el$17, _el$18);
-                        insert(_el$17, () => story.score, _el$18);
-                        insertNode(_el$19, createTextNode(`·`));
-                        insert(_el$21, () => story.by);
+                        insert(_el$13, createComponent(Show, {
+                          get when() {
+                            return story.url;
+                          },
+                          get children() {
+                            var _el$15 = createElement("span"), _el$16 = createTextNode(` (`), _el$18 = createTextNode(`)`);
+                            insertNode(_el$15, _el$16);
+                            insertNode(_el$15, _el$18);
+                            setProp(_el$15, "class", "text-[var(--color-text-muted)] text-xs whitespace-nowrap");
+                            insert(_el$15, () => storyHost(story.url), _el$18);
+                            return _el$15;
+                          }
+                        }), null);
+                        insertNode(_el$19, _el$20);
+                        insertNode(_el$19, _el$22);
+                        insertNode(_el$19, _el$24);
+                        insertNode(_el$19, _el$25);
+                        insertNode(_el$19, _el$27);
+                        setProp(_el$19, "class", "mt-1.5 flex items-center gap-2 text-[var(--color-text-muted)] text-xs");
+                        insertNode(_el$20, _el$21);
+                        insert(_el$20, () => story.score, _el$21);
                         insertNode(_el$22, createTextNode(`·`));
-                        insert(_el$24, () => relativeTime(story.time));
-                        setProp(_el$25, "class", "flex items-center gap-1 text-[var(--color-text-muted)] text-xs");
-                        insert(_el$25, createComponent(message_square_default, {
+                        insert(_el$24, () => story.by);
+                        insertNode(_el$25, createTextNode(`·`));
+                        insert(_el$27, () => relativeTime(story.time));
+                        setProp(_el$28, "class", "flex items-center gap-1 text-[var(--color-text-muted)] text-xs");
+                        insert(_el$28, createComponent(message_square_default, {
                           size: 13
                         }), null);
-                        insert(_el$25, () => story.descendants ?? 0, null);
+                        insert(_el$28, () => story.descendants ?? 0, null);
                         insert(_el$10, createComponent(BookmarkAction, {
                           story
                         }), null);
@@ -3920,14 +3930,14 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     return (
       // biome-ignore lint/a11y/useSemanticElements: Nested native buttons are not laid out correctly by Blitz yet.
       (() => {
-        var _el$26 = createElement("span");
-        setProp(_el$26, "onClick", toggle);
-        setProp(_el$26, "onKeyDown", (event) => {
+        var _el$29 = createElement("span");
+        setProp(_el$29, "onClick", toggle);
+        setProp(_el$29, "onKeyDown", (event) => {
           if (event.key === "Enter" || event.key === " ") toggle(event);
         });
-        setProp(_el$26, "role", "button");
-        setProp(_el$26, "tabIndex", 0);
-        insert(_el$26, createComponent(bookmark_default, {
+        setProp(_el$29, "role", "button");
+        setProp(_el$29, "tabIndex", 0);
+        insert(_el$29, createComponent(bookmark_default, {
           size: 16,
           get fill() {
             return isSaved(props.story.id) ? "currentColor" : "none";
@@ -3935,55 +3945,55 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         }));
         effect((_p$) => {
           var _v$ = isSaved(props.story.id) ? "text-[var(--color-accent)]" : "text-[var(--color-text-muted)]", _v$2 = isSaved(props.story.id) ? "Remove saved story" : "Save story";
-          _v$ !== _p$.e && (_p$.e = setProp(_el$26, "class", _v$, _p$.e));
-          _v$2 !== _p$.t && (_p$.t = setProp(_el$26, "title", _v$2, _p$.t));
+          _v$ !== _p$.e && (_p$.e = setProp(_el$29, "class", _v$, _p$.e));
+          _v$2 !== _p$.t && (_p$.t = setProp(_el$29, "title", _v$2, _p$.t));
           return _p$;
         }, {
           e: void 0,
           t: void 0
         });
-        return _el$26;
+        return _el$29;
       })()
     );
   }
   function LoadError() {
     return (() => {
-      var _el$27 = createElement("div"), _el$28 = createElement("strong"), _el$30 = createElement("span"), _el$31 = createElement("span");
-      insertNode(_el$27, _el$28);
-      insertNode(_el$27, _el$30);
-      insertNode(_el$27, _el$31);
-      setProp(_el$27, "class", "min-h-80 flex flex-col items-center justify-center gap-3 text-[var(--color-text-muted)] text-center");
-      insertNode(_el$28, createTextNode(`Could not load stories`));
-      setProp(_el$28, "class", "text-[var(--color-text)]");
-      setProp(_el$30, "class", "text-[var(--color-danger)] text-sm");
-      insert(_el$30, loadError);
-      insertNode(_el$31, createTextNode(`Try again`));
-      setProp(_el$31, "class", "text-[var(--color-accent)] text-sm cursor-pointer");
-      setProp(_el$31, "onClick", () => void loadStories(void 0, true));
-      setProp(_el$31, "onKeyDown", (event) => {
+      var _el$30 = createElement("div"), _el$31 = createElement("strong"), _el$33 = createElement("span"), _el$34 = createElement("span");
+      insertNode(_el$30, _el$31);
+      insertNode(_el$30, _el$33);
+      insertNode(_el$30, _el$34);
+      setProp(_el$30, "class", "min-h-80 flex flex-col items-center justify-center gap-3 text-[var(--color-text-muted)] text-center");
+      insertNode(_el$31, createTextNode(`Could not load stories`));
+      setProp(_el$31, "class", "text-[var(--color-text)]");
+      setProp(_el$33, "class", "text-[var(--color-danger)] text-sm");
+      insert(_el$33, loadError);
+      insertNode(_el$34, createTextNode(`Try again`));
+      setProp(_el$34, "class", "text-[var(--color-accent)] text-sm cursor-pointer");
+      setProp(_el$34, "onClick", () => void loadStories(void 0, true));
+      setProp(_el$34, "onKeyDown", (event) => {
         if (event.key === "Enter" || event.key === " ") {
           void loadStories(void 0, true);
         }
       });
-      setProp(_el$31, "role", "button");
-      setProp(_el$31, "tabIndex", 0);
-      return _el$27;
+      setProp(_el$34, "role", "button");
+      setProp(_el$34, "tabIndex", 0);
+      return _el$30;
     })();
   }
   function EmptyState() {
     return (() => {
-      var _el$33 = createElement("div"), _el$34 = createElement("strong"), _el$35 = createElement("span");
-      insertNode(_el$33, _el$34);
-      insertNode(_el$33, _el$35);
-      setProp(_el$33, "class", "min-h-80 flex flex-col items-center justify-center gap-2 text-[var(--color-text-muted)] text-center");
-      insert(_el$33, createComponent(bookmark_default, {
+      var _el$36 = createElement("div"), _el$37 = createElement("strong"), _el$38 = createElement("span");
+      insertNode(_el$36, _el$37);
+      insertNode(_el$36, _el$38);
+      setProp(_el$36, "class", "min-h-80 flex flex-col items-center justify-center gap-2 text-[var(--color-text-muted)] text-center");
+      insert(_el$36, createComponent(bookmark_default, {
         size: 22
-      }), _el$34);
-      setProp(_el$34, "class", "text-[var(--color-text)]");
-      insert(_el$34, () => activeView() === "saved" ? "No saved stories" : "No matching stories");
-      setProp(_el$35, "class", "text-sm");
-      insert(_el$35, () => activeView() === "saved" ? "Use the bookmark icon to keep a story here." : "Try another search.");
-      return _el$33;
+      }), _el$37);
+      setProp(_el$37, "class", "text-[var(--color-text)]");
+      insert(_el$37, () => activeView() === "saved" ? "No saved stories" : "No matching stories");
+      setProp(_el$38, "class", "text-sm");
+      insert(_el$38, () => activeView() === "saved" ? "Use the bookmark icon to keep a story here." : "Try another search.");
+      return _el$36;
     })();
   }
   mount(() => createComponent(ThemeProvider, {
