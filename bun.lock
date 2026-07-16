@@ -33,6 +33,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@blitz-quick/solid-renderer": "workspace:*",
+        "structured-clone": "^0.2.2",
         "url-polyfill": "^1.1.14",
       },
     },
@@ -48,13 +49,6 @@
         "solid-js": "1.9.14",
         "solid-refresh": "0.6.3",
         "ts-pattern": "^5.9.0",
-      },
-    },
-    "packages/solid-router": {
-      "name": "@blitz-quick/solid-router",
-      "version": "0.1.0",
-      "dependencies": {
-        "solid-js": "^1.9.3",
       },
     },
     "packages/vite-runtime": {
@@ -124,8 +118,6 @@
     "@blitz-quick/protocol": ["@blitz-quick/protocol@workspace:packages/protocol"],
 
     "@blitz-quick/solid-renderer": ["@blitz-quick/solid-renderer@workspace:packages/solid-renderer"],
-
-    "@blitz-quick/solid-router": ["@blitz-quick/solid-router@workspace:packages/solid-router"],
 
     "@blitz-quick/vite-runtime": ["@blitz-quick/vite-runtime@workspace:packages/vite-runtime"],
 
@@ -518,6 +510,8 @@
     "solid-refresh": ["solid-refresh@0.6.3", "", { "dependencies": { "@babel/generator": "^7.23.6", "@babel/helper-module-imports": "^7.22.15", "@babel/types": "^7.23.6" }, "peerDependencies": { "solid-js": "^1.3" } }, "sha512-F3aPsX6hVw9ttm5LYlth8Q15x6MlI/J3Dn+o3EQyRTtTxidepSTwAYdozt01/YA+7ObcciagGEyXIopGZzQtbA=="],
 
     "source-map-js": ["source-map-js@1.2.1", "", {}, "sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA=="],
+
+    "structured-clone": ["structured-clone@0.2.2", "", {}, "sha512-SucNWVxwmfAjWrzQ9Xsuv4JIDtS/Qpx+MwZD2NEx2CeMpf3hgqvWKssll34trTu6M7ywd7WZDDKO8hhq0SZiAA=="],
 
     "tinyexec": ["tinyexec@1.2.4", "", {}, "sha512-SHf/r48b7vOrjve9PxJo3MN5v5yuyjHvdUcrQffT3WXMUfnGmHDVbC4k3sHJaJTgZCwpUplIaAo5ANtMyp3YHg=="],
 
