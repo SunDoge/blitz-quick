@@ -372,10 +372,8 @@ pub fn start_hmr_client(
                         accepted_path,
                         timestamp,
                     } => match fetch_module(&client, &server_url, &accepted_path, timestamp) {
-                        Ok(source) => reload.send(crate::ReloadMsg::HmrUpdate {
+                        Ok(source) => reload.send(crate::ReloadMsg::CssUpdate {
                             path: accepted_path.clone(),
-                            accepted_path,
-                            timestamp,
                             source,
                         }),
                         Err(error) => {
@@ -413,9 +411,9 @@ fn fetch_module(
         .get("content-type")
         .and_then(|value| value.to_str().ok())
         .unwrap_or_default();
-    if !content_type.contains("javascript") {
+    if !content_type.contains("javascript") && !content_type.contains("css") {
         return Err(ViteError::ContentType {
-            expected: "javascript".into(),
+            expected: "javascript or css".into(),
             actual: content_type.into(),
         });
     }

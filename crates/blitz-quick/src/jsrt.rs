@@ -293,6 +293,16 @@ impl JsRuntime {
     }
 
     #[cfg(feature = "vite")]
+    pub fn update_vite_style(&self, id: &str, css: String) {
+        let mut styles = self.vite_styles.borrow_mut();
+        if let Some((_, current)) = styles.iter_mut().find(|(current_id, _)| current_id == id) {
+            *current = css;
+        } else {
+            styles.push((id.to_string(), css));
+        }
+    }
+
+    #[cfg(feature = "vite")]
     pub fn apply_hmr_update(
         &mut self,
         path: &str,

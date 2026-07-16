@@ -192,6 +192,10 @@ pub enum ReloadMsg {
         timestamp: u64,
         source: String,
     },
+    CssUpdate {
+        path: String,
+        source: String,
+    },
     FullReload,
 }
 
@@ -540,6 +544,8 @@ impl BlitzDocument for Applier {
         // Apply Vite HMR messages before the next application tick.
         #[cfg(feature = "vite")]
         let mut hmr_updates = Vec::new();
+        #[cfg(feature = "vite")]
+        let mut css_updates = Vec::new();
         let mut full_reload = false;
         if let Some(rx) = &self.reload_rx {
             while let Ok(msg) = rx.try_recv() {
@@ -551,8 +557,14 @@ impl BlitzDocument for Applier {
                         timestamp,
                         source,
                     } => hmr_updates.push((path, accepted_path, timestamp, source)),
+                    #[cfg(feature = "vite")]
+                    ReloadMsg::CssUpdate { path, source } => {
+                        css_updates.push((path, source));
+                    }
                     #[cfg(not(feature = "vite"))]
                     ReloadMsg::HmrUpdate { .. } => {}
+                    #[cfg(not(feature = "vite"))]
+                    ReloadMsg::CssUpdate { .. } => {}
                     ReloadMsg::FullReload => full_reload = true,
                 }
             }
@@ -577,6 +589,16 @@ impl BlitzDocument for Applier {
                     tracing::error!(?error, %path, %accepted_path, "failed to apply Vite HMR update");
                 }
             }
+        }
+
+        #[cfg(feature = "vite")]
+        for (path, source) in css_updates {
+            let started = std::time::Instant::now();
+            self.js.update_vite_style(&path, source);
+            let stylesheet = self.js.vite_stylesheet();
+            self.reload_css(&stylesheet);
+            needs_redraw = true;
+            tracing::info!(%path, elapsed = ?started.elapsed(), "applied Vite CSS update");
         }
         if full_reload {
             tracing::warn!("Vite requested a full reload; restart the desktop host for now");
