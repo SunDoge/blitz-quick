@@ -1,4 +1,4 @@
-import { clone as structuredCloneImpl } from "structured-clone";
+import structuredCloneImpl from "@ungap/structured-clone";
 
 // TextEncoder / TextDecoder / structuredClone. TextEncoder+Decoder are backed
 // by the host UTF-8 codec (`__host_utf8_encode`/`__host_utf8_decode`);

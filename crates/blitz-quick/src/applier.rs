@@ -309,6 +309,10 @@ impl Applier {
             #[cfg(feature = "vite")]
             {
                 applier.js.boot_vite(&vite.server_url, &vite.entry)?;
+                let stylesheet = applier.js.vite_stylesheet();
+                if !stylesheet.is_empty() {
+                    applier.reload_css(&stylesheet);
+                }
             }
             #[cfg(not(feature = "vite"))]
             {

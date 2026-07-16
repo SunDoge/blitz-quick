@@ -23,7 +23,6 @@ const HN_API: &str = "https://hacker-news.firebaseio.com/v0";
 /// is not blocked.
 async fn fetch_top_stories() -> rquickjs::Result<String> {
     let client = reqwest::Client::builder()
-        .no_proxy()
         .build()
         .map_err(|_| rquickjs::Error::Unknown)?;
 

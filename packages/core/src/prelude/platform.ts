@@ -1,7 +1,7 @@
 // DOM-independent platform implementations. This bundle is evaluated only
 // after bootstrap.ts has installed the codecs required by whatwg-url.
 
-import { clone as structuredCloneImpl } from "structured-clone";
+import structuredCloneImpl from "@ungap/structured-clone";
 import { URL, URLSearchParams } from "whatwg-url";
 
 const runtime = globalThis as Record<string, any>;

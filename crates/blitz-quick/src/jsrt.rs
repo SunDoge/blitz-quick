@@ -39,6 +39,8 @@ pub struct JsRuntime {
     last_gc: std::time::Instant,
     #[cfg(feature = "vite")]
     vite: Option<crate::vite::ViteState>,
+    #[cfg(feature = "vite")]
+    vite_styles: Rc<RefCell<Vec<(String, String)>>>,
     ctx: AsyncContext,
     rt: AsyncRuntime,
     /// Tokio runtime + LocalSet that drives rquickjs async jobs. rquickjs
@@ -90,6 +92,8 @@ impl JsRuntime {
         let ctx = futures_lite::future::block_on(AsyncContext::full(&rt))?;
         let out: Rc<RefCell<Vec<u8>>> = Rc::new(RefCell::new(Vec::new()));
         let timer_cmds = Rc::new(RefCell::new(Vec::new()));
+        #[cfg(feature = "vite")]
+        let vite_styles = Rc::new(RefCell::new(Vec::<(String, String)>::new()));
         let shared_event_data = futures_lite::future::block_on(ctx.with(
             |ctx| -> JsResult<rquickjs::Persistent<Value<'static>>> {
                 let globals = ctx.globals();
@@ -120,6 +124,34 @@ impl JsRuntime {
             // Stateless host functions are installed by `register_core_host_fns`
             // (kept grouped there so this init block only holds the stateful
             // closures that capture local Rc<RefCell<..>> handles).
+
+            #[cfg(feature = "vite")]
+            {
+                let styles = vite_styles.clone();
+                globals.set(
+                    "__vite_update_style",
+                    Function::new(ctx.clone(), move |id: String, css: String| {
+                        let mut styles = styles.borrow_mut();
+                        if let Some((_, current)) =
+                            styles.iter_mut().find(|(current_id, _)| current_id == &id)
+                        {
+                            *current = css;
+                        } else {
+                            styles.push((id, css));
+                        }
+                    })?,
+                )?;
+
+                let styles = vite_styles.clone();
+                globals.set(
+                    "__vite_remove_style",
+                    Function::new(ctx.clone(), move |id: String| {
+                        styles
+                            .borrow_mut()
+                            .retain(|(current_id, _)| current_id != &id);
+                    })?,
+                )?;
+            }
 
             // __register_timer(id, delay, repeat)
             {
@@ -161,6 +193,8 @@ impl JsRuntime {
             last_gc: std::time::Instant::now(),
             #[cfg(feature = "vite")]
             vite: None,
+            #[cfg(feature = "vite")]
+            vite_styles,
             _tokio: tokio_rt,
             _local: local,
         };
@@ -246,6 +280,16 @@ impl JsRuntime {
         self.with(|ctx| vite.boot(&ctx, entry))?;
         self.booted = true;
         Ok(())
+    }
+
+    #[cfg(feature = "vite")]
+    pub fn vite_stylesheet(&self) -> String {
+        self.vite_styles
+            .borrow()
+            .iter()
+            .map(|(_, css)| css.as_str())
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 
     #[cfg(feature = "vite")]
@@ -540,5 +584,31 @@ mod tests {
         // First tick flushes the app's initial render.
         let (frame0, _) = rt.tick().expect("tick0");
         assert!(!frame0.is_empty(), "initial render should emit ops");
+    }
+
+    #[cfg(feature = "vite")]
+    #[test]
+    fn collects_vite_styles_in_import_order() {
+        let rt = JsRuntime::new().expect("runtime");
+        rt.with(|ctx| {
+            ctx.eval::<(), _>(
+                r#"
+                __vite_update_style("base", "body { margin: 0; }");
+                __vite_update_style("utilities", ".flex { display: flex; }");
+                __vite_update_style("base", "body { margin: 4px; }");
+                "#,
+            )
+            .expect("update Vite styles");
+        });
+        assert_eq!(
+            rt.vite_stylesheet(),
+            "body { margin: 4px; }\n.flex { display: flex; }"
+        );
+
+        rt.with(|ctx| {
+            ctx.eval::<(), _>(r#"__vite_remove_style("base");"#)
+                .expect("remove Vite style");
+        });
+        assert_eq!(rt.vite_stylesheet(), ".flex { display: flex; }");
     }
 }

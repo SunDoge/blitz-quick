@@ -1,6 +1,9 @@
 type AcceptCallback = (module: unknown) => void;
 type DisposeCallback = (data: Record<string, unknown>) => void;
 
+declare function __vite_update_style(id: string, css: string): void;
+declare function __vite_remove_style(id: string): void;
+
 interface HotContext {
   data: Record<string, unknown>;
   accepted: AcceptCallback[];
@@ -76,10 +79,16 @@ export function createHotContext(ownerPath: string): HotContext {
   return context;
 }
 
-// Vite-generated CSS modules import these browser hooks. Blitz applies the
-// corresponding raw CSS through the native HMR channel instead.
-export function updateStyle(): void {}
-export function removeStyle(): void {}
+// Vite-generated CSS modules call these hooks during initial evaluation.
+// Keep the native document stylesheet in Rust because QuickJS has no browser
+// style element for Vite to mutate.
+export function updateStyle(id: string, css: string): void {
+  __vite_update_style(id, css);
+}
+
+export function removeStyle(id: string): void {
+  __vite_remove_style(id);
+}
 
 blitzGlobal.__blitz_apply_hmr = async (path, acceptedPath, timestamp) => {
   const record = records.get(path);

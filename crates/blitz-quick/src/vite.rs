@@ -71,7 +71,7 @@ impl ViteState {
     pub(crate) fn install_loader(&self, rt: &rquickjs::AsyncRuntime) -> rquickjs::Result<()> {
         futures_lite::future::block_on(rt.set_loader(
             ViteResolver::new(self.origin.clone()),
-            ViteLoader::new(self.cache.clone()).map_err(|_| rquickjs::Error::Unknown)?,
+            ViteLoader::new(self.cache.clone()),
         ));
         Ok(())
     }
@@ -157,16 +157,16 @@ impl ViteModuleCache {
 }
 
 pub(crate) struct ViteLoader {
-    client: reqwest::blocking::Client,
+    http: ureq::Agent,
     cache: ViteModuleCache,
 }
 
 impl ViteLoader {
-    pub(crate) fn new(cache: ViteModuleCache) -> reqwest::Result<Self> {
-        Ok(Self {
-            client: reqwest::blocking::Client::builder().no_proxy().build()?,
+    pub(crate) fn new(cache: ViteModuleCache) -> Self {
+        Self {
+            http: ureq::Agent::new_with_defaults(),
             cache,
-        })
+        }
     }
 }
 
@@ -185,11 +185,10 @@ impl Loader for ViteLoader {
         } else if let Some(source) = self.cache.get(name) {
             source
         } else {
-            let response = self
-                .client
+            let mut response = self
+                .http
                 .get(name)
-                .send()
-                .and_then(reqwest::blocking::Response::error_for_status)
+                .call()
                 .map_err(|error| Error::new_loading_message(name, error.to_string()))?;
             let content_type = response
                 .headers()
@@ -203,7 +202,8 @@ impl Loader for ViteLoader {
                 ));
             }
             let source = response
-                .text()
+                .body_mut()
+                .read_to_string()
                 .map_err(|error| Error::new_loading_message(name, error.to_string()))?;
             self.cache.insert(name.to_owned(), source.clone());
             source
@@ -235,7 +235,7 @@ pub enum ViteError {
     WebSocket { source: tungstenite::Error },
 
     #[snafu(display("HTTP request to Vite server failed: {source}"))]
-    Http { source: reqwest::Error },
+    Http { source: ureq::Error },
 
     #[snafu(display("Vite returned unexpected content-type: expected {expected}, got {actual}"))]
     ContentType { expected: String, actual: String },
@@ -316,10 +316,7 @@ pub fn start_hmr_client(
         "vite-hmr".parse().context(HeaderSnafu)?,
     );
     let (mut socket, _) = tungstenite::connect(request).context(WebSocketSnafu)?;
-    let client = reqwest::blocking::Client::builder()
-        .no_proxy()
-        .build()
-        .context(HttpSnafu)?;
+    let client = ureq::Agent::new_with_defaults();
     let server_url = url::Url::parse(server_url).context(InvalidUrlSnafu)?;
 
     Ok(std::thread::spawn(move || {
@@ -394,7 +391,7 @@ pub fn start_hmr_client(
 }
 
 fn fetch_module(
-    client: &reqwest::blocking::Client,
+    client: &ureq::Agent,
     server_url: &url::Url,
     accepted_path: &str,
     timestamp: u64,
@@ -405,15 +402,10 @@ fn fetch_module(
     module_url
         .query_pairs_mut()
         .append_pair("t", &timestamp.to_string());
-    let response = client
-        .get(module_url)
-        .send()
-        .context(HttpSnafu)?
-        .error_for_status()
-        .context(HttpSnafu)?;
+    let mut response = client.get(module_url.as_str()).call().context(HttpSnafu)?;
     let content_type = response
         .headers()
-        .get(reqwest::header::CONTENT_TYPE)
+        .get("content-type")
         .and_then(|value| value.to_str().ok())
         .unwrap_or_default();
     if !content_type.contains("javascript") {
@@ -422,11 +414,11 @@ fn fetch_module(
             actual: content_type.into(),
         });
     }
-    Ok(response.text().context(HttpSnafu)?)
+    response.body_mut().read_to_string().context(HttpSnafu)
 }
 
 fn fetch_stylesheet(
-    client: &reqwest::blocking::Client,
+    client: &ureq::Agent,
     server_url: &url::Url,
     accepted_path: &str,
     timestamp: u64,
@@ -438,15 +430,13 @@ fn fetch_stylesheet(
         .query_pairs_mut()
         .append_pair("direct", "")
         .append_pair("t", &timestamp.to_string());
-    let response = client
-        .get(stylesheet_url)
-        .send()
-        .context(HttpSnafu)?
-        .error_for_status()
+    let mut response = client
+        .get(stylesheet_url.as_str())
+        .call()
         .context(HttpSnafu)?;
     let content_type = response
         .headers()
-        .get(reqwest::header::CONTENT_TYPE)
+        .get("content-type")
         .and_then(|value| value.to_str().ok())
         .unwrap_or_default();
     if !content_type.contains("text/css") {
@@ -455,7 +445,7 @@ fn fetch_stylesheet(
             actual: content_type.into(),
         });
     }
-    Ok(response.text().context(HttpSnafu)?)
+    response.body_mut().read_to_string().context(HttpSnafu)
 }
 
 /// Read the Vite dev server URL from the `VITE_URL` environment variable.
