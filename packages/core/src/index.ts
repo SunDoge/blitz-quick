@@ -15,6 +15,7 @@ import "./polyfills/url";
 import "./polyfills/codec";
 import "./polyfills/console";
 import "./polyfills/dom-globals";
+import "./polyfills/fetch";
 
 import "./glue/animation-frame";
 import "./glue/dispatch";

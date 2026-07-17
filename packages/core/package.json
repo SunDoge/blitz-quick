@@ -8,7 +8,7 @@
   "dependencies": {
     "@blitz-quick/solid-renderer": "workspace:*",
     "@ungap/structured-clone": "^1.3.3",
-    "url-polyfill": "^1.1.14"
+    "whatwg-url": "^17.1.0"
   },
   "devDependencies": {
     "@types/ungap__structured-clone": "^1.2.0"

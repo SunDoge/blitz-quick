@@ -1,6 +1,8 @@
-// URL / URLSearchParams. Backed by `url-polyfill` (a pure-JS implementation of
-// the WHATWG URL standard) rather than a hand-rolled subset — @solidjs/router
-// uses `new URL(...)` and various accessors, and a partial implementation
-// risks missing a method it relies on.
+// URL / URLSearchParams. Backed by `whatwg-url` — the reference implementation
+// (same as Node.js), spec-accurate and complete. Exports as ESM so we install
+// onto globalThis explicitly.
 
-import "url-polyfill";
+import { URL, URLSearchParams } from "whatwg-url";
+
+(globalThis as any).URL = URL;
+(globalThis as any).URLSearchParams = URLSearchParams;

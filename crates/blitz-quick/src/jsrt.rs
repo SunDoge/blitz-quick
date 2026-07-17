@@ -18,6 +18,13 @@ const MEMORY_LOG_INTERVAL: std::time::Duration = std::time::Duration::from_secs(
 #[cfg(test)]
 pub(crate) const TEST_RUNTIME: &str = include_str!("gen/test-runtime.js");
 
+#[derive(serde::Deserialize, Default)]
+struct FetchInit {
+    method: Option<String>,
+    headers: Option<std::collections::HashMap<String, String>>,
+    body: Option<String>,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum TimerCmd {
     Register {
@@ -198,6 +205,7 @@ impl JsRuntime {
             _local: local,
         };
         this.register_core_host_fns()?;
+        this.register_fetch()?;
         this.install_core_prelude()?;
         Ok(this)
     }
@@ -242,6 +250,76 @@ impl JsRuntime {
                 rquickjs::Function::new(ctx.clone(), crate::host_ffi::performance_now)?,
             )?;
             globals.set("performance", perf)?;
+            Ok(())
+        })
+    }
+
+    /// Register the `fetch` host function backed by async reqwest. JS calls
+    /// `__fetch(url, initJson) -> Promise<FetchResponseJson>`; the JS-side
+    /// polyfill in `@blitz-quick/core` wraps this into a standard `Response`.
+    pub fn register_fetch(&self) -> JsResult<()> {
+        self.with(|ctx| {
+            let client = reqwest::Client::builder()
+                .no_proxy()
+                .build()
+                .map_err(|_| rquickjs::Error::Unknown)?;
+
+            let f = Function::new(
+                ctx.clone(),
+                rquickjs::prelude::Async(move |url: String, init_json: String| {
+                    let client = client.clone();
+                    async move {
+                        let init: FetchInit = serde_json::from_str(&init_json).unwrap_or_default();
+
+                        let method = match init.method.as_deref() {
+                            Some("POST") => reqwest::Method::POST,
+                            Some("PUT") => reqwest::Method::PUT,
+                            Some("DELETE") => reqwest::Method::DELETE,
+                            Some("PATCH") => reqwest::Method::PATCH,
+                            Some("HEAD") => reqwest::Method::HEAD,
+                            _ => reqwest::Method::GET,
+                        };
+
+                        let mut req = client.request(method, &url);
+                        if let Some(headers) = &init.headers {
+                            for (k, v) in headers {
+                                req = req.header(k, v);
+                            }
+                        }
+                        if let Some(body) = init.body {
+                            req = req.body(body);
+                        }
+
+                        let response = req.send().await.map_err(|_| rquickjs::Error::Unknown)?;
+
+                        let status = response.status().as_u16();
+                        let status_text = response
+                            .status()
+                            .canonical_reason()
+                            .unwrap_or("")
+                            .to_string();
+                        let headers: std::collections::HashMap<String, String> = response
+                            .headers()
+                            .iter()
+                            .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
+                            .collect();
+                        let body = response
+                            .text()
+                            .await
+                            .map_err(|_| rquickjs::Error::Unknown)?;
+
+                        let result = serde_json::json!({
+                            "status": status,
+                            "statusText": status_text,
+                            "headers": headers,
+                            "body": body,
+                        });
+
+                        serde_json::to_string(&result).map_err(|_| rquickjs::Error::Unknown)
+                    }
+                }),
+            )?;
+            ctx.globals().set("__fetch", f)?;
             Ok(())
         })
     }

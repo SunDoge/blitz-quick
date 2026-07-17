@@ -1,9 +1,5 @@
 import { createSignal } from "solid-js";
 
-declare global {
-  function fetchStories(feed: Feed, force: boolean): Promise<string>;
-}
-
 export type Feed = "top" | "new" | "best";
 export type View = Feed | "saved";
 
@@ -53,14 +49,39 @@ export async function selectView(view: View): Promise<void> {
   if (view !== "saved") await loadStories(view);
 }
 
+const HN_API = "https://hacker-news.firebaseio.com/v0";
+const STORY_LIMIT = 30;
+
 export async function loadStories(feed?: Feed, force = false): Promise<void> {
   const selected = feed ?? activeView();
   if (selected === "saved") return;
   setLoading(true);
   setLoadError(null);
   try {
-    const result = JSON.parse(await fetchStories(selected, force)) as Story[];
-    setStories(result.filter((story) => story?.id && story?.title));
+    const endpoint = `${selected}stories`;
+    const res = await fetch(`${HN_API}/${endpoint}.json`);
+    const ids: number[] = await res.json();
+    const limited = ids.slice(0, STORY_LIMIT);
+
+    const stories = await Promise.all(
+      limited.map(async (id) => {
+        try {
+          const r = await fetch(`${HN_API}/item/${id}.json`);
+          return await r.json();
+        } catch {
+          return {
+            id,
+            title: "[failed to load]",
+            url: "",
+            by: "",
+            score: 0,
+            descendants: 0,
+          };
+        }
+      }),
+    );
+
+    setStories(stories.filter((story: Story) => story?.id && story?.title));
   } catch (cause) {
     setLoadError(cause instanceof Error ? cause.message : String(cause));
   } finally {

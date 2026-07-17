@@ -15,6 +15,7 @@ declare global {
   function __unregister_timer(id: number): void;
   function __host_utf8_encode(s: string): Uint8Array;
   function __host_utf8_decode(bytes: Uint8Array): string;
+  function __fetch(url: string, initJson: string): Promise<string>;
   function sysInfo(): string;
   function myCustomFfi(msg: string): string;
   function __resize_observe(solidId: number): void;
